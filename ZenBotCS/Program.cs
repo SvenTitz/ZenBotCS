@@ -59,6 +59,8 @@ public class Program
             {
                 services.AddHostedService<InteractionHandler>();
                 services.AddSingleton<TestService>();
+                services.AddSingleton<GspreadService>();
+                services.AddSingleton<PlayerService>();
                 services.AddSingleton<ClanService>();
                 services.AddSingleton<CwlService>();
                 services.AddSingleton<ClashKingApiClient>();

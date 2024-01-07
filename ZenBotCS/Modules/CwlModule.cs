@@ -16,7 +16,7 @@ namespace ZenBotCS.Modules
         public required CwlService CwlService { get; set; }
 
         [SlashCommand("data", "Get data for the current cwl in a spreadsheet")]
-        public async Task Add(
+        public async Task Data(
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
             [Summary("SpreadsheetId")] string? spreadsheetId = null)
         {

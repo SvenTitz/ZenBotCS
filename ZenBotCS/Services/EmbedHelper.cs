@@ -1,4 +1,5 @@
-﻿using Discord.Addons.Hosting;
+﻿using Discord;
+using Discord.Addons.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -46,7 +47,15 @@ namespace ZenBotCS.Services
 
             return builder.ToString();
         }
-            
+         
+        public Embed ErrorEmbed(string title, string message)
+        {
+            return new EmbedBuilder()
+                        .WithTitle(title)
+                        .WithColor(Color.Red)
+                        .WithDescription(message)
+                        .Build();
+        }
 
     }
 }

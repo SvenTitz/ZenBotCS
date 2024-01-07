@@ -14,6 +14,7 @@ namespace ZenBotCS.Modules
     {
         public required ClanService ClanService { get; set; }
 
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("add", "Add a Clan to the bot.")]
         public async Task Add(string clantag)
         {
@@ -22,6 +23,7 @@ namespace ZenBotCS.Modules
             await FollowupAsync(embed: embed);
         }
 
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("delete", "Delete a Clan from the bot.")]
         public async Task Delete(string clantag)
         {

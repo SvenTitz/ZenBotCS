@@ -20,19 +20,6 @@ public class TestService
         _embedHelper = embedHelper;
     }
 
-    public async Task<string> TestReturn()
-    {
-        var response = await _clansApi.FetchClanAsync("#2G2LJUYGV");
-        var clan = response.Ok()!;
-        return clan.Name;
-    }
-
-    public async Task<string> AddClan(string clanTag)
-    {
-        await _clansClient.AddOrUpdateAsync(clanTag);
-        return "done";
-    }
-
     public async Task<Embed> Cwl_Data_Test(string playerTag) 
     {
         var attackData = await _clansApiClient.GetPlayerWarAttacksAsync(playerTag);
