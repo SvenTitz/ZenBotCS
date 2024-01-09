@@ -35,8 +35,9 @@ public class Program
                 config.SocketConfig = new DiscordSocketConfig
                 {
                     LogLevel = LogSeverity.Info,
-                    AlwaysDownloadUsers = false,
+                    AlwaysDownloadUsers = true,
                     MessageCacheSize = 200,
+                    GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent
                 };
                 config.Token = context.Configuration["DiscordToken"]!;
             })
@@ -63,6 +64,7 @@ public class Program
                 services.AddSingleton<PlayerService>();
                 services.AddSingleton<ClanService>();
                 services.AddSingleton<CwlService>();
+                services.AddSingleton<HelpService>();
                 services.AddSingleton<ClashKingApiClient>();
                 services.AddTransient<ClashKingApiService>();
                 services.AddTransient<EmbedHelper>();
