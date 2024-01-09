@@ -18,7 +18,7 @@ namespace ZenBotCS.Modules
         {
             public required PlayerService PlayerService { get; set; }
 
-            [SlashCommand("misses", "Get a list of a players missed attacks.")]
+            //[SlashCommand("misses", "Get a list of a players missed attacks.")]
             public async Task Misses(
                [Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))] string? playerTag = null,
                [Summary("User")] SocketUser? user = null)
