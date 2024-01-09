@@ -33,9 +33,8 @@ internal class InteractionHandler : DiscordClientService
         await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _provider);
         await Client.WaitForReadyAsync(stoppingToken);
 
-        await _interactionService.RegisterCommandsToGuildAsync(1078588731549814805); // Test Server
-        await _interactionService.RegisterCommandsToGuildAsync(355698225031806978); // Zen
-        //await _interactionService.RegisterCommandsGloballyAsync();
+        await _interactionService.RegisterCommandsToGuildAsync(1078588731549814805);
+        await _interactionService.RegisterCommandsGloballyAsync();
     }
 
     private Task SlashCommandExecuted(SlashCommandInfo commandInfo, IInteractionContext context, IResult result)
