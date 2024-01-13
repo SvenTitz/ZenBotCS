@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ZenBotCS.Handler;
 using ZenBotCS.Services;
 
 namespace ZenBotCS.Modules
@@ -37,6 +38,16 @@ namespace ZenBotCS.Modules
         {
             await DeferAsync();
             var embed = await ClanService.List();
+            await FollowupAsync(embed: embed);
+        }
+
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
+        [SlashCommand("warlog", "Fetch a clans available warlog.")]
+        public async Task Warlog(
+            [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+        {
+            await DeferAsync();
+            var embed = await ClanService.Warlog(clantag);
             await FollowupAsync(embed: embed);
         }
 

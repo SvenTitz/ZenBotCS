@@ -50,25 +50,28 @@ namespace ZenBotCS
             return Array.Empty<string>();
         }
 
-        public async Task GetClanWarHistory(string clanTag)
+        public async Task<List<WarData>> GetClanWarHistory(string clanTag, int limit = 50)
         {
-            UriBuilder uriBuilder = new UriBuilder();
+            UriBuilder uriBuilder = new();
             try
             {
                 uriBuilder.Host = _httpClient.BaseAddress!.Host;
                 uriBuilder.Scheme = _httpClient.BaseAddress.Scheme;
                 uriBuilder.Port = _httpClient.BaseAddress.Port;
                 uriBuilder.Path = $"/war/{Uri.EscapeDataString(clanTag)}/previous";
+                uriBuilder.Query = $"?limit={limit}";
 
                 var response = await _httpClient.GetAsync(uriBuilder.Uri);
                 response.EnsureSuccessStatusCode();
                 var resultJson = await response.Content.ReadAsStringAsync();
                 var warDataList = JsonConvert.DeserializeObject<List<WarData>>(resultJson);
+                return warDataList ?? [];
             }
             catch (HttpRequestException e)
             {
                 Console.WriteLine("\nException Caught!");
                 Console.WriteLine("Message :{0} ", e.Message);
+                return [];
             }
         }
 

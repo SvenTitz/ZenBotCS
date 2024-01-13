@@ -18,17 +18,17 @@ namespace ZenBotCS.Services
             _logger = logger;
         }
 
-        public string FormatAsTable(IEnumerable<IEnumerable<string>> data, int minRowSize)
+        public string FormatAsTable(List<string[]> data, int minColSize)
         {
-            var columnCount = data.Max(d => d.Count());
+            var columnCount = data.Max(d => d.Length);
 
             var longestEntry = data.SelectMany(d => d).Max(d => d.Length);
             
-            var columSize = longestEntry > minRowSize ? longestEntry : minRowSize;
+            var columSize = longestEntry > minColSize ? longestEntry : minColSize;
 
             if(columnCount * columSize > 100) // TODO: proper value
             {
-                _logger.LogWarning("Row size too long with value of " + columnCount * columSize);
+                _logger.LogWarning("Row size too long with value of " + (columnCount * columSize));
             }
 
             var builder = new StringBuilder();
@@ -47,7 +47,51 @@ namespace ZenBotCS.Services
 
             return builder.ToString();
         }
-         
+
+        public string FormatAsTable(List<string[]> data)
+        {
+            var colWidths = new List<int>();
+
+            var columnCount = data.Max(d => d.Length);
+
+            for( var i = 0; i < columnCount; i++ )
+            {
+                var col = data.Where(d => d.Length > i).Select(d => d[i]);
+                colWidths.Add(col.Max(d => d.Length));
+            }
+
+            return FormatAsTable(data, colWidths);
+        }
+
+        public string FormatAsTable(List<string[]> data, IList<int> colWidths)
+        {
+            if (colWidths.Sum() > 100) // TODO: proper value
+            {
+                _logger.LogWarning("Row size too long with value of " + colWidths.Sum());
+            }
+
+            var builder = new StringBuilder();
+
+            foreach (var row in data)
+            {
+                foreach (var entry in row)
+                {
+                    if (entry.StartsWith(':') && entry.EndsWith(":"))
+                    {
+                        builder.Append(entry);
+                        continue;
+                    }   
+                    builder.Append('`');
+                    builder.Append(new string(' ', colWidths[Array.IndexOf(row, entry)] - entry.Length));
+                    builder.Append(entry);
+                    builder.Append("` ");
+                }
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
         public Embed ErrorEmbed(string title, string message)
         {
             return new EmbedBuilder()

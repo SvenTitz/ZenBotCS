@@ -12,14 +12,11 @@ using System.Threading.Tasks;
 
 namespace ZenBotCS.Services
 {
-    public class ClanService
+    public class ClanService(ClansClient clansClient, ClashKingApiClient clashKingApiClient, EmbedHelper embedHelper)
     {
-        private readonly ClansClient _clansClient;
-
-        public ClanService(ClansClient clansClient)
-        {
-            _clansClient = clansClient;
-        }
+        private readonly ClansClient _clansClient = clansClient;
+        private readonly ClashKingApiClient _clashKingApiClient = clashKingApiClient;
+        private readonly EmbedHelper _embedHelper = embedHelper;
 
         public async Task<Embed> Add(string clanTag)
         {
@@ -112,6 +109,46 @@ namespace ZenBotCS.Services
             }
             
         }
+
+        public async Task<Embed> Warlog(string clantag)
+        {
+            var clan = await _clansClient.GetOrFetchClanAsync(clantag);
+
+            var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 25);
+
+            if (clan is null || warDataList.Count < 1)
+                return _embedHelper.ErrorEmbed("Error fetching clan war history", "Could not find any wars for the given Clan.");
+
+            var builder = new EmbedBuilder()
+                            .WithTitle($"Warlog for {clan.Name}")
+                            .WithColor(Color.DarkPurple)
+                            .WithThumbnailUrl(clan.BadgeUrls.Small);
+
+            var tableData = new List<string[]>
+            {
+                new[] { "Win", "Attacks", "Stars", "Destruction", "Date" }
+            };
+
+            foreach(var warData in warDataList)
+            {
+
+                var (warClan, opponent) = warData.Clan.Tag == clan.Tag ? (warData.Clan, warData.Opponent) : (warData.Opponent, warData.Clan);
+                var isWin = warClan.Stars > opponent.Stars || warClan.Stars == opponent.Stars && warClan.DestructionPercentage > opponent.DestructionPercentage;
+                var endDate =  DateTime.ParseExact(warData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                tableData.Add(
+                [
+                    isWin ? "✓ " : "✗ ",
+                    $"{warClan.Attacks}/{warData.AttacksPerMember*warData.TeamSize}",
+                    $"{warClan.Stars}",
+                    $"{warClan.DestructionPercentage:0.00}%",
+                    endDate.ToString("yyyy-MM-dd")
+                ]);
+            }
+
+            builder.Description = _embedHelper.FormatAsTable(tableData);
+            return builder.Build();
+        }
+
 
 
     }
