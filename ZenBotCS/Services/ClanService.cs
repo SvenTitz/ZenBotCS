@@ -110,11 +110,16 @@ namespace ZenBotCS.Services
             
         }
 
-        public async Task<Embed> Warlog(string clantag)
+        public async Task<Embed> Warlog(string clantag, bool includeCwl)
         {
             var clan = await _clansClient.GetOrFetchClanAsync(clantag);
 
-            var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 25);
+            var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 50);
+            if(!includeCwl) 
+            {
+                warDataList = warDataList.Where(d => d.AttacksPerMember == 2).ToList();
+            }
+            warDataList = warDataList.Take(25).ToList();
 
             if (clan is null || warDataList.Count < 1)
                 return _embedHelper.ErrorEmbed("Error fetching clan war history", "Could not find any wars for the given Clan.");

@@ -44,10 +44,11 @@ namespace ZenBotCS.Modules
         [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("warlog", "Fetch a clans available warlog.")]
         public async Task Warlog(
-            [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+            [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
+            [Summary("IncludeCWL")] bool includeCWl = false)
         {
             await DeferAsync();
-            var embed = await ClanService.Warlog(clantag);
+            var embed = await ClanService.Warlog(clantag, includeCWl);
             await FollowupAsync(embed: embed);
         }
 
