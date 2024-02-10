@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace ZenBotCS.Models.ClashKingApi
+namespace ZenBotCS.Entities.Models.ClashKingApi
 {
     public class WarAttack
     {

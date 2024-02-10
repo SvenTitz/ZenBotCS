@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace ZenBotCS.Migrations
+namespace ZenBotCS.Migrations.CocApiCache
 {
     [DbContext(typeof(CacheDbContext))]
     partial class CacheDbContextModelSnapshot : ModelSnapshot

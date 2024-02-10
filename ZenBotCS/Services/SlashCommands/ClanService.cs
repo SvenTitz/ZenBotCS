@@ -1,16 +1,12 @@
 ﻿using CocApi.Cache;
-using CocApi.Rest.Apis;
 using CocApi.Rest.Models;
 using Discord;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using ZenBotCS.Helper;
 
-namespace ZenBotCS.Services
+namespace ZenBotCS.Services.SlashCommands
 {
     public class ClanService(ClansClient clansClient, ClashKingApiClient clashKingApiClient, EmbedHelper embedHelper)
     {
@@ -43,7 +39,7 @@ namespace ZenBotCS.Services
                         .WithColor(Color.Red)
                         .WithDescription(ex.Message)
                         .Build();
-            } 
+            }
         }
 
         public async Task<Embed> Delete(string clanTag)
@@ -90,7 +86,7 @@ namespace ZenBotCS.Services
 
                 foreach (var clan in clans)
                 {
-                    if(stringBuilder.Length > 0)
+                    if (stringBuilder.Length > 0)
                         stringBuilder.Append('\n');
 
                     stringBuilder.Append($"[**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50");
@@ -107,51 +103,58 @@ namespace ZenBotCS.Services
                         .WithDescription(ex.Message)
                         .Build();
             }
-            
+
         }
 
         public async Task<Embed> Warlog(string clantag, bool includeCwl)
         {
-            var clan = await _clansClient.GetOrFetchClanAsync(clantag);
-
-            var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 50);
-            if(!includeCwl) 
+            try
             {
-                warDataList = warDataList.Where(d => d.AttacksPerMember == 2).ToList();
-            }
-            warDataList = warDataList.Take(25).ToList();
+                var clan = await _clansClient.GetOrFetchClanAsync(clantag);
 
-            if (clan is null || warDataList.Count < 1)
-                return _embedHelper.ErrorEmbed("Error fetching clan war history", "Could not find any wars for the given Clan.");
+                var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 50);
+                if (!includeCwl)
+                {
+                    warDataList = warDataList.Where(d => d.AttacksPerMember == 2).ToList();
+                }
+                warDataList = warDataList.Take(25).ToList();
 
-            var builder = new EmbedBuilder()
-                            .WithTitle($"Warlog for {clan.Name}")
-                            .WithColor(Color.DarkPurple)
-                            .WithThumbnailUrl(clan.BadgeUrls.Small);
+                if (clan is null || warDataList.Count < 1)
+                    return _embedHelper.ErrorEmbed("Error fetching clan war history", "Could not find any wars for the given Clan.");
 
-            var tableData = new List<string[]>
+                var builder = new EmbedBuilder()
+                                .WithTitle($"Warlog for {clan.Name}")
+                                .WithColor(Color.DarkPurple)
+                                .WithThumbnailUrl(clan.BadgeUrls.Small);
+
+                var tableData = new List<string[]>
             {
                 new[] { "Win", "Attacks", "Stars", "Destruction", "Date" }
             };
 
-            foreach(var warData in warDataList)
-            {
+                foreach (var warData in warDataList)
+                {
 
-                var (warClan, opponent) = warData.Clan.Tag == clan.Tag ? (warData.Clan, warData.Opponent) : (warData.Opponent, warData.Clan);
-                var isWin = warClan.Stars > opponent.Stars || warClan.Stars == opponent.Stars && warClan.DestructionPercentage > opponent.DestructionPercentage;
-                var endDate =  DateTime.ParseExact(warData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
-                tableData.Add(
-                [
-                    isWin ? "✓ " : "✗ ",
-                    $"{warClan.Attacks}/{warData.AttacksPerMember*warData.TeamSize}",
-                    $"{warClan.Stars}",
-                    $"{warClan.DestructionPercentage:0.00}%",
-                    endDate.ToString("yyyy-MM-dd")
-                ]);
+                    var (warClan, opponent) = warData.Clan.Tag == clan.Tag ? (warData.Clan, warData.Opponent) : (warData.Opponent, warData.Clan);
+                    var isWin = warClan.Stars > opponent.Stars || warClan.Stars == opponent.Stars && warClan.DestructionPercentage > opponent.DestructionPercentage;
+                    var endDate = DateTime.ParseExact(warData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    tableData.Add(
+                    [
+                        isWin ? "✓ " : "✗ ",
+                        $"{warClan.Attacks}/{warData.AttacksPerMember * warData.TeamSize}",
+                        $"{warClan.Stars}",
+                        $"{warClan.DestructionPercentage:0.00}%",
+                        endDate.ToString("yyyy-MM-dd")
+                    ]);
+                }
+
+                builder.Description = _embedHelper.FormatAsTable(tableData);
+                return builder.Build();
             }
-
-            builder.Description = _embedHelper.FormatAsTable(tableData);
-            return builder.Build();
+            catch (Exception ex)
+            {
+                return _embedHelper.ErrorEmbed("Error fetching warlog", ex.Message);
+            }
         }
 
 

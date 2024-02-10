@@ -9,10 +9,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Serilog;
 using System.Globalization;
+using ZenBotCS.Clients;
+using ZenBotCS.Entities;
 using ZenBotCS.Handler;
+using ZenBotCS.Helper;
 using ZenBotCS.Services;
+using ZenBotCS.Services.Background;
+using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS;
 
@@ -28,12 +33,16 @@ public class Program
                 config.SetBasePath(Directory.GetCurrentDirectory());
                 config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
             })
-            .ConfigureLogging((hostingContext, logging) =>
+            .UseSerilog((hostingContext, loggerConfiguration) =>
             {
-                logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
-                logging.AddConsole();
-                logging.AddDebug();
+                loggerConfiguration.ReadFrom.Configuration(hostingContext.Configuration);
             })
+            //.ConfigureLogging((hostingContext, logging) =>
+            //{
+            //    logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
+            //    logging.AddConsole();
+            //    logging.AddDebug();
+            //})
             .ConfigureDiscordHost((context, config) =>
             {
                 config.SocketConfig = new DiscordSocketConfig
@@ -63,33 +72,41 @@ public class Program
             .ConfigureServices((context, services) =>
             {
                 services.AddHostedService<InteractionHandler>();
-                services.AddSingleton<TestService>();
-                services.AddSingleton<GspreadService>();
-                services.AddSingleton<PlayerService>();
-                services.AddSingleton<ClanService>();
-                services.AddSingleton<CwlService>();
-                services.AddSingleton<HelpService>();
-                services.AddSingleton<ClashKingApiClient>();
-                services.AddTransient<ClashKingApiService>();
+                services.AddHostedService<DiscordLinkUpdateService>();
+                services.AddHostedService<WarHistoryUpdateService>();
+                services.AddTransient<TestService>();
+                services.AddTransient<GspreadService>();
+                services.AddTransient<PlayerService>();
+                services.AddTransient<ClanService>();
+                services.AddTransient<CwlService>();
+                services.AddTransient<HelpService>();
+                services.AddTransient<ClashKingApiClient>();
                 services.AddTransient<EmbedHelper>();
-                services.AddCocApiCache<ClansClient, PlayersClient, TimeToLiveProvider>(
-                        dbContextOptions =>
-                        {
-                            var connectionString = context.Configuration["ConnectionString"]!;
-                            dbContextOptions.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), b => b.MigrationsAssembly("ZenBotCS"));
-                            CacheDbContext dbContext = new((DbContextOptions<CacheDbContext>)dbContextOptions.Options);
-                        },
-                        options =>
-                        {
-                            options.ActiveWars.Enabled = true;
-                            options.ClanMembers.Enabled = true;
-                            options.Clans.Enabled = true;
-                            options.CwlWars.Enabled = true;
-                            options.NewCwlWars.Enabled = true;
-                            options.NewWars.Enabled = true;
-                            options.Players.Enabled = true;
-                            options.Wars.Enabled = true;
-                        });
+                services.AddTransient<DiscordHelper>();
+                services.AddDbContext<BotDataContext>(options =>
+                    {
+                        var connectionString = context.Configuration["BotDbConnectionString"]!;
+                        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), b => b.MigrationsAssembly("ZenBotCS"));
+
+                    });
+                services.AddCocApiCache<CustomClansClient, PlayersClient, TimeToLiveProvider>(
+                    dbContextOptions =>
+                    {
+                        var connectionString = context.Configuration["CocApiCacheConnectionString"]!;
+                        dbContextOptions.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), b => b.MigrationsAssembly("ZenBotCS"));
+                        CacheDbContext dbContext = new((DbContextOptions<CacheDbContext>)dbContextOptions.Options);
+                    },
+                    options =>
+                    {
+                        options.ActiveWars.Enabled = true;
+                        options.ClanMembers.Enabled = true;
+                        options.Clans.Enabled = true;
+                        options.CwlWars.Enabled = true;
+                        options.NewCwlWars.Enabled = true;
+                        options.NewWars.Enabled = true;
+                        options.Players.Enabled = true;
+                        options.Wars.Enabled = true;
+                    });
             })
             .Build();
 

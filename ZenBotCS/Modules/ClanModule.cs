@@ -1,12 +1,6 @@
-﻿using CocApi.Rest.Models;
-using Discord.Interactions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Discord.Interactions;
 using ZenBotCS.Handler;
-using ZenBotCS.Services;
+using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Modules
 {
@@ -41,7 +35,6 @@ namespace ZenBotCS.Modules
             await FollowupAsync(embed: embed);
         }
 
-        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("warlog", "Fetch a clans available warlog.")]
         public async Task Warlog(
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,

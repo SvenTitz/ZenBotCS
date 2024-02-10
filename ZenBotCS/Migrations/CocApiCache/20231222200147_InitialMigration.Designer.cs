@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace ZenBotCS.Migrations
+namespace ZenBotCS.Migrations.CocApiCache
 {
     [DbContext(typeof(CacheDbContext))]
     [Migration("20231222200147_InitialMigration")]

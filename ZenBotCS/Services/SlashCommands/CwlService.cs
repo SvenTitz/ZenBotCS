@@ -1,24 +1,19 @@
 ﻿using CocApi.Cache;
-using CocApi.Rest.Apis;
 using CocApi.Rest.Models;
 using Discord;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using ZenBotCS.Helper;
 using ZenBotCS.Models;
 
-namespace ZenBotCS.Services
+namespace ZenBotCS.Services.SlashCommands
 {
     public class CwlService(ClansClient clansClient, EmbedHelper embedHelper, GspreadService gspreadService)
     {
         private readonly ClansClient _clansClient = clansClient;
         private readonly EmbedHelper _embedHelper = embedHelper;
         private readonly GspreadService _gspreadService = gspreadService;
-        private static readonly string[] _cwlDataHeaders = new[] { "Stars", "% Dest", "TH", "+/-", "Defence" };
-        private static readonly string[] _cwlEmptyAttack = new[] { "", "", "", "", "-" };
-        private static readonly string[] _cwlMissedAttack = new[] { "0", "0", "", "", "-" };
+        private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH", "+/-", "Defence"];
+        private static readonly string[] _cwlEmptyAttack = ["", "", "", "", "-"];
+        private static readonly string[] _cwlMissedAttack = ["0", "0", "", "", "-"];
         private static readonly EmbedFieldBuilder _cwlDataInstructionField = new EmbedFieldBuilder()
             .WithName("Instructions:")
             .WithValue("1. Open the spreadsheet above and copy all lines containing player data (everything except the first two).\n" +
@@ -59,7 +54,7 @@ namespace ZenBotCS.Services
             {
                 return _embedHelper.ErrorEmbed("Error", ex.Message);
             }
-            
+
         }
 
         private object[][] FormatDataForCwlSpreadsheet(List<CwlDataMemberModel> memberModels, ClanWarLeagueClan clan)
@@ -69,7 +64,7 @@ namespace ZenBotCS.Services
             var headers = new List<object> { "Players", "TH" };
             for (int i = 0; i < 7; i++)
             {
-                days.AddRange(new[] { $"Day {i+1}", "", "", "", "" });
+                days.AddRange(new[] { $"Day {i + 1}", "", "", "", "" });
                 headers.AddRange(_cwlDataHeaders);
             }
             data.Add(days);
@@ -139,7 +134,7 @@ namespace ZenBotCS.Services
         private CwlDataMemberModel GetOrAddCwlDataMemberModel(List<CwlDataMemberModel> members, ClanWarMember member)
         {
             var model = members.FirstOrDefault(p => p.Member.Tag == member.Tag);
-            if (model is null) 
+            if (model is null)
             {
                 model = new CwlDataMemberModel(member);
                 members.Add(model);

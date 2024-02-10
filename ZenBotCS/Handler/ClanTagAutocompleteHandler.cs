@@ -1,32 +1,22 @@
-﻿using CocApi.Cache;
-using CocApi.Rest.Models;
+﻿using Discord;
 using Discord.Interactions;
-using Discord;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
+using ZenBotCS.Clients;
 
 namespace ZenBotCS.Handler
 {
     public class ClanTagAutocompleteHandler : AutocompleteHandler
     {
-        private readonly ClansClient _clansClient;
-        public ClanTagAutocompleteHandler(ClansClient clansClient)
+        private readonly CustomClansClient _clansClient;
+        public ClanTagAutocompleteHandler(CustomClansClient clansClient)
         {
             _clansClient = clansClient;
         }
 
         public override async Task<AutocompletionResult> GenerateSuggestionsAsync(IInteractionContext context, IAutocompleteInteraction autocompleteInteraction, IParameterInfo parameter, IServiceProvider services)
         {
-            var clans = await (from i in _clansClient.ScopeFactory.CreateScope().ServiceProvider.GetRequiredService<CacheDbContext>().Clans.AsNoTracking()
-                                where i.Download
-                                select i.Content).ToListAsync<Clan>().ConfigureAwait(continueOnCapturedContext: false);
+            var clans = await _clansClient.GetCachedClansAsync();
 
-            if (clans is null || !clans.Any())
+            if (clans is null || clans.Count == 0)
             {
                 return AutocompletionResult.FromSuccess(Array.Empty<AutocompleteResult>());
             }

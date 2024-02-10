@@ -1,48 +1,28 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 
-namespace ZenBotCS.Services
+namespace ZenBotCS.Helper
 {
-    public class HelpService
+    public class DiscordHelper
     {
-        private readonly IConfiguration _config;
+        private readonly Embed[] _noMessageEmbed;
+        private readonly ILogger<DiscordHelper> _logger;
         private readonly EmbedHelper _embedHelper;
         private readonly DiscordSocketClient _client;
 
-        private readonly Embed[] _missingLinkEmbeds;
-        private readonly Embed[] _noMessageEmbed;
-
-        public HelpService(IConfiguration config, EmbedHelper embedHelper, DiscordSocketClient client)
+        public DiscordHelper(ILogger<DiscordHelper> logger, EmbedHelper embedHelper, DiscordSocketClient client)
         {
-            _config = config;
+            _logger = logger;
             _embedHelper = embedHelper;
             _client = client;
 
-            _missingLinkEmbeds = [_embedHelper.ErrorEmbed("Error", "No message link specified in config.")];
             _noMessageEmbed = [_embedHelper.ErrorEmbed("Error", "Message link is not a valid discord message link.")];
         }
 
-        public async Task<(string content, Embed[] embeds)> HelpBotsLinking()
-        {
-            var messageLink = _config["HelpBotsLinking"];
-            if (messageLink == null)
-                return ("", _missingLinkEmbeds);
 
-            return await GetMessageFromLinkAsync(messageLink);
-        }
-
-        public async Task<(string content, Embed[] embeds)> HelpBotsGatekeeper()
-        {
-            var messageLink = _config["HelpBotsGatekeeper"];
-            if (messageLink == null)
-                return ("", _missingLinkEmbeds);
-
-            return await GetMessageFromLinkAsync(messageLink);
-        }
-
-        private async Task<(string content, Embed[] embeds)> GetMessageFromLinkAsync(string messageLink)
+        public async Task<(string content, Embed[] embeds)> GetMessageFromLinkAsync(string messageLink)
         {
             (ulong guildId, ulong channelId, ulong messageId) = ExtractMessageIds(messageLink);
             if (guildId is 0 || channelId is 0 || messageId is 0)
@@ -58,7 +38,7 @@ namespace ZenBotCS.Services
             return (message.Content, message.Embeds.Cast<Embed>().ToArray());
         }
 
-        private (ulong guildId, ulong channelId, ulong messageId) ExtractMessageIds(string messageLink)
+        public static (ulong guildId, ulong channelId, ulong messageId) ExtractMessageIds(string messageLink)
         {
             var match = Regex.Match(messageLink, @"/channels/(\d+)/(\d+)/(\d+)");
 

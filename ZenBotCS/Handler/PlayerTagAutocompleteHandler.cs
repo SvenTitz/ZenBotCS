@@ -1,33 +1,23 @@
 ﻿using CocApi.Cache;
-using CocApi.Rest.Models;
 using Discord;
 using Discord.Interactions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using static System.Formats.Asn1.AsnWriter;
+using ZenBotCS.Extensions;
 
 namespace ZenBotCS.Handler
 {
     public class PlayerTagAutocompleteHandler : AutocompleteHandler
     {
         private readonly PlayersClient _playersClient;
-        public PlayerTagAutocompleteHandler(PlayersClient playersClient) 
+        public PlayerTagAutocompleteHandler(PlayersClient playersClient)
         {
             _playersClient = playersClient;
         }
 
         public override async Task<AutocompletionResult> GenerateSuggestionsAsync(IInteractionContext context, IAutocompleteInteraction autocompleteInteraction, IParameterInfo parameter, IServiceProvider services)
         {
-            var players = await (from i in _playersClient.ScopeFactory.CreateScope().ServiceProvider.GetRequiredService<CacheDbContext>().Players.AsNoTracking()
-                   select i.Content).ToListAsync<Player>().ConfigureAwait(continueOnCapturedContext: false);
+            var players = await _playersClient.GetCachedPlayersAsync();
 
-            if (players is null || !players.Any())
+            if (players is null || players.Count == 0)
             {
                 return AutocompletionResult.FromSuccess(Array.Empty<AutocompleteResult>());
             }

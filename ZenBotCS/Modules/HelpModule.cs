@@ -1,11 +1,5 @@
-﻿using Discord;
-using Discord.Interactions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ZenBotCS.Services;
+﻿using Discord.Interactions;
+using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Modules
 {

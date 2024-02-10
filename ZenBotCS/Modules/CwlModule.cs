@@ -1,12 +1,6 @@
-﻿using CocApi.Cache.Services;
-using Discord.Interactions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Discord.Interactions;
 using ZenBotCS.Handler;
-using ZenBotCS.Services;
+using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Modules
 {

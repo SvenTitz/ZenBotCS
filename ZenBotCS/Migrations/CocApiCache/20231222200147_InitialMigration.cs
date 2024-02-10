@@ -1,10 +1,9 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ZenBotCS.Migrations
+namespace ZenBotCS.Migrations.CocApiCache
 {
     /// <inheritdoc />
     public partial class InitialMigration : Migration

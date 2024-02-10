@@ -1,9 +1,10 @@
 ﻿using CocApi.Cache;
 using CocApi.Rest.Apis;
 using Discord;
+using ZenBotCS.Helper;
 using ZenBotCS.Models;
 
-namespace ZenBotCS.Services;
+namespace ZenBotCS.Services.SlashCommands;
 
 public class TestService
 {
@@ -20,15 +21,15 @@ public class TestService
         _embedHelper = embedHelper;
     }
 
-    public async Task<Embed> Cwl_Data_Test(string playerTag) 
+    public async Task<Embed> Cwl_Data_Test(string playerTag)
     {
         var attackData = await _clansApiClient.GetPlayerWarAttacksAsync(playerTag);
 
         List<MatchupStarDistribution> stats = new();
-        foreach (var warAttack in  attackData.Where(a => a.WarType.ToLower() == "cwl"))
+        foreach (var warAttack in attackData.Where(a => a.WarType.ToLower() == "cwl"))
         {
             var stat = GetOrAdd(stats, warAttack.Townhall, warAttack.DefenderTownhall);
-            switch(warAttack.Stars)
+            switch (warAttack.Stars)
             {
                 case 0:
                     stat.ZeroStar++;
@@ -81,7 +82,5 @@ public class TestService
         }
         return item;
     }
-
-
 
 }
