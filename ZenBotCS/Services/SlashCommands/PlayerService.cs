@@ -11,6 +11,7 @@ using ZenBotCS.Entities.Models.ClashKingApi;
 using ZenBotCS.Extensions;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
+using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands
 {
@@ -22,7 +23,7 @@ namespace ZenBotCS.Services.SlashCommands
         private readonly ILogger<PlayerService> _logger = logger;
         private readonly PlayersClient _playersClient = playersClient;
 
-        public async Task<Embed> StatsMisses(string? playerTag, SocketUser? user)
+        public async Task<Embed> StatsMisses(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter)
         {
 
             if (playerTag is null && user is null)
@@ -39,10 +40,16 @@ namespace ZenBotCS.Services.SlashCommands
                     return _embedHelper.ErrorEmbed("Error", "Could not find any Players linked to that user.");
 
                 List<MissedAttackRecord> missedAttacks = new();
+                int warCount = 0;
                 foreach (var history in _botDb.WarHistories)
                 {
                     foreach (var warData in history.WarData ?? [])
                     {
+                        if (warTypeFilter == WarTypeFilter.CWLOnly && warData.AttacksPerMember != 1)
+                            continue;
+                        if (warTypeFilter == WarTypeFilter.RegularOnly && warData.AttacksPerMember != 2)
+                            continue;
+
                         var clan = warData.Clan;
                         var member = clan.Members.FirstOrDefault(m => playerTags.Contains(m.Tag));
                         if (member is null)
@@ -53,6 +60,7 @@ namespace ZenBotCS.Services.SlashCommands
                         if (member is null)
                             continue;
 
+                        warCount++;
                         if (member.Attacks.Count() < warData.AttacksPerMember)
                         {
                             missedAttacks.Add(new MissedAttackRecord()
@@ -75,16 +83,22 @@ namespace ZenBotCS.Services.SlashCommands
                     .ThenBy(m => m.Date)
                     .ToList();
 
+                double missesCount = missedAttacks.Sum(ma => ma.Misses);
 
                 var stringBuilder = new StringBuilder();
 
                 stringBuilder.AppendLine("```");
-                stringBuilder.Append($"Bases:         ");
+                stringBuilder.Append($"Bases:      ");
                 stringBuilder.AppendLine(string.Join(" | ", players.Select(p => p?.Name)));
-                stringBuilder.Append($"THs:           ");
+                stringBuilder.Append($"THs:        ");
                 stringBuilder.AppendLine(string.Join(" | ", players.Select(p => p?.TownHallLevel)));
-                stringBuilder.Append($"Total Misses:  ");
-                stringBuilder.AppendLine(missedAttacks.Sum(ma => ma.Misses).ToString());
+                stringBuilder.Append("# Wars:      ");
+                stringBuilder.AppendLine(warCount.ToString());
+                stringBuilder.Append("# Misses:    ");
+                stringBuilder.AppendLine(missesCount.ToString());
+                stringBuilder.Append("Misses/War:  ");
+                stringBuilder.AppendLine((missesCount / warCount).ToString("0.00"));
+
                 stringBuilder.AppendLine();
 
                 var data = new List<string[]>
@@ -109,7 +123,7 @@ namespace ZenBotCS.Services.SlashCommands
                     .WithTitle("Player Missed Attacks*")
                     .WithColor(Color.DarkPurple)
                     .WithDescription(stringBuilder.ToString())
-                    .WithFooter("*in the least 50 recorded wars for each family clan.");
+                    .WithFooter($"Filter: {warTypeFilter}\n*in the least 50 recorded wars for each family clan.");
 
                 return embedBuilder.Build();
 
@@ -143,7 +157,7 @@ namespace ZenBotCS.Services.SlashCommands
             _logger.LogWarning("Could not find discord link for the following {count} player accounts: {playerTags}", nonLinked.Count, JsonConvert.SerializeObject(nonLinked));
         }
 
-        public async Task<Embed> StatsAttacks(string? playerTag, SocketUser? user)
+        public async Task<Embed> StatsAttacks(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter)
         {
             if (playerTag is null && user is null)
             {
@@ -161,6 +175,15 @@ namespace ZenBotCS.Services.SlashCommands
                 foreach (var player in players)
                 {
                     warHits.AddRange(await _ckApiClient.GetPlayerWarAttacksAsync(player!.Tag));
+                }
+
+                if (warTypeFilter == WarTypeFilter.CWLOnly)
+                {
+                    warHits = warHits.Where(wh => wh.WarType == "cwl").ToList();
+                }
+                else if (warTypeFilter == WarTypeFilter.RegularOnly)
+                {
+                    warHits = warHits.Where(wh => wh.WarType != "cwl").ToList();
                 }
 
                 var stringBuilder = new StringBuilder();
@@ -194,7 +217,7 @@ namespace ZenBotCS.Services.SlashCommands
                         $"{reacheHits.Count(wh => wh.Stars == 1)}/{reacheHits.Count()}",
                         $"{reacheHits.Count(wh => wh.Stars == 2)}/{reacheHits.Count()}",
                         $"{reacheHits.Count(wh => wh.Stars == 3)}/{reacheHits.Count()}",
-                        (reacheHits.Count(wh => wh.Stars > 2) / (double)reacheHits.Count()).ToString("0%")
+                        (reacheHits.Count(wh => wh.Stars >= 2) / (double)reacheHits.Count()).ToString("0%")
                     ]);
                     if (group.Key < 10)
                         data.Last()[0] = data.Last()[0] + " ";
@@ -237,6 +260,7 @@ namespace ZenBotCS.Services.SlashCommands
                 var embedBuilder = new EmbedBuilder()
                     .WithTitle("Player Attack Stats")
                     .WithColor(Color.DarkPurple)
+                    .WithFooter($"Filter: {warTypeFilter}")
                     .WithDescription(stringBuilder.ToString());
 
                 return embedBuilder.Build();
