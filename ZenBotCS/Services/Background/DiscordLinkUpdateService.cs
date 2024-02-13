@@ -15,9 +15,9 @@ namespace ZenBotCS.Services.Background
             {
                 using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    var _playerService = scope.ServiceProvider.GetRequiredService<SlashCommands.PlayerService>();
+                    var _linksService = scope.ServiceProvider.GetRequiredService<SlashCommands.LinksService>();
 
-                    await _playerService.UpdateDiscordLinks();
+                    await _linksService.Update();
                 }
 
                 await Task.Delay(new TimeSpan(hours: 1, minutes: 0, seconds: 0), stoppingToken);

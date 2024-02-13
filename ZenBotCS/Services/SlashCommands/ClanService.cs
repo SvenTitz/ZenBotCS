@@ -148,7 +148,7 @@ namespace ZenBotCS.Services.SlashCommands
                     ]);
                 }
 
-                builder.Description = _embedHelper.FormatAsTable(tableData);
+                builder.Description = _embedHelper.FormatAsTableOld(tableData);
                 return builder.Build();
             }
             catch (Exception ex)

@@ -3,12 +3,9 @@ using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System.Text;
 using ZenBotCS.Entities;
-using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.ClashKingApi;
-using ZenBotCS.Extensions;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
 using ZenBotCS.Models.Enums;
@@ -115,7 +112,7 @@ namespace ZenBotCS.Services.SlashCommands
                     ]);
                 }
 
-                stringBuilder.AppendLine(_embedHelper.FormatAsNewTable(data));
+                stringBuilder.AppendLine(_embedHelper.FormatAsTable(data, TextAlign.Left, TextAlign.Right));
 
                 stringBuilder.AppendLine("```");
 
@@ -135,27 +132,6 @@ namespace ZenBotCS.Services.SlashCommands
 
         }
 
-        public async Task UpdateDiscordLinks()
-        {
-            var players = await _playersClient.GetCachedPlayersAsync();
-            var playerTags = players.Select(p => p.Tag).ToList();
-
-            var links = await _ckApiClient.PostDiscordLinksAsync(playerTags);
-
-            foreach (var link in links)
-            {
-                if (link.Value is null)
-                    continue;
-                var linkModel = new DiscordLink { DiscordId = (ulong)link.Value!, PlayerTag = link.Key };
-                _botDb.AddOrUpdateDiscordLink(linkModel);
-            }
-            _botDb.SaveChanges();
-
-            _logger.LogInformation("Updated discord links for {count} player accounts", links.Where(l => l.Value is not null).Count());
-
-            var nonLinked = links.Where(l => l.Value is null).Select(kvp => kvp.Key).ToList();
-            _logger.LogWarning("Could not find discord link for the following {count} player accounts: {playerTags}", nonLinked.Count, JsonConvert.SerializeObject(nonLinked));
-        }
 
         public async Task<Embed> StatsAttacks(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter)
         {
@@ -251,7 +227,7 @@ namespace ZenBotCS.Services.SlashCommands
                     data.Add(["", "", "", "", "", ""]);
                 }
 
-                stringBuilder.AppendLine(_embedHelper.FormatAsNewTable(data));
+                stringBuilder.AppendLine(_embedHelper.FormatAsTable(data, TextAlign.Right, TextAlign.Right));
 
                 stringBuilder.AppendLine("```");
 

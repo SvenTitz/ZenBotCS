@@ -63,7 +63,7 @@ public class TestService
         }
 
 
-        var text = _embedHelper.FormatAsTable(tableData, 9);
+        var text = _embedHelper.FormatAsTableOld(tableData, 9);
 
         return new EmbedBuilder()
             .WithTitle($"__CWL__ Hitrate by Matchup of *{attackData.First().Name}*")

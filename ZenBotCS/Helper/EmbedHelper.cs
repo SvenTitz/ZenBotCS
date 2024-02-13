@@ -2,6 +2,7 @@
 using Discord.Addons.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text;
+using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Helper
 {
@@ -14,7 +15,7 @@ namespace ZenBotCS.Helper
             _logger = logger;
         }
 
-        public string FormatAsTable(List<string[]> data, int minColSize)
+        public string FormatAsTableOld(List<string[]> data, int minColSize)
         {
             var columnCount = data.Max(d => d.Length);
 
@@ -44,7 +45,7 @@ namespace ZenBotCS.Helper
             return builder.ToString();
         }
 
-        public string FormatAsTable(List<string[]> data)
+        public string FormatAsTableOld(List<string[]> data)
         {
             var colWidths = new List<int>();
 
@@ -56,10 +57,10 @@ namespace ZenBotCS.Helper
                 colWidths.Add(col.Max(d => d.Length));
             }
 
-            return FormatAsTable(data, colWidths);
+            return FormatAsTableOld(data, colWidths);
         }
 
-        public string FormatAsTable(List<string[]> data, IList<int> colWidths)
+        public string FormatAsTableOld(List<string[]> data, IList<int> colWidths)
         {
             if (colWidths.Sum() > 100) // TODO: proper value
             {
@@ -98,7 +99,7 @@ namespace ZenBotCS.Helper
                         .Build();
         }
 
-        public string FormatAsNewTable(List<string[]> data)
+        public string FormatAsTable(List<string[]> data, TextAlign headerAlign = TextAlign.Left, TextAlign dataAlign = TextAlign.Left)
         {
             var colWidths = new List<int>();
 
@@ -121,16 +122,13 @@ namespace ZenBotCS.Helper
             {
                 for (var i = 0; i < data[0].Length; i++)
                 {
-                    var entry = row[i];
                     if (row == data.First())
                     {
-                        builder.Append(entry);
-                        builder.Append(new string(' ', colWidths[i] - entry.Length));
+                        builder.Append(FillTextWithSpace(row[i], colWidths[i], headerAlign));
                     }
                     else
                     {
-                        builder.Append(new string(' ', colWidths[i] - entry.Length));
-                        builder.Append(entry);
+                        builder.Append(FillTextWithSpace(row[i], colWidths[i], dataAlign));
                     }
                     builder.Append("  ");
                 }
@@ -139,6 +137,25 @@ namespace ZenBotCS.Helper
 
             return builder.ToString();
 
+        }
+
+        private string FillTextWithSpace(string text, int width, TextAlign align)
+        {
+            var widthDif = width - text.Length;
+            if (align == TextAlign.Left)
+            {
+
+            }
+            switch (align)
+            {
+                case TextAlign.Left:
+                    return string.Concat(text, new string(' ', widthDif));
+                case TextAlign.Right:
+                    return string.Concat(new string(' ', widthDif), text);
+                default:
+                    _logger.LogError("Missing Text Aling in FillTextWithSpace");
+                    return string.Concat(text, new string(' ', widthDif));
+            }
         }
 
     }
