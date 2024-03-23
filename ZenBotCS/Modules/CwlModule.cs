@@ -2,7 +2,6 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using ZenBotCS.Handler;
 using ZenBotCS.Services.SlashCommands;
 
@@ -319,9 +318,11 @@ namespace ZenBotCS.Modules
                 return;
             }
 
+            var content = await CwlService.GetSignupSummaryMessage(interaction);
+
             await interaction.ModifyOriginalResponseAsync(x =>
             {
-                x.Content = "You have sucessfully signed up for CWL!\n\n```" + JsonConvert.SerializeObject(CwlService.GetSignup(interaction), Formatting.Indented) + "```";
+                x.Content = "You have sucessfully signed up for CWL!\n\n" + content;
                 x.Components = null;
             });
         }

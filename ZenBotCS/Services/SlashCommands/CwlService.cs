@@ -685,6 +685,18 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
+        public async Task<string> GetSignupSummaryMessage(SocketMessageComponent interaction)
+        {
+            var signup = GetSignup(interaction)!;
+            var clan = await _clansClient.GetOrFetchClanAsync(signup.ClanTag);
+            return $"Account: {signup.PlayerName} ({signup.PlayerTag})\n" +
+                $"Clan: {clan.Name} ({clan.Tag})\n" +
+                $"OptOutDays: {signup.OptOutDays}\n" +
+                $"WarStyle: {signup.WarPreference}\n" +
+                $"Bonuses: {signup.Bonus}\n" +
+                $"WarGeneral: {signup.WarGeneral}";
+        }
+
 
         private object[][] FormatDataForDataSpreadsheet(List<CwlDataMemberModel> memberModels, ClanWarLeagueClan clan)
         {
