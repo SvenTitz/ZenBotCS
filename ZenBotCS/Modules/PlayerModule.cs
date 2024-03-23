@@ -21,6 +21,8 @@ namespace ZenBotCS.Modules
                [Summary("WarTypeFilter")] WarTypeFilter warTypeFiler = WarTypeFilter.RegularAndCWL)
             {
                 await DeferAsync();
+                if (playerTag is null && user is null)
+                    user = Context.User;
                 var embed = await PlayerService.StatsMisses(playerTag, user, warTypeFiler);
                 await FollowupAsync(embed: embed);
             }
@@ -32,6 +34,8 @@ namespace ZenBotCS.Modules
                [Summary("WarTypeFilter")] WarTypeFilter warTypeFiler = WarTypeFilter.RegularAndCWL)
             {
                 await DeferAsync();
+                if (playerTag is null && user is null)
+                    user = Context.User;
                 var embed = await PlayerService.StatsAttacks(playerTag, user, warTypeFiler);
                 await FollowupAsync(embed: embed);
             }

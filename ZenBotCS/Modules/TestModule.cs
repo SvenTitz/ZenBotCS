@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Handler;
+using ZenBotCS.Services;
 
 namespace ZenBotCS;
 
@@ -11,6 +12,7 @@ namespace ZenBotCS;
 public class TestModule : InteractionModuleBase<SocketInteractionContext>
 {
     public required ClashKingApiClient ClashKingApiClient { get; set; }
+    public required GspreadService _gspreadService { get; set; }
 
     public required BotDataContext BotDb { get; set; }
 
@@ -67,34 +69,5 @@ public class TestModule : InteractionModuleBase<SocketInteractionContext>
         await FollowupAsync("done");
     }
 
-    //[SlashCommand("history_test", "table test")]
-    public async Task HistoryTest()
-    {
-        await DeferAsync();
-
-        var history = await ClashKingApiClient.GetClanWarHistory("#92GC0RUL");
-
-        var entity = new WarHistory()
-        {
-            ClanTag = "#92GC0RUL",
-            WarData = history
-        };
-
-        BotDb.WarHistories.Add(entity);
-        BotDb.SaveChanges();
-
-
-        await FollowupAsync("done");
-    }
-
-    //[SlashCommand("reverse_history", "asdas")]
-    public async Task Reverse()
-    {
-        await DeferAsync();
-
-        var history = BotDb.WarHistories.Where(wh => wh.WarData != null && wh.WarData.Any(wd => wd.Clan.Tag == "#92GC0RUL")).ToList();
-
-        await FollowupAsync("done");
-    }
 }
 

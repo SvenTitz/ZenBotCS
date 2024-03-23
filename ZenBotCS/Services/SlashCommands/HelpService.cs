@@ -40,5 +40,14 @@ namespace ZenBotCS.Services.SlashCommands
             return await _discordHelper.GetMessageFromLinkAsync(messageLink);
         }
 
+        public async Task<(string content, Embed[] embeds)> HelpCwlSignup()
+        {
+            var messageLink = _config["HelpCwlSignup"];
+            if (messageLink == null)
+                return ("", _missingLinkEmbeds);
+
+            return await _discordHelper.GetMessageFromLinkAsync(messageLink);
+        }
+
     }
 }

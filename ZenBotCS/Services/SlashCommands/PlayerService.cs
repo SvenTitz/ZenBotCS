@@ -247,7 +247,7 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
-        private async Task<List<Player>> GetPlayersFromTagAndUser(string? playerTag, SocketUser? user)
+        internal async Task<List<Player>> GetPlayersFromTagAndUser(string? playerTag, SocketUser? user)
         {
             var playerTags = new List<string>();
             var players = new List<Player?>();

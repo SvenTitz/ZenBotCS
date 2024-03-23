@@ -46,6 +46,8 @@ public class Program
             config.AddSerilog(logger);
         });
 
+        builder.Services.AddMemoryCache();
+
         builder.Services.AddDiscordHost((config, _) =>
         {
             config.SocketConfig = new DiscordSocketConfig
@@ -77,6 +79,7 @@ public class Program
 
         builder.Services
             .AddHostedService<InteractionHandler>()
+            //.AddHostedService<ComponentHandler>()
             .AddHostedService<DiscordLinkUpdateService>()
             .AddHostedService<WarHistoryUpdateService>()
             .AddTransient<TestService>()
@@ -88,8 +91,8 @@ public class Program
             .AddTransient<LinksService>()
             .AddTransient<ClashKingApiClient>()
             .AddTransient<EmbedHelper>()
-            .AddTransient<DiscordHelper>();
-
+            .AddTransient<DiscordHelper>()
+            ;
 
         builder.Services.AddDbContext<BotDataContext>(options =>
         {

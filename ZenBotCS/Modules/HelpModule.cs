@@ -1,31 +1,44 @@
 ﻿using Discord.Interactions;
 using ZenBotCS.Services.SlashCommands;
 
-namespace ZenBotCS.Modules
+namespace ZenBotCS.Modules;
+
+[Group("help", "Help Commands")]
+public class HelpModule : InteractionModuleBase<SocketInteractionContext>
 {
-    [Group("help", "Help Commands")]
-    public class HelpModule : InteractionModuleBase<SocketInteractionContext>
+    [Group("bots", "Help Commands related to bots")]
+    public class HelpBotsModule : InteractionModuleBase<SocketInteractionContext>
     {
-        [Group("bots", "Help Commands related to bots")]
-        public class HelpBotsModule : InteractionModuleBase<SocketInteractionContext>
+        public required HelpService HelpService { get; set; }
+
+        [SlashCommand("linking", "Commands related to linking player and discord accounts")]
+        public async Task Linking()
         {
-            public required HelpService HelpService { get; set; }
+            await DeferAsync();
+            var (content, embeds) = await HelpService.HelpBotsLinking();
+            await FollowupAsync(text: content, embeds: embeds);
+        }
 
-            [SlashCommand("linking", "Commands related to linking player and discord accounts")]
-            public async Task Linking()
-            {
-                await DeferAsync();
-                var (content, embeds) = await HelpService.HelpBotsLinking();
-                await FollowupAsync(text: content, embeds: embeds);
-            }
+        [SlashCommand("gatekeeper", "Commands related to the gatekeepr role")]
+        public async Task Gatekeeper()
+        {
+            await DeferAsync();
+            var (content, embeds) = await HelpService.HelpBotsGatekeeper();
+            await FollowupAsync(text: content, embeds: embeds);
+        }
+    }
 
-            [SlashCommand("gatekeeper", "Commands related to the gatekeepr role")]
-            public async Task Gatekeeper()
-            {
-                await DeferAsync();
-                var (content, embeds) = await HelpService.HelpBotsGatekeeper();
-                await FollowupAsync(text: content, embeds: embeds);
-            }
+    [Group("cwl", "Help Commands related to cwl")]
+    public class HelpCwkModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        public required HelpService HelpService { get; set; }
+
+        [SlashCommand("signup", "Commands related to cwl signups")]
+        public async Task Signups()
+        {
+            await DeferAsync();
+            var (content, embeds) = await HelpService.HelpCwlSignup();
+            await FollowupAsync(text: content, embeds: embeds);
         }
 
     }

@@ -1,10 +1,13 @@
-﻿using Google.Apis.Auth.OAuth2;
+﻿using CocApi.Rest.Models;
+using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Drive.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using ZenBotCS.Models;
 
 
 namespace ZenBotCS.Services;
@@ -15,15 +18,17 @@ public class GspreadService
     private readonly SheetsService _sheetsService;
     private readonly DriveService _driveService;
     private readonly IConfiguration _config;
+    private readonly ILogger<GspreadService> _logger;
 
-    public GspreadService(IConfiguration congig)
+    public GspreadService(IConfiguration congig, ILogger<GspreadService> logger)
     {
         _config = congig;
+        _logger = logger;
         var credential = GoogleCredential.FromFile(_config["PathToGspreadCredentials"])
-            .CreateScoped(SheetsService.Scope.Spreadsheets, DriveService.Scope.DriveFile);
+            .CreateScoped(SheetsService.Scope.Spreadsheets, DriveService.Scope.DriveFile, DriveService.Scope.Drive);
         _sheetsService = new SheetsService(new SheetsService.Initializer
         {
-            HttpClientInitializer = credential
+            HttpClientInitializer = credential,
         });
         _driveService = new DriveService(new BaseClientService.Initializer()
         {
@@ -48,10 +53,7 @@ public class GspreadService
             spreadsheetId = _sheetsService.Spreadsheets.Create(spreadsheet).Execute().SpreadsheetId;
 
             // Give write permissions to everyone
-            var perms = new Permission();
-            perms.Role = "writer";
-            perms.Type = "anyone";
-            _driveService.Permissions.Create(perms, spreadsheetId).Execute();
+            ShareSpreadsheet(spreadsheetId);
         }
         else
         {
@@ -146,6 +148,18 @@ public class GspreadService
         return string.Format(UrlTemplate, spreadsheetId, sheetId);
     }
 
+    public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan)
+    {
+        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, "1nRQQCkIqSPEHUwBJMff_QwA0atilIR1W55wBYLFyJsI");
+
+        var updateRequestData = new ValueRange { Values = data };
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:L42");
+        updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+        updateRequest.Execute();
+        return string.Format(UrlTemplate, spreadsheetId, "0");
+    }
+
+
     private string GetColumnLetter(int number)
     {
         int dividend = number;
@@ -161,18 +175,129 @@ public class GspreadService
         return columnLetter;
     }
 
-    private int GetColumnIndex(string columnLetter)
+    public async Task<string> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId)
     {
-        int result = 0;
-
-        foreach (char c in columnLetter)
+        try
         {
-            result *= 26;
-            result += c - 'A' + 1;
-        }
+            // Create a copy of the template spreadsheet
+            var copyRequest = new Google.Apis.Drive.v3.Data.File
+            {
+                Name = clan.Name + " Roster " + DateTime.Now.ToString("yyyy-MM-dd")
+            };
+            var request = _driveService.Files.Copy(copyRequest, templateSpreadsheetId);
+            var copiedFile = await request.ExecuteAsync();
 
-        return result;
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest { Requests = [] };
+
+            ShareSpreadsheet(copiedFile.Id);
+
+            var clanOptionsList = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>();
+            var clanOptions = clanOptionsList?.ClanOptions.FirstOrDefault(co => co.ClanTag == clan.Tag);
+
+            if (clanOptions is not null)
+            {
+                var recolorRange = new GridRange()
+                {
+                    SheetId = 0,
+                    StartRowIndex = 0, // Start row index of the range
+                    EndRowIndex = 2, // End row index of the range
+                    StartColumnIndex = 0, // Start column index of the range
+                    EndColumnIndex = 12 // End column index of the range
+                };
+
+                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
+
+                recolorRange = new GridRange()
+                {
+                    SheetId = 0,
+                    StartRowIndex = 42, // Start row index of the range
+                    EndRowIndex = 43, // End row index of the range
+                    StartColumnIndex = 0, // Start column index of the range
+                    EndColumnIndex = 12 // End column index of the range
+                };
+
+                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
+            }
+
+            var batchUpdateRequest = _sheetsService.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, copiedFile.Id);
+            batchUpdateRequest.Execute();
+
+            var valueRange = new ValueRange { Values = [[clan.Name]] };
+            var updateRequest = _sheetsService.Spreadsheets.Values.Update(valueRange, copiedFile.Id, "Roster" + "!" + "A1:A1");
+            updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            updateRequest.Execute();
+
+            // Get the ID of the copied spreadsheet
+            return copiedFile.Id;
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex.Message);
+            throw;
+        }
     }
+
+    public string CreateDbDumpSpreadsheet(string sheetName, object[][] data)
+    {
+        var spreadsheet = new Spreadsheet { Properties = new SpreadsheetProperties { Title = sheetName } };
+        var spreadsheetId = _sheetsService.Spreadsheets.Create(spreadsheet).Execute().SpreadsheetId;
+
+        // Give write permissions to everyone
+        ShareSpreadsheet(spreadsheetId);
+
+        int columns = data.Length > 0 ? data[0].Length : 0;
+        int rows = data.Length;
+        string startCell = "A1";
+        string endCell = $"{GetColumnLetter(columns)}{rows}";
+        string cellRange = $"{startCell}:{endCell}";
+
+        var updateRequestData = new ValueRange { Values = data };
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, sheetName + "!" + cellRange);
+        updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+        updateRequest.Execute();
+
+        return string.Format(UrlTemplate, spreadsheetId, "0");
+    }
+
+    private void ShareSpreadsheet(string spreadsheetId)
+    {
+        var perms = new Permission();
+        perms.Role = "writer";
+        perms.Type = "anyone";
+        _driveService.Permissions.Create(perms, spreadsheetId).Execute();
+    }
+
+    private Request BuildRecolorRangeRequest(string spreadsheetId, GridRange range, string colorHex)
+    {
+        var color = new Color
+        {
+            Alpha = 1,
+            Red = Convert.ToInt32(colorHex.Substring(1, 2), 16) / 255f,
+            Green = Convert.ToInt32(colorHex.Substring(3, 2), 16) / 255f,
+            Blue = Convert.ToInt32(colorHex.Substring(5, 2), 16) / 255f
+        };
+
+        // Create the cell format with the background color
+        var cellFormat = new CellFormat
+        {
+            BackgroundColor = color
+        };
+
+        // Create the repeat cell request
+        var repeatCellRequest = new RepeatCellRequest
+        {
+            Range = range,
+            Cell = new CellData()
+            {
+                UserEnteredFormat = cellFormat
+            },
+            Fields = "UserEnteredFormat.BackgroundColor"
+        };
+
+        return new Request { RepeatCell = repeatCellRequest };
+    }
+
 
 }
 

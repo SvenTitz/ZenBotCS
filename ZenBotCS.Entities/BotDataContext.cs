@@ -6,8 +6,8 @@ namespace ZenBotCS.Entities
     public class BotDataContext(DbContextOptions<BotDataContext> options) : DbContext(options)
     {
         public DbSet<DiscordLink> DiscordLinks { get; set; }
-
         public DbSet<WarHistory> WarHistories { get; set; }
+        public DbSet<CwlSignup> CwlSignups { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
