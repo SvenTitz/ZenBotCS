@@ -246,16 +246,19 @@ public class GspreadService
         // Give write permissions to everyone
         ShareSpreadsheet(spreadsheetId);
 
-        int columns = data.Length > 0 ? data[0].Length : 0;
-        int rows = data.Length;
-        string startCell = "A1";
-        string endCell = $"{GetColumnLetter(columns)}{rows}";
-        string cellRange = $"{startCell}:{endCell}";
+        var valueRange = new ValueRange();
 
-        var updateRequestData = new ValueRange { Values = data };
-        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, sheetName + "!" + cellRange);
-        updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
-        updateRequest.Execute();
+        var rows = new List<IList<object>>();
+        foreach (var row in data)
+        {
+            rows.Add(new List<object>(row));
+        }
+
+        valueRange.Values = rows;
+
+        var appendRequest = _sheetsService.Spreadsheets.Values.Append(valueRange, spreadsheetId, "Sheet1!A1");
+        appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
+        var appendResponse = appendRequest.Execute();
 
         return string.Format(UrlTemplate, spreadsheetId, "0");
     }
