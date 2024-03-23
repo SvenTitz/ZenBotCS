@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
@@ -25,7 +26,8 @@ namespace ZenBotCS.Services.SlashCommands
         GspreadService _gspreadService,
         IMemoryCache _cache,
         PlayerService _playerService,
-        IConfiguration _config)
+        IConfiguration _config,
+        ILogger<CwlService> _logger)
     {
         private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH", "+/-", "Defence"];
         private static readonly string[] _cwlEmptyAttack = ["", "", "", "", "-"];
@@ -615,7 +617,7 @@ namespace ZenBotCS.Services.SlashCommands
                 var roleIds = clanOptions!.Where(o => o.CwlRoleId > 0).Select(o => o.CwlRoleId).ToList();
                 ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
                 roleIds.Add(warGeneralRoleId);
-
+                _logger.LogInformation("RoleIds: " + string.Join(", ", roleIds));
                 foreach (var user in context.Guild.Users.Where(u => u.Roles.Any(r => roleIds.Contains(r.Id))))
                 {
                     await user.RemoveRolesAsync(roleIds);
