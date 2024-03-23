@@ -111,7 +111,6 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<(string, MessageComponent)> CreateCwlSignupClanSelection()
         {
             var clans = await _clansClient.GetCachedClansAsync();
-            clans = [.. clans.OrderBy(c => c.Name)];
 
             var menuBuilder = new SelectMenuBuilder()
                 .WithPlaceholder("Select the clan")
