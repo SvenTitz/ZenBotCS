@@ -144,11 +144,11 @@ namespace ZenBotCS.Modules
             public required CwlService CwlService { get; set; }
 
             [RequireUserPermission(Discord.GuildPermission.Administrator)]
-            [SlashCommand("asign", "Asigns CWL roles to each user for each clan they have signed up for")]
-            public async Task Asign()
+            [SlashCommand("assign", "Assigns CWL roles to each user for each clan they have signed up for")]
+            public async Task Assign()
             {
                 await DeferAsync();
-                var message = await CwlService.RolesAsign(Context);
+                var message = await CwlService.RolesAssign(Context);
                 await FollowupAsync(message);
             }
 

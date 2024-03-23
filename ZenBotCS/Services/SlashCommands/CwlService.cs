@@ -565,7 +565,7 @@ namespace ZenBotCS.Services.SlashCommands
         }
 
 
-        public async Task<string> RolesAsign(SocketInteractionContext context)
+        public async Task<string> RolesAssign(SocketInteractionContext context)
         {
             try
             {
@@ -617,8 +617,6 @@ namespace ZenBotCS.Services.SlashCommands
                 var roleIds = clanOptions!.Where(o => o.CwlRoleId > 0).Select(o => o.CwlRoleId).ToList();
                 ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
                 roleIds.Add(warGeneralRoleId);
-                _logger.LogInformation("RoleIds: " + string.Join(", ", roleIds));
-                _logger.LogInformation("UserCount: " + context.Guild.Users.Count);
                 foreach (var user in context.Guild.Users.Where(u => u.Roles.Any(r => roleIds.Contains(r.Id))))
                 {
                     await user.RemoveRolesAsync(roleIds);
