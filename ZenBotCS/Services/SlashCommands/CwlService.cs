@@ -53,7 +53,7 @@ namespace ZenBotCS.Services.SlashCommands
 
             Embed[] embeds = [
                 new EmbedBuilder()
-                    .WithImageUrl("https://cdn.discordapp.com/attachments/1126771582396805221/1219055335818530846/Zen-CWL-Signups.jpg?ex=6609e8c1&is=65f773c1&hm=3a5d778920b18cbb9f3be99d60d9da5e699fcb35d9455ece7b100601617b449e&")
+                    .WithImageUrl("https://cdn.discordapp.com/attachments/1126771582396805221/1221539143473958912/Zen-CWL-Signups.jpg?ex=6612f1fa&is=66007cfa&hm=cac106677455f60967b6ef5ea4f4fa032d41d56400953f950b8e268352988653&")
                     .Build(),
                 new EmbedBuilder()
                     .WithTitle("CWL Signups")
