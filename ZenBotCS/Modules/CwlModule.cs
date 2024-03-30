@@ -40,7 +40,8 @@ namespace ZenBotCS.Modules
                     ephemeral: true);
             }
 
-            [RequireLeadershipRole]
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
             [SlashCommand("roster", "Creates a spreadsheet for the roster of the chosen clan")]
             public async Task Roster([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
             {
@@ -129,7 +130,8 @@ namespace ZenBotCS.Modules
                 });
             }
 
-            [RequireLeadershipRole]
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
             [SlashCommand("dump", "Dumps the signup table")]
             public async Task Dump(bool includeArchives)
             {
