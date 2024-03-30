@@ -150,7 +150,8 @@ public class GspreadService
 
     public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan)
     {
-        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, "1nRQQCkIqSPEHUwBJMff_QwA0atilIR1W55wBYLFyJsI");
+        var templateId = _config["CwlRosterTemplateSpreadsheetId"]!;
+        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId);
 
         var updateRequestData = new ValueRange { Values = data };
         var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:L42");
@@ -210,8 +211,8 @@ public class GspreadService
                 recolorRange = new GridRange()
                 {
                     SheetId = 0,
-                    StartRowIndex = 42, // Start row index of the range
-                    EndRowIndex = 43, // End row index of the range
+                    StartRowIndex = 52, // Start row index of the range
+                    EndRowIndex = 53, // End row index of the range
                     StartColumnIndex = 0, // Start column index of the range
                     EndColumnIndex = 12 // End column index of the range
                 };
