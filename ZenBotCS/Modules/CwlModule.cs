@@ -2,6 +2,7 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
+using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Services.SlashCommands;
 
@@ -39,9 +40,9 @@ namespace ZenBotCS.Modules
                     ephemeral: true);
             }
 
-            [RequireUserPermission(Discord.GuildPermission.Administrator)]
+            [RequireLeadershipRole]
             [SlashCommand("roster", "Creates a spreadsheet for the roster of the chosen clan")]
-            public async Task Create([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+            public async Task Roster([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
             {
                 await DeferAsync();
                 var embed = await CwlService.SignupRoster(clantag);
@@ -128,7 +129,7 @@ namespace ZenBotCS.Modules
                 });
             }
 
-            [RequireUserPermission(Discord.GuildPermission.Administrator)]
+            [RequireLeadershipRole]
             [SlashCommand("dump", "Dumps the signup table")]
             public async Task Dump(bool includeArchives)
             {

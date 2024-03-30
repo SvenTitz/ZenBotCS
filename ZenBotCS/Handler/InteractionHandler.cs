@@ -42,19 +42,19 @@ internal class InteractionHandler : DiscordClientService
             switch (result.Error)
             {
                 case InteractionCommandError.UnmetPrecondition:
-                    // implement
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 case InteractionCommandError.UnknownCommand:
-                    // implement
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 case InteractionCommandError.BadArgs:
-                    // implement
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 case InteractionCommandError.Exception:
-                    // implement
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 case InteractionCommandError.Unsuccessful:
-                    // implement
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 default:
                     break;
