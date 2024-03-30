@@ -20,7 +20,7 @@ namespace ZenBotCS.Services.Background
                     await _linksService.Update();
                 }
 
-                await Task.Delay(new TimeSpan(hours: 1, minutes: 0, seconds: 0), stoppingToken);
+                await Task.Delay(new TimeSpan(hours: 0, minutes: 10, seconds: 0), stoppingToken);
             }
         }
 
