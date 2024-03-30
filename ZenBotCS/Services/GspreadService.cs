@@ -154,7 +154,7 @@ public class GspreadService
         var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId);
 
         var updateRequestData = new ValueRange { Values = data };
-        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:L42");
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:L52");
         updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
         updateRequest.Execute();
         return string.Format(UrlTemplate, spreadsheetId, "0");
