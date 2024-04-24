@@ -63,7 +63,11 @@ namespace ZenBotCS.Services.SlashCommands
                     .Build(),
                 new EmbedBuilder()
                     .WithTitle("CWL Signups")
-                    .WithDescription("Click the button below to sign up for the next upcoming CWL.")
+                    .WithDescription("Click the button below to sign up for the next upcoming CWL.\n\n" +
+                        "- Your account needs to be linked to discord and it needs to be in a family clan.\n" +
+                        "- There is no \"back\" button, but you can just dismiss the message and start over.\n" +
+                        "- You can check your signup with </cwl signup check:1194250784695660605>\n" +
+                        "- If you need help ping leadership.")
                     .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
                     .Build(),
             ];
