@@ -14,6 +14,7 @@ using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
+using ZenBotCS.Modules;
 using WarPreference = ZenBotCS.Entities.Models.Enums.WarPreference;
 
 namespace ZenBotCS.Services.SlashCommands
@@ -42,12 +43,17 @@ namespace ZenBotCS.Services.SlashCommands
 
         public (Embed[], MessageComponent) SignupPost()
         {
-            var button = new ButtonBuilder()
+            var signupButton = new ButtonBuilder()
                 .WithLabel("Sign Up")
                 .WithCustomId("button_cwl_signup_create")
                 .WithStyle(ButtonStyle.Success);
+            var closeButton = new ButtonBuilder()
+                .WithLabel("Close Signup")
+                .WithCustomId("button_cwl_signup_close")
+                .WithStyle(ButtonStyle.Danger);
             var component = new ComponentBuilder()
-                .WithButton(button)
+                .WithButton(signupButton)
+                .WithButton(closeButton)
                 .Build();
 
 
@@ -57,11 +63,47 @@ namespace ZenBotCS.Services.SlashCommands
                     .Build(),
                 new EmbedBuilder()
                     .WithTitle("CWL Signups")
-                    .WithDescription("Click the button below to sign up for the next upcoming CWL.          ")
+                    .WithDescription("Click the button below to sign up for the next upcoming CWL.")
+                    .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
                     .Build(),
             ];
 
             return (embeds, component);
+        }
+
+        public (string?, Embed[], MessageComponent) HandleCwlSignupClose()
+        {
+            var signupButton = new ButtonBuilder()
+                .WithLabel("Sign Up")
+                .WithCustomId("button_cwl_signup_create")
+                .WithStyle(ButtonStyle.Success)
+                .WithDisabled(true);
+            var reopenButton = new ButtonBuilder()
+                .WithLabel("Reopen Signup")
+                .WithCustomId("button_cwl_signup_reopen")
+                .WithStyle(ButtonStyle.Danger);
+            var component = new ComponentBuilder()
+                .WithButton(signupButton)
+                .WithButton(reopenButton)
+                .Build();
+
+            Embed[] embeds = [
+                new EmbedBuilder()
+                    .WithImageUrl("https://cdn.discordapp.com/attachments/1126771582396805221/1221539143473958912/Zen-CWL-Signups.jpg?ex=6612f1fa&is=66007cfa&hm=cac106677455f60967b6ef5ea4f4fa032d41d56400953f950b8e268352988653&")
+                    .Build(),
+                new EmbedBuilder()
+                    .WithTitle("CWL Signups")
+                    .WithDescription("~~Click the button below to sign up for the next upcoming CWL.~~\n\n**CWL Signup has been closed.**")
+                    .Build(),
+            ];
+
+            return (null, embeds, component);
+        }
+
+        public (string?, Embed[], MessageComponent) HandleCwlSignupReopen()
+        {
+            (var embeds, var component) = SignupPost();
+            return (null, embeds, component);
         }
 
         public async Task<(string, MessageComponent)> CreateCwlSignupAccountSelection(SocketUser user)
@@ -110,9 +152,27 @@ namespace ZenBotCS.Services.SlashCommands
             return _botDb.CwlSignups.Any(s => !s.Archieved && s.PlayerTag == playerTag);
         }
 
+        public async Task<bool> CheckCorrectClan(SocketMessageComponent interaction)
+        {
+            try
+            {
+                var signup = GetSignupFromCache(interaction);
+                var player = await _playersClient.GetOrFetchPlayerAsync(signup!.PlayerTag);
+                var selectedClanTag = interaction.Data.Values.First();
+                return player.Clan?.Tag == selectedClanTag;
+            }
+            catch
+            {
+                await HandleInteractionError(interaction);
+                return true;
+            }
+        }
+
         public async Task<(string, MessageComponent)> CreateCwlSignupClanSelection()
         {
             var clans = await _clansClient.GetCachedClansAsync();
+            var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
+            clans = clans.Where(c => !clanOptions?.FirstOrDefault(o => o.ClanTag == c.Tag)?.DisableCwlSignup ?? false).ToList();
 
             var menuBuilder = new SelectMenuBuilder()
                 .WithPlaceholder("Select the clan")
@@ -132,7 +192,7 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithSelectMenu(menuBuilder)
                 .Build();
 
-            var message = "Please select the clan you plan on participating CWL in.";
+            var message = "Please select the family clan you are in.";
             return (message, components);
         }
 
@@ -216,16 +276,187 @@ namespace ZenBotCS.Services.SlashCommands
             return (message, components);
         }
 
-        public async Task HandleSignupError(SocketMessageComponent interaction)
+
+        public async Task<(string, MessageComponent)> CreateCwlSignupMove(string clantagFrom, string clantagTo, ulong messageId)
         {
-            var embed = _embedHelper.ErrorEmbed("Error", "Something went wrong during signup. Please try again.");
+            var clanFrom = await _clansClient.GetOrFetchClanAsync(clantagFrom);
+            var clanTo = await _clansClient.GetOrFetchClanAsync(clantagTo);
+            var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clantagFrom && !s.Archieved);
+            var players = (await _playersClient.GetCachedPlayersAsync(signups.Select(s => s.PlayerTag))).Select(cp => cp.Content).ToList();
+            var sortedPlayers = players.Where(p => p is not null).Cast<Player>().OrderBy(p => p.Name).ToList();
+
+            if (players is null || players.Count() == 0)
+            {
+                return ("Something went wrong. Please try again", new ComponentBuilder().Build());
+            }
+
+            var singupMoveContext = new SignupMoveContext
+            {
+                ClanFrom = clanFrom,
+                ClanTo = clanTo,
+                Players = sortedPlayers,
+                PageCount = 0
+            };
+
+            _cache.Set(messageId, singupMoveContext, Options.MemoryCacheEntryOptions);
+
+            return UpdateCwlSignupMoveSelectionNextPage(messageId);
+        }
+
+        public (string, MessageComponent) UpdateCwlSignupMoveSelectionNextPage(ulong messageId)
+        {
+            if (!_cache.TryGetValue(messageId, out SignupMoveContext? context) || context is null)
+            {
+                return ("Something went wrong. Please try again", new ComponentBuilder().Build());
+            }
+
+            context.PageCount++;
+
+            var menuBuilder = new SelectMenuBuilder()
+                .WithPlaceholder("Select the members to move")
+                .WithCustomId("menu_cwl_signup_move")
+                .AddOption("None from this page.", "none");
+
+            foreach (var player in context!.Players.Skip((context.PageCount - 1) * 24).Take(24))
+            {
+                if (player is null)
+                    continue;
+
+                menuBuilder.AddOption(
+                    player.Name,
+                    player.Tag,
+                    $"TH: {player.TownHallLevel}, Clan: {player.Clan?.Name}, Tag: {player.Tag}",
+                    BotEmotes.GetThEmote(player.TownHallLevel));
+            }
+
+            menuBuilder
+                .WithMinValues(1)
+                .WithMaxValues(menuBuilder.Options.Count - 1);
+
+            var components = new ComponentBuilder()
+               .WithSelectMenu(menuBuilder)
+               .Build();
+
+            var maxPages = (int)Math.Ceiling(context.Players.Count() / 24d);
+            var message = $"Please select the accounts you want to move from **{context.ClanFrom.Name}** to **{context.ClanTo.Name}**. \n\n" +
+                $"Only 24 selections are allowed per page, so there might be multiple selections in a row.\n" +
+                $"Currently on page {context.PageCount}/{maxPages}";
+
+            if (context.SelectedPlayers.Count > 0)
+            {
+                message += "\n\nMembers selected so far: "
+                    + string.Join(", ", context.SelectedPlayers.Select(p => p.Name))
+                    + $"\nCount: {context.SelectedPlayers.Count}";
+            }
+
+            _cache.Set(messageId, context, Options.MemoryCacheEntryOptions);
+
+            return (message, components);
+        }
+
+        public async Task<(string, MessageComponent)> HandleCwlSignupMoveSelection(SocketMessageComponent interaction)
+        {
+            var messageId = interaction.Message.Id;
+            if (!_cache.TryGetValue(messageId, out SignupMoveContext? signupMoveContext) || signupMoveContext is null)
+            {
+                return ("Something went wrong. Please try again", new ComponentBuilder().Build());
+            }
+
+            var selectedValues = interaction.Data.Values;
+            List<Player> selectedPlayers = [];
+            if (selectedValues.Contains("none"))
+            {
+                if (selectedValues.Count > 1)
+                {
+                    return ("You dummy selected \"None from this page.\" in addition to other members.\nI would have expected that from Xero but not from you...\nAs a punishment you have to start over.", new ComponentBuilder().Build());
+                }
+            }
+            else
+            {
+                selectedPlayers = (await _playersClient.GetCachedPlayersAsync(selectedValues)).Select(cp => cp.Content).Where(p => p is not null).Cast<Player>().ToList();
+            }
+
+            signupMoveContext.SelectedPlayers.AddRange(selectedPlayers);
+
+            if (signupMoveContext.PageCount * 24 < signupMoveContext.Players.Count())
+            {
+                //post next page
+                _cache.Set(messageId, signupMoveContext, Options.MemoryCacheEntryOptions);
+                return UpdateCwlSignupMoveSelectionNextPage(messageId);
+            }
+            else
+            {
+                //do move
+                return MoveCwlSignups(signupMoveContext);
+            }
+        }
+
+        public (string, MessageComponent) MoveCwlSignups(SignupMoveContext signupMoveContext)
+        {
+            if (signupMoveContext.SelectedPlayers.Count <= 0)
+            {
+                return ("No members selected to move. I'm chillin", new ComponentBuilder().Build());
+            }
+
+            foreach (var player in signupMoveContext.SelectedPlayers)
+            {
+                var signup = _botDb.CwlSignups.FirstOrDefault(s => s.PlayerTag == player.Tag && !s.Archieved);
+                if (signup is not null)
+                    signup.ClanTag = signupMoveContext.ClanTo.Tag;
+            }
+            _botDb.SaveChanges();
+
+            var message = $"Moved the following players from **{signupMoveContext.ClanFrom.Name}** ({signupMoveContext.ClanFrom.Tag}) to **{signupMoveContext.ClanTo.Name}** ({signupMoveContext.ClanTo.Tag})\n\n";
+            message += string.Join(", ", signupMoveContext.SelectedPlayers.Select(p => p.Name));
+            return (message, new ComponentBuilder().Build());
+        }
+
+        public async Task<(string, MessageComponent)> CreateClanConfirmationCheck(SocketMessageComponent interaction)
+        {
+            Player player = null!;
+            Clan selectedClan = null!
+                ;
+            try
+            {
+                var signup = GetSignupFromCache(interaction);
+                player = await _playersClient.GetOrFetchPlayerAsync(signup!.PlayerTag);
+                var selectedClanTag = interaction.Data.Values.First();
+                selectedClan = await _clansClient.GetOrFetchClanAsync(selectedClanTag);
+            }
+            catch
+            {
+                await HandleInteractionError(interaction);
+            }
+
+
+            var confirmButton = new ButtonBuilder()
+                .WithLabel("Yes, this is the right Clan")
+                .WithCustomId("button_cwl_signup_clan_confirm")
+                .WithStyle(ButtonStyle.Success);
+
+            var cancelButton = new ButtonBuilder()
+                .WithLabel("No, I need to choose a different one")
+                .WithCustomId("button_cwl_signup_clan_cancel")
+                .WithStyle(ButtonStyle.Danger);
+
+            var component = new ComponentBuilder()
+                .WithButton(confirmButton)
+                .WithButton(cancelButton)
+                .Build();
+
+            var message = $"Are you sure you want to sign up with **{player.Name}** ({player.Tag}, TH{player.TownHallLevel}) in **{selectedClan.Name}** ({selectedClan.Tag})? That account is currently in a different clan.";
+            return (message, component);
+        }
+
+        public async Task HandleInteractionError(SocketMessageComponent interaction)
+        {
+            var embed = _embedHelper.ErrorEmbed("Error", "Something went wrong. Please try again.");
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = null;
                 x.Components = null;
                 x.Embed = embed;
             });
-
         }
 
         public async Task<bool> TryCacheSigupDetails(SocketMessageComponent interaction)
@@ -338,7 +569,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<bool> SaveSignupToDb(SocketMessageComponent interaction)
         {
-            var signup = GetSignup(interaction);
+            var signup = GetSignupFromCache(interaction);
 
             if (signup is null)
                 return false;
@@ -348,7 +579,7 @@ namespace ZenBotCS.Services.SlashCommands
             return true;
         }
 
-        public CwlSignup? GetSignup(SocketMessageComponent interaction)
+        public CwlSignup? GetSignupFromCache(SocketMessageComponent interaction)
         {
             return _cache.Get(interaction.Message.Id) as CwlSignup;
         }
@@ -376,17 +607,99 @@ namespace ZenBotCS.Services.SlashCommands
             return result;
         }
 
-        public async Task<Embed> SignupRoster(string clanTag)
+        public async Task<(Embed, MessageComponent?)> SignupRoster(string clanTag, bool forceNew)
         {
-            var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
-            var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clanTag && !s.Archieved).ToList();
-            var data = FormatDataForRosterSpreadsheet(signups);
-            var url = await _gspreadService.WriteCwlRosterData(data, clan);
+            try
+            {
+                var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
 
-            return new EmbedBuilder()
-                .WithDescription(url)
-                .WithColor(Color.DarkPurple)
-                .Build();
+                var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clanTag);
+                if (pinnedRoster is not null
+                    && !string.IsNullOrEmpty(pinnedRoster.Url)
+                    && !forceNew)
+                {
+                    var embed = new EmbedBuilder()
+                        .WithTitle($"{clan.Name} Cwl Roster")
+                        .WithDescription($"The link below is the pinned roster for {clan.Name}." +
+                            $"\nIf you want to generate a new roster, please make sure to set the optional parameter `ForceNew` to true." +
+                            $"\nYou can also reset the pin by calling `/cwl signup pin-roster` with an empty url.")
+                        .WithColor(Color.DarkPurple)
+                        .Build();
+
+                    var urlButton = new ButtonBuilder()
+                        .WithLabel("Pinned Roster")
+                        .WithUrl(pinnedRoster.Url)
+                        .WithStyle(ButtonStyle.Link);
+
+                    var components = new ComponentBuilder()
+                        .WithButton(urlButton)
+                        .Build();
+
+                    return (embed, components);
+                }
+                else
+                {
+                    var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clanTag && !s.Archieved).ToList();
+                    var data = FormatDataForRosterSpreadsheet(signups);
+                    var url = await _gspreadService.WriteCwlRosterData(data, clan);
+
+                    var embed = new EmbedBuilder()
+                            .WithTitle($"{clan.Name} Cwl Roster")
+                            .WithDescription($"Please make sure to pin this roster with `/cwl signup pin-roster` if this is the final roster you start working on.")
+                            .WithColor(Color.DarkPurple)
+                            .Build();
+
+                    var urlButton = new ButtonBuilder()
+                        .WithLabel("Roster")
+                        .WithUrl(url)
+                        .WithStyle(ButtonStyle.Link);
+
+                    var components = new ComponentBuilder()
+                        .WithButton(urlButton)
+                        .Build();
+
+                    return (embed, components);
+                }
+            }
+            catch (Exception ex)
+            {
+                return (_embedHelper.ErrorEmbed("Error", ex.Message), null);
+            }
+        }
+
+        public async Task<Embed> SingupRosterPin(string clanTag, string rosterUrl)
+        {
+            try
+            {
+                var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+
+                var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clanTag);
+                if (pinnedRoster == null)
+                {
+                    pinnedRoster = new PinnedRoster { ClanTag = clanTag };
+                    _botDb.PinnedRosters.Add(pinnedRoster);
+                }
+                pinnedRoster.Url = rosterUrl;
+                _botDb.SaveChanges();
+
+                var builder = new EmbedBuilder()
+                    .WithColor(Color.Green);
+
+                if (string.IsNullOrEmpty(rosterUrl))
+                {
+                    builder.WithDescription($"Reset pinned roster for {clan.Name}.");
+                }
+                else
+                {
+                    builder.WithDescription($"Pinned [Roster]({rosterUrl}) for {clan.Name}.");
+                }
+
+                return builder.Build();
+            }
+            catch (Exception ex)
+            {
+                return _embedHelper.ErrorEmbed("Error", ex.Message);
+            }
         }
 
         private object?[][] FormatDataForRosterSpreadsheet(List<CwlSignup> signups)
@@ -556,7 +869,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task SignupDelete(string playerTag)
         {
-            var signups = _botDb.CwlSignups.Where(s => s.PlayerTag == playerTag);
+            var signups = _botDb.CwlSignups.Where(s => s.PlayerTag == playerTag && !s.Archieved);
             if (signups.Any())
             {
                 _botDb.CwlSignups.RemoveRange(signups);
@@ -632,7 +945,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public int GetCurrentSignupCount()
         {
-            return _botDb.CwlSignups.Count();
+            return _botDb.CwlSignups.Where(s => !s.Archieved).Count();
         }
 
         public async Task SignupsReset()
@@ -688,7 +1001,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<string> GetSignupSummaryMessage(SocketMessageComponent interaction)
         {
-            var signup = GetSignup(interaction)!;
+            var signup = GetSignupFromCache(interaction)!;
             var clan = await _clansClient.GetOrFetchClanAsync(signup.ClanTag);
             return $"Account: {signup.PlayerName} ({signup.PlayerTag})\n" +
                 $"Clan: {clan.Name} ({clan.Tag})\n" +

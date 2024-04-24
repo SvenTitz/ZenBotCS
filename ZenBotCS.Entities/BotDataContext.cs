@@ -8,6 +8,7 @@ namespace ZenBotCS.Entities
         public DbSet<DiscordLink> DiscordLinks { get; set; }
         public DbSet<WarHistory> WarHistories { get; set; }
         public DbSet<CwlSignup> CwlSignups { get; set; }
+        public DbSet<PinnedRoster> PinnedRosters { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -17,6 +18,10 @@ namespace ZenBotCS.Entities
 
             modelBuilder.Entity<DiscordLink>()
                 .HasIndex(x => new { x.PlayerTag, x.DiscordId })
+                .IsUnique();
+
+            modelBuilder.Entity<PinnedRoster>()
+                .HasIndex(x => x.ClanTag)
                 .IsUnique();
 
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());

@@ -8,4 +8,5 @@ public class ClanOptions
     public string ColorHex { get; set; } = default!;
     public ulong CwlRoleId { get; set; }
     public bool IsFWA { get; set; }
+    public bool DisableCwlSignup { get; set; }
 }

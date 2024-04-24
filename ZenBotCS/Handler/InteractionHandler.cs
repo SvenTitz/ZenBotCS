@@ -27,6 +27,7 @@ internal class InteractionHandler : DiscordClientService
         Client.InteractionCreated += HandleInteraction;
 
         _interactionService.SlashCommandExecuted += SlashCommandExecuted;
+        _interactionService.ComponentCommandExecuted += ComponentCommandExecuted;
 
         await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _provider);
         await Client.WaitForReadyAsync(stoppingToken);
@@ -61,6 +62,44 @@ internal class InteractionHandler : DiscordClientService
             }
         }
 
+        return Task.CompletedTask;
+    }
+
+    private Task ComponentCommandExecuted(ComponentCommandInfo commandInfo, IInteractionContext context, IResult result)
+    {
+        if (!result.IsSuccess)
+        {
+            switch (result.Error)
+            {
+                case InteractionCommandError.UnmetPrecondition:
+                    if (commandInfo.Name == "button_cwl_signup_reopen" || commandInfo.Name == "button_cwl_signup_close")
+                    {
+                        var userName = (context.User as SocketGuildUser)?.DisplayName;
+                        context.Interaction.RespondAsync($"You know you were not supposed to press that button {userName} <:sus:1231358163320574044> " +
+                            "\nYour name has been reported to the authorities <:monkaGun:1231358440543228014> ", ephemeral: true);
+                    }
+                    else
+                    {
+                        context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
+                    }
+                    break;
+                case InteractionCommandError.UnknownCommand:
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
+                    break;
+                case InteractionCommandError.BadArgs:
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
+                    break;
+                case InteractionCommandError.Exception:
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
+                    break;
+                case InteractionCommandError.Unsuccessful:
+                    context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
+                    break;
+                default:
+                    break;
+            }
+
+        }
         return Task.CompletedTask;
     }
 

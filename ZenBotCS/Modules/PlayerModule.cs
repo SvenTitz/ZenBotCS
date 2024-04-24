@@ -9,6 +9,17 @@ namespace ZenBotCS.Modules
     [Group("player", "Commands related to players")]
     public class PlayerModule : InteractionModuleBase<SocketInteractionContext>
     {
+        public required PlayerService PlayerService { get; set; }
+
+        [SlashCommand("to-do", "Lists open war attacks and their remaining times.")]
+        public async Task ToDo([Summary("User")] SocketUser? user = null)
+        {
+            await DeferAsync();
+            user ??= Context.User;
+            var embed = await PlayerService.ToDo(user);
+            await FollowupAsync(embed: embed);
+        }
+
         [Group("stats", "Commands related to player stats")]
         public class PlayerStatsModule : InteractionModuleBase<SocketInteractionContext>
         {

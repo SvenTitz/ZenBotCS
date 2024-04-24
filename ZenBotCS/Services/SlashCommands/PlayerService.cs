@@ -4,6 +4,7 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using System.Text;
+using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models.ClashKingApi;
 using ZenBotCS.Helper;
@@ -12,13 +13,14 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands
 {
-    public class PlayerService(EmbedHelper embedHelper, ClashKingApiClient ckApiClient, BotDataContext botDb, ILogger<PlayerService> logger, PlayersClient playersClient)
+    public class PlayerService(EmbedHelper embedHelper, ClashKingApiClient ckApiClient, BotDataContext botDb, ILogger<PlayerService> logger, PlayersClient playersClient, CustomClansClient clansClient)
     {
         private readonly EmbedHelper _embedHelper = embedHelper;
         private readonly ClashKingApiClient _ckApiClient = ckApiClient;
         private readonly BotDataContext _botDb = botDb;
         private readonly ILogger<PlayerService> _logger = logger;
         private readonly PlayersClient _playersClient = playersClient;
+        private readonly CustomClansClient _clansClient = clansClient;
 
         public async Task<Embed> StatsMisses(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter)
         {
@@ -246,6 +248,71 @@ namespace ZenBotCS.Services.SlashCommands
                 return _embedHelper.ErrorEmbed("Error", ex.Message);
             }
         }
+
+        public async Task<Embed> ToDo(SocketUser user)
+        {
+            try
+            {
+                var players = await GetPlayersFromTagAndUser(null, user);
+
+                if (players is null || players.Count == 0)
+                    return _embedHelper.ErrorEmbed("Error", "No accounts linked to you.");
+
+                var playerTags = players.Select(p => p.Tag).ToList();
+                var clanTags = (await _clansClient.GetCachedClansAsync()).Select(c => c.Tag);
+                List<OpenAttacks> openAttacks = [];
+
+                foreach (var clanTag in clanTags)
+                {
+                    var war = (await _clansClient.GetActiveClanWarOrDefaultAsync(clanTag))?.Content;
+                    if (war is null || war.EndTime < DateTime.Now || war.State != WarState.InWar)
+                        continue;
+
+                    var warClan = war.Clan.Tag == clanTag
+                        ? war.Clan
+                        : war.Opponent;
+
+                    var warMembers = warClan.Members.Where(m => playerTags.Contains(m.Tag)).ToList();
+
+                    if (warMembers is null || warMembers.Count == 0)
+                        continue;
+
+                    foreach (var warMember in warMembers)
+                    {
+                        if (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember)
+                        {
+                            var attackCount = war.AttacksPerMember - (warMember.Attacks?.Count ?? 0);
+                            openAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, attackCount, war.EndTime));
+                        }
+                    }
+                }
+
+                if (openAttacks.Count == 0)
+                {
+                    return new EmbedBuilder()
+                        .WithDescription("You don't have any open attacks.")
+                        .Build();
+                }
+
+                var description = new StringBuilder();
+                foreach (var a in openAttacks)
+                {
+                    var timestamp = (long)a.WarEndTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+                    var attacksSuffix = a.AttackCount > 1 ? "s" : "";
+                    description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}** until <t:{timestamp}:t>");
+                }
+                return new EmbedBuilder()
+                    .WithTitle($"Open Attacks for {user.GlobalName}")
+                    .WithDescription(description.ToString())
+                    .WithColor(Color.DarkPurple)
+                    .Build();
+            }
+            catch (Exception ex)
+            {
+                return _embedHelper.ErrorEmbed("Error", ex.Message);
+            }
+        }
+
 
         internal async Task<List<Player>> GetPlayersFromTagAndUser(string? playerTag, SocketUser? user)
         {
