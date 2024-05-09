@@ -119,8 +119,8 @@ public class GspreadService
         // Merge day cells
         for (int i = 0; i < 7; i++)
         {
-            string mergeStartCell = GetColumnLetter(2 + 5 * i) + "1";
-            string mergeEndCell = GetColumnLetter(6 + 5 * i) + "1";
+            string mergeStartCell = GetColumnLetter(3 + 3 * i) + "1";
+            string mergeEndCell = GetColumnLetter(5 + 3 * i) + "1";
             var update = _sheetsService.Spreadsheets.BatchUpdate(new BatchUpdateSpreadsheetRequest
             {
                 Requests = new List<Request>
@@ -135,8 +135,8 @@ public class GspreadService
                                 SheetId = sheetId,
                                 StartRowIndex = 0,
                                 EndRowIndex = 0,
-                                StartColumnIndex = (2 + 5 * i),
-                                EndColumnIndex = (6 + 5 * i)
+                                StartColumnIndex = (3 + 3 * i),
+                                EndColumnIndex = (5 + 3 * i)
                             }
                         }
                     }

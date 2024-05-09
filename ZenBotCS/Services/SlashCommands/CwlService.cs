@@ -30,9 +30,9 @@ namespace ZenBotCS.Services.SlashCommands
         IConfiguration _config,
         ILogger<CwlService> _logger)
     {
-        private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH", "+/-", "Defence"];
-        private static readonly string[] _cwlEmptyAttack = ["", "", "", "", "-"];
-        private static readonly string[] _cwlMissedAttack = ["0", "0", "", "", "-"];
+        private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH"];
+        private static readonly string[] _cwlEmptyAttack = ["", "", ""];
+        private static readonly string[] _cwlMissedAttack = ["0", "0", ""];
         private static readonly EmbedFieldBuilder _cwlDataInstructionField = new EmbedFieldBuilder()
             .WithName("Instructions:")
             .WithValue("1. Open the spreadsheet above and copy all lines containing player data (everything except the first two).\n" +
@@ -1019,11 +1019,11 @@ namespace ZenBotCS.Services.SlashCommands
         private object[][] FormatDataForDataSpreadsheet(List<CwlDataMemberModel> memberModels, ClanWarLeagueClan clan)
         {
             var data = new List<List<object>>();
-            var days = new List<object> { "", "" };
-            var headers = new List<object> { "Players", "TH" };
+            var days = new List<object> { "", "", "" };
+            var headers = new List<object> { "Players", "TH", "Bonus" };
             for (int i = 0; i < 7; i++)
             {
-                days.AddRange(new[] { $"Day {i + 1}", "", "", "", "" });
+                days.AddRange(new[] { $"Day {i + 1}", "", "" });
                 headers.AddRange(_cwlDataHeaders);
             }
             data.Add(days);
@@ -1031,10 +1031,13 @@ namespace ZenBotCS.Services.SlashCommands
 
             foreach (var member in memberModels)
             {
+                var signup = _botDb.CwlSignups.FirstOrDefault(s => s.PlayerTag == member.Member.Tag && !s.Archieved);
+                var bonus = signup?.Bonus ?? false;
                 var memberRow = new List<object>
                 {
                     member.Member.Name,
-                    member.Member.TownhallLevel
+                    member.Member.TownhallLevel,
+                    bonus ? "Y" : ""
                 };
                 for (int i = 0; i < 7; i++)
                 {
@@ -1053,8 +1056,6 @@ namespace ZenBotCS.Services.SlashCommands
                                 member.Attacks[i]!.Stars.ToString(),
                                 member.Attacks[i]!.DestructionPercentage.ToString(),
                                 member.Attacks[i]!.DefenderTownHall.ToString(),
-                                (member.Attacks[i]!.DefenderTownHall - member.Attacks[i]!.AttackerTownHall).ToString(),
-                                "-"
                             });
                     }
                 }
