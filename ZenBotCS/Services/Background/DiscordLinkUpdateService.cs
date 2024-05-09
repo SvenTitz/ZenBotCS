@@ -17,7 +17,13 @@ namespace ZenBotCS.Services.Background
                 {
                     var _linksService = scope.ServiceProvider.GetRequiredService<SlashCommands.LinksService>();
 
-                    await _linksService.Update();
+                    try {
+                        await _linksService.Update();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in DiscordLinkUpdateService");
+                    }
                 }
 
                 await Task.Delay(new TimeSpan(hours: 0, minutes: 10, seconds: 0), stoppingToken);
