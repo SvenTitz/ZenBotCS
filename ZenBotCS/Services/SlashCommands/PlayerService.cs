@@ -261,11 +261,14 @@ namespace ZenBotCS.Services.SlashCommands
                 var playerTags = players.Select(p => p.Tag).ToList();
                 var clanTags = (await _clansClient.GetCachedClansAsync()).Select(c => c.Tag);
                 List<OpenAttacks> openAttacks = [];
+                List<OpenAttacks> upcomingAttacks = [];
 
                 foreach (var clanTag in clanTags)
                 {
                     var war = (await _clansClient.GetActiveClanWarOrDefaultAsync(clanTag))?.Content;
-                    if (war is null || war.EndTime < DateTime.Now || war.State != WarState.InWar)
+                    if (war is null
+                        || war.EndTime < DateTime.Now
+                        || (war.State != WarState.InWar && war.State != WarState.Preparation))
                         continue;
 
                     var warClan = war.Clan.Tag == clanTag
@@ -279,33 +282,63 @@ namespace ZenBotCS.Services.SlashCommands
 
                     foreach (var warMember in warMembers)
                     {
-                        if (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember)
+                        if (war.State == WarState.InWar
+                            && (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember))
                         {
                             var attackCount = war.AttacksPerMember - (warMember.Attacks?.Count ?? 0);
-                            openAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, attackCount, war.EndTime));
+                            openAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, attackCount, war.EndTime, war.StartTime));
                         }
+                        else if (war.State == WarState.Preparation)
+                        {
+                            upcomingAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
                     }
                 }
-
-                if (openAttacks.Count == 0)
-                {
-                    return new EmbedBuilder()
-                        .WithDescription("You don't have any open attacks.")
-                        .Build();
                 }
 
+                openAttacks = [.. openAttacks.OrderBy(a => a.WarStartTime)];
+                upcomingAttacks = [.. upcomingAttacks.OrderBy(a => a.WarStartTime)];
+
+
+                var embedBuilder = new EmbedBuilder()
+                    .WithTitle($"To-Do's for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}")
+                    .WithColor(Color.DarkPurple);
+
                 var description = new StringBuilder();
+
+                if (openAttacks.Count > 0)
+                {
                 foreach (var a in openAttacks)
                 {
                     var timestamp = (long)a.WarEndTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
                     var attacksSuffix = a.AttackCount > 1 ? "s" : "";
-                    description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}** until <t:{timestamp}:t>");
+                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}** until <t:{timestamp}:t>, <t:{timestamp}:R>");
+                    }
+
                 }
-                return new EmbedBuilder()
-                    .WithTitle($"Open Attacks for {user.GlobalName}")
-                    .WithDescription(description.ToString())
-                    .WithColor(Color.DarkPurple)
-                    .Build();
+                else
+                {
+                    description.AppendLine("- none");
+                }
+                embedBuilder.AddField($"Open Attacks", description.ToString(), false);
+
+
+                description = new StringBuilder();
+                if (upcomingAttacks.Count > 0)
+                {
+                    foreach (var a in upcomingAttacks)
+                    {
+                        var timestamp = (long)a.WarStartTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+                        var attacksSuffix = a.AttackCount > 1 ? "s" : "";
+                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}**. War starts at <t:{timestamp}:t>, <t:{timestamp}:R>");
+                    }
+                }
+                else
+                {
+                    description.AppendLine("- none");
+                }
+                embedBuilder.AddField($"Upcoming Attacks", description.ToString(), false);
+
+                return embedBuilder.Build();
             }
             catch (Exception ex)
             {
