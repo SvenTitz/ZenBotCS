@@ -1,5 +1,6 @@
 ﻿using Discord.Interactions;
 using Discord.WebSocket;
+using System.ComponentModel;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
@@ -42,12 +43,13 @@ namespace ZenBotCS.Modules
             public async Task Attacks(
                [Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))] string? playerTag = null,
                [Summary("User")] SocketUser? user = null,
-               [Summary("WarTypeFilter")] WarTypeFilter warTypeFiler = WarTypeFilter.RegularAndCWL)
+               [Summary("WarTypeFilter")] WarTypeFilter warTypeFiler = WarTypeFilter.RegularAndCWL,
+               [Summary("NumberOfDays"), Description("Limits the stats to the last X days")] uint limitDays = 0)
             {
                 await DeferAsync();
                 if (playerTag is null && user is null)
                     user = Context.User;
-                var embed = await PlayerService.StatsAttacks(playerTag, user, warTypeFiler);
+                var embed = await PlayerService.StatsAttacks(playerTag, user, warTypeFiler, limitDays);
                 await FollowupAsync(embed: embed);
             }
         }

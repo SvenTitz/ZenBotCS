@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using ZenBotCS.Entities.Models.ClashKingApi;
+using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 
 namespace ZenBotCS
 {
@@ -66,7 +67,7 @@ namespace ZenBotCS
             return [];
         }
 
-        public async Task<List<WarData>> GetClanWarHistory(string clanTag, int limit = 50)
+        public async Task<List<Entities.Models.ClashKingApi.WarData>> GetClanWarHistory(string clanTag, int limit = 50)
         {
             UriBuilder uriBuilder = new();
             try
@@ -81,15 +82,15 @@ namespace ZenBotCS
                 response.EnsureSuccessStatusCode();
                 var resultJson = await response.Content.ReadAsStringAsync();
                 var parsedResponse = JToken.Parse(resultJson);
-                List<WarData>? warDataList = null;
+                List<Entities.Models.ClashKingApi.WarData>? warDataList = null;
                 if (parsedResponse != null && parsedResponse is JArray freshResponse)
                 {
-                    warDataList = freshResponse.ToObject<List<WarData>>();
+                    warDataList = freshResponse.ToObject<List<Entities.Models.ClashKingApi.WarData>>();
                 }
                 else if (parsedResponse != null && parsedResponse is JArray cachedResponse)
                 {
                     string cachedBody = (string)cachedResponse["body"]!;
-                    warDataList = JsonConvert.DeserializeObject<List<WarData>>(cachedBody);
+                    warDataList = JsonConvert.DeserializeObject<List<Entities.Models.ClashKingApi.WarData>>(cachedBody);
                 }
                 return warDataList ?? [];
             }
@@ -101,38 +102,33 @@ namespace ZenBotCS
             return [];
         }
 
-        public async Task<IEnumerable<WarAttack>> GetPlayerWarAttacksAsync(string playerTag)
+        public async Task<PlayerWarhits> GetPlayerWarAttacksAsync(string playerTag, uint limitDays)
         {
             UriBuilder uriBuilder = new UriBuilder();
             try
             {
+                var timespampStart = limitDays > 0
+                    ? DateTimeOffset.Now.AddDays(-limitDays).ToUnixTimeSeconds()
+                    : 0;
+
                 uriBuilder.Host = _httpClient.BaseAddress!.Host;
                 uriBuilder.Scheme = _httpClient.BaseAddress.Scheme;
                 uriBuilder.Port = _httpClient.BaseAddress.Port;
                 uriBuilder.Path = $"/player/{Uri.EscapeDataString(playerTag)}/warhits";
+                uriBuilder.Query = $"?timestamp_start={timespampStart}&timestamp_end={int.MaxValue}&limit={int.MaxValue}";
 
                 var response = await _httpClient.GetAsync(uriBuilder.Uri);
                 response.EnsureSuccessStatusCode();
                 var resultJson = await response.Content.ReadAsStringAsync();
-                var parsedResponse = JObject.Parse(resultJson);
-                WarApiResponse? warApiResponse = null;
-                if (parsedResponse != null && parsedResponse.ContainsKey("attacks"))
-                {
-                    warApiResponse = parsedResponse.ToObject<WarApiResponse>();
-                }
-                else if (parsedResponse != null && parsedResponse.ContainsKey("body"))
-                {
-                    string cachedBody = (string)parsedResponse["body"]!;
-                    warApiResponse = JsonConvert.DeserializeObject<WarApiResponse>(cachedBody);
-                }
-                return warApiResponse?.Attacks ?? [];
+                var result = JsonConvert.DeserializeObject<PlayerWarhits>(resultJson);
+                return result ?? new();
             }
             catch (Exception ex)
             {
                 // TODO
                 _logger.LogError(ex, "Error in GetPlayerWarAttacksAsync");
             }
-            return [];
+            return new();
         }
 
         public class WarApiResponse

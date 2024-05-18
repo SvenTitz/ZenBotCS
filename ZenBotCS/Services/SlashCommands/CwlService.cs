@@ -14,7 +14,6 @@ using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
-using ZenBotCS.Modules;
 using WarPreference = ZenBotCS.Entities.Models.Enums.WarPreference;
 
 namespace ZenBotCS.Services.SlashCommands

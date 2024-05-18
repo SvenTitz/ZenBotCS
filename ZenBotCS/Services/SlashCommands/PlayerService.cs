@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Text;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
-using ZenBotCS.Entities.Models.ClashKingApi;
+using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
 using ZenBotCS.Models.Enums;
@@ -135,7 +135,7 @@ namespace ZenBotCS.Services.SlashCommands
         }
 
 
-        public async Task<Embed> StatsAttacks(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter)
+        public async Task<Embed> StatsAttacks(string? playerTag, SocketUser? user, WarTypeFilter warTypeFilter, uint limitDays)
         {
             if (playerTag is null && user is null)
             {
@@ -149,19 +149,19 @@ namespace ZenBotCS.Services.SlashCommands
                 if (!players.Any())
                     return _embedHelper.ErrorEmbed("Error", "Could not find any Players linked to that user.");
 
-                List<WarAttack> warHits = [];
+                PlayerWarhits warHits = new();
                 foreach (var player in players)
                 {
-                    warHits.AddRange(await _ckApiClient.GetPlayerWarAttacksAsync(player!.Tag));
+                    warHits.Items.AddRange((await _ckApiClient.GetPlayerWarAttacksAsync(player!.Tag, limitDays)).Items);
                 }
 
                 if (warTypeFilter == WarTypeFilter.CWLOnly)
                 {
-                    warHits = warHits.Where(wh => wh.WarType == "cwl").ToList();
+                    warHits.Items = warHits.Items.Where(i => i.WarData.Type == "cwl").ToList();
                 }
                 else if (warTypeFilter == WarTypeFilter.RegularOnly)
                 {
-                    warHits = warHits.Where(wh => wh.WarType != "cwl").ToList();
+                    warHits.Items = warHits.Items.Where(i => i.WarData.Type != "cwl").ToList();
                 }
 
                 var stringBuilder = new StringBuilder();
@@ -172,13 +172,15 @@ namespace ZenBotCS.Services.SlashCommands
                 stringBuilder.Append($"THs:      ");
                 stringBuilder.AppendLine(string.Join(" | ", players.Select(p => p?.TownHallLevel)));
                 stringBuilder.Append($"Attacks:  ");
-                stringBuilder.AppendLine(warHits.Count.ToString());
+                stringBuilder.AppendLine(warHits.Items.Sum(i => i.Attacks.Count).ToString());
+                stringBuilder.Append("Misses:   ");
+                stringBuilder.AppendLine(warHits.Items.Sum(i => (i.WarData.AttacksPerMember > 0 ? i.WarData.AttacksPerMember : 1) - i.Attacks.Count).ToString());
                 stringBuilder.AppendLine();
 
 
                 // stringBuilder.Append("\n\n");
 
-                var groupedHits = warHits.GroupBy(wh => wh.Townhall).OrderByDescending(g => g.Key);
+                var groupedHits = warHits.Items.GroupBy(i => i.MemberData.TownhallLevel).OrderByDescending(g => g.Key);
 
                 var data = new List<string[]>
                 {
@@ -187,41 +189,42 @@ namespace ZenBotCS.Services.SlashCommands
 
                 foreach (var group in groupedHits)
                 {
-                    var reacheHits = group.Where(wh => wh.DefenderTownhall > group.Key);
+                    var attacks = group.SelectMany(i => i.Attacks).ToList();
+                    var reacheHits = attacks.Where(a => a.Defender.TownhallLevel > group.Key);
                     data.Add(
                     [
-                      $"{group.Key} Reach",
+                      $"{group.Key}Rea",
                         $"{reacheHits.Count(wh => wh.Stars == 0)}/{reacheHits.Count()}",
                         $"{reacheHits.Count(wh => wh.Stars == 1)}/{reacheHits.Count()}",
                         $"{reacheHits.Count(wh => wh.Stars == 2)}/{reacheHits.Count()}",
                         $"{reacheHits.Count(wh => wh.Stars == 3)}/{reacheHits.Count()}",
-                        (reacheHits.Count(wh => wh.Stars >= 2) / (double)reacheHits.Count()).ToString("0%")
+                        reacheHits.Count() == 0 ? " - " : (reacheHits.Count(wh => wh.Stars >= 2) / (double)reacheHits.Count()).ToString("0%")
                     ]);
                     if (group.Key < 10)
                         data.Last()[0] = data.Last()[0] + " ";
 
-                    var evenHits = group.Where(wh => wh.DefenderTownhall == group.Key);
+                    var evenHits = attacks.Where(a => a.Defender.TownhallLevel == group.Key);
                     data.Add(
                     [
-                      $"{group.Key} vs {group.Key}",
+                      $"{group.Key}v{group.Key}",
                         $"{evenHits.Count(wh => wh.Stars == 0)}/{evenHits.Count()}",
                         $"{evenHits.Count(wh => wh.Stars == 1)}/{evenHits.Count()}",
                         $"{evenHits.Count(wh => wh.Stars == 2)}/{evenHits.Count()}",
                         $"{evenHits.Count(wh => wh.Stars == 3)}/{evenHits.Count()}",
-                        (evenHits.Count(wh => wh.Stars == 3) / (double)evenHits.Count()).ToString("0%")
+                        evenHits.Count() == 0 ? " - " : (evenHits.Count(wh => wh.Stars == 3) / (double)evenHits.Count()).ToString("0%")
                     ]);
                     if (group.Key < 10)
                         data.Last()[0] = data.Last()[0] + "  ";
 
-                    var dipHits = group.Where(wh => wh.DefenderTownhall < group.Key);
+                    var dipHits = attacks.Where(a => a.Defender.TownhallLevel < group.Key);
                     data.Add(
                     [
-                      $"{group.Key} Dip  ",
+                      $"{group.Key}Dip",
                         $"{dipHits.Count(wh => wh.Stars == 0)}/{dipHits.Count()}",
                         $"{dipHits.Count(wh => wh.Stars == 1)}/{dipHits.Count()}",
                         $"{dipHits.Count(wh => wh.Stars == 2)}/{dipHits.Count()}",
                         $"{dipHits.Count(wh => wh.Stars == 3)}/{dipHits.Count()}",
-                        (dipHits.Count(wh => wh.Stars == 3) / (double)dipHits.Count()).ToString("0%")
+                        dipHits.Count() == 0 ? " - " : (dipHits.Count(wh => wh.Stars == 3) / (double)dipHits.Count()).ToString("0%")
                     ]);
                     if (group.Key < 10)
                         data.Last()[0] = data.Last()[0] + " ";
@@ -291,8 +294,8 @@ namespace ZenBotCS.Services.SlashCommands
                         else if (war.State == WarState.Preparation)
                         {
                             upcomingAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
+                        }
                     }
-                }
                 }
 
                 openAttacks = [.. openAttacks.OrderBy(a => a.WarStartTime)];
@@ -307,10 +310,10 @@ namespace ZenBotCS.Services.SlashCommands
 
                 if (openAttacks.Count > 0)
                 {
-                foreach (var a in openAttacks)
-                {
-                    var timestamp = (long)a.WarEndTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-                    var attacksSuffix = a.AttackCount > 1 ? "s" : "";
+                    foreach (var a in openAttacks)
+                    {
+                        var timestamp = (long)a.WarEndTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+                        var attacksSuffix = a.AttackCount > 1 ? "s" : "";
                         description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}** until <t:{timestamp}:t>, <t:{timestamp}:R>");
                     }
 

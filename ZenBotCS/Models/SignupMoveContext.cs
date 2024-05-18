@@ -1,6 +1,6 @@
 ﻿using CocApi.Rest.Models;
 
-namespace ZenBotCS.Modules
+namespace ZenBotCS.Models
 {
     public class SignupMoveContext
     {
