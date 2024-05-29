@@ -10,10 +10,26 @@ namespace ZenBotCS.Helper
     {
         private readonly ILogger<DiscordClientService> _logger;
 
+        private static readonly Dictionary<char, char> SuperscriptDigits = new Dictionary<char, char>
+        {
+            {'0', '⁰'},
+            {'1', '¹'},
+            {'2', '²'},
+            {'3', '³'},
+            {'4', '⁴'},
+            {'5', '⁵'},
+            {'6', '⁶'},
+            {'7', '⁷'},
+            {'8', '⁸'},
+            {'9', '⁹'}
+        };
+
         public EmbedHelper(ILogger<DiscordClientService> logger)
         {
             _logger = logger;
         }
+
+
 
         public string FormatAsTableOld(List<string[]> data, int minColSize)
         {
@@ -156,6 +172,19 @@ namespace ZenBotCS.Helper
                     _logger.LogError("Missing Text Aling in FillTextWithSpace");
                     return string.Concat(text, new string(' ', widthDif));
             }
+        }
+
+        public string ToSuperscript(int number)
+        {
+            string numberString = number.ToString();
+            char[] superscriptChars = new char[numberString.Length];
+
+            for (int i = 0; i < numberString.Length; i++)
+            {
+                superscriptChars[i] = SuperscriptDigits[numberString[i]];
+            }
+
+            return new string(superscriptChars);
         }
 
     }

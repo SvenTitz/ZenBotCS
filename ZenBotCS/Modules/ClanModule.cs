@@ -1,5 +1,7 @@
-﻿using Discord.Interactions;
+﻿using CocApi.Cache.Services;
+using Discord.Interactions;
 using ZenBotCS.Handler;
+using ZenBotCS.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Modules;
@@ -7,7 +9,7 @@ namespace ZenBotCS.Modules;
 [Group("clan", "Commands to add, remove or get info about clans.")]
 public class ClanModule : InteractionModuleBase<SocketInteractionContext>
 {
-    public required ClanService ClanService { get; set; }
+    public required Services.SlashCommands.ClanService ClanService { get; set; }
 
     [RequireUserPermission(Discord.GuildPermission.Administrator)]
     [SlashCommand("add", "Add a Clan to the bot.")]
@@ -45,5 +47,29 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
         await FollowupAsync(embed: embed);
     }
 
+    [Group("stats", "Commands related to clan stats")]
+    public class ClanStatsModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        public required Services.SlashCommands.ClanService ClanService { get; set; }
 
+        [SlashCommand("attacks", "Get a breakdown of players war attacks")]
+        public async Task Attacks(
+            [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))]
+                string clanTag,
+            [Summary("AttackStatFilter", "Determin which stat you are looking for (default = Even3Star)")]
+                AttackStatFilter attackStatFilter = AttackStatFilter.Even3Star,
+            [Summary("WarTypeFilter", "Filter between Regular wars and CWL (default = RegularAndCWL)")]
+                WarTypeFilter warTypeFilter = WarTypeFilter.RegularAndCWL,
+            [Summary("NumberOfWars", "Limits the stats to the last X wars (max = default = 50)")]
+                uint limitWars = 50,
+            [Summary("MinNumberOfAttacks", "Minimum Number of attacks need to display stats (default = 4)")]
+                uint minNumberAttacks = 4,
+             [Summary("PlayerTownhall", "Let's you only show stats for a certain TH. No entry = all THs (default = all THs)"), Autocomplete(typeof(TownHallAutocompleteHandler))]
+                int? playerTh = null)
+        {
+            await DeferAsync();
+            var embed = await ClanService.StatsAttacks(clanTag, attackStatFilter, warTypeFilter, limitWars, minNumberAttacks, playerTh);
+            await FollowupAsync(embed: embed);
+        }
+    }
 }
