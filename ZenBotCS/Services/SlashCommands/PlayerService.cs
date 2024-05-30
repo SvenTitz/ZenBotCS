@@ -320,7 +320,7 @@ namespace ZenBotCS.Services.SlashCommands
                 }
                 else
                 {
-                    description.AppendLine("- none");
+                    description.AppendLine("- None");
                 }
                 embedBuilder.AddField($"Open Attacks", description.ToString(), false);
 
@@ -337,7 +337,7 @@ namespace ZenBotCS.Services.SlashCommands
                 }
                 else
                 {
-                    description.AppendLine("- none");
+                    description.AppendLine("- None");
                 }
                 embedBuilder.AddField($"Upcoming Attacks", description.ToString(), false);
 
