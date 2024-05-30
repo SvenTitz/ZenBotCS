@@ -3,8 +3,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
-using ZenBotCS.Entities.Models.ClashKingApi;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
+using Legends = ZenBotCS.Entities.Models.ClashKingApi.Legends;
 
 namespace ZenBotCS
 {
@@ -131,9 +131,69 @@ namespace ZenBotCS
             return new();
         }
 
-        public class WarApiResponse
+        public async Task<string> GetCurrentSeason()
         {
-            public List<WarAttack> Attacks { get; set; } = null!;
+            UriBuilder uriBuilder = new();
+            try
+            {
+                uriBuilder.Host = _httpClient.BaseAddress!.Host;
+                uriBuilder.Scheme = _httpClient.BaseAddress.Scheme;
+                uriBuilder.Port = _httpClient.BaseAddress.Port;
+                uriBuilder.Path = $"/list/seasons";
+                uriBuilder.Query = $"?last=0";
+
+                var response = await _httpClient.GetAsync(uriBuilder.Uri);
+                response.EnsureSuccessStatusCode();
+                var resultJson = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<string[]>(resultJson);
+                return result?.FirstOrDefault() ?? "";
+            }
+            catch (Exception ex)
+            {
+                // TODO
+                _logger.LogError(ex, "Error in GetCurrentSeason");
+            }
+            return "";
+        }
+
+
+        public string GetCurrentLegendDay()
+        {
+            DateTime utcNow = DateTime.UtcNow;
+
+            DateTime switchTime = new DateTime(utcNow.Year, utcNow.Month, utcNow.Day, 5, 0, 0, DateTimeKind.Utc);
+
+            if (utcNow < switchTime)
+            {
+                switchTime = switchTime.AddDays(-1);
+            }
+
+            return switchTime.ToString("yyyy-MM-dd");
+        }
+
+        public async Task<Legends.Player> GetPlayerLegends(string playerTag, string season)
+        {
+            UriBuilder uriBuilder = new();
+            try
+            {
+                uriBuilder.Host = _httpClient.BaseAddress!.Host;
+                uriBuilder.Scheme = _httpClient.BaseAddress.Scheme;
+                uriBuilder.Port = _httpClient.BaseAddress.Port;
+                uriBuilder.Path = $"/player/{Uri.EscapeDataString(playerTag)}/legends";
+                uriBuilder.Query = $"?season={season}";
+
+                var response = await _httpClient.GetAsync(uriBuilder.Uri);
+                response.EnsureSuccessStatusCode();
+                var resultJson = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<Legends.Player>(resultJson);
+                return result ?? new();
+            }
+            catch (Exception ex)
+            {
+                // TODO
+                _logger.LogError(ex, "Error in GetCurrentSeason");
+            }
+            return new();
         }
 
     }

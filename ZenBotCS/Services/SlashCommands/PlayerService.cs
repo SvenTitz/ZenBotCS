@@ -289,11 +289,11 @@ namespace ZenBotCS.Services.SlashCommands
                             && (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember))
                         {
                             var attackCount = war.AttacksPerMember - (warMember.Attacks?.Count ?? 0);
-                            openAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, attackCount, war.EndTime, war.StartTime));
+                            openAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, attackCount, war.EndTime, war.StartTime));
                         }
                         else if (war.State == WarState.Preparation)
                         {
-                            upcomingAttacks.Add(new OpenAttacks(warMember.Name, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
+                            upcomingAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
                         }
                     }
                 }
@@ -314,7 +314,7 @@ namespace ZenBotCS.Services.SlashCommands
                     {
                         var timestamp = (long)a.WarEndTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
                         var attacksSuffix = a.AttackCount > 1 ? "s" : "";
-                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}** until <t:{timestamp}:t>, <t:{timestamp}:R>");
+                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}{_embedHelper.ToSuperscript(a.PlayerTh)}** in **{a.ClanName}** until <t:{timestamp}:t>, <t:{timestamp}:R>");
                     }
 
                 }
@@ -332,7 +332,7 @@ namespace ZenBotCS.Services.SlashCommands
                     {
                         var timestamp = (long)a.WarStartTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
                         var attacksSuffix = a.AttackCount > 1 ? "s" : "";
-                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}** in **{a.ClanName}**. War starts at <t:{timestamp}:t>, <t:{timestamp}:R>");
+                        description.AppendLine($"- **{a.AttackCount}** attack{attacksSuffix} with **{a.PlayerName}{_embedHelper.ToSuperscript(a.PlayerTh)}** in **{a.ClanName}**. War starts at <t:{timestamp}:t>, <t:{timestamp}:R>");
                     }
                 }
                 else
@@ -340,6 +340,30 @@ namespace ZenBotCS.Services.SlashCommands
                     description.AppendLine("- none");
                 }
                 embedBuilder.AddField($"Upcoming Attacks", description.ToString(), false);
+
+
+                description = new StringBuilder();
+                var season = await _ckApiClient.GetCurrentSeason();
+                foreach (var player in players)
+                {
+                    if (player.League?.Name != "Legend League")
+                        continue;
+
+                    var legendPlayer = await _ckApiClient.GetPlayerLegends(player.Tag, season);
+                    var numAttacks = legendPlayer.Legends[_ckApiClient.GetCurrentLegendDay()].NumAttacks;
+                    if (numAttacks == 8)
+                        description.Append("~~");
+                    description.Append($"- {numAttacks}/8 on **{player.Name}{_embedHelper.ToSuperscript(player.TownHallLevel)}**");
+                    if (numAttacks == 8)
+                        description.Append("~~");
+                    description.AppendLine();
+                }
+                if (description.Length > 0)
+                {
+                    embedBuilder.AddField($"Legend League Attacks", description.ToString(), false);
+                }
+
+
 
                 return embedBuilder.Build();
             }
