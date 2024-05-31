@@ -954,6 +954,7 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task SignupsReset()
         {
             await _botDb.CwlSignups.Where(s => !s.Archieved).ForEachAsync(s => s.Archieved = true);
+            _botDb.PinnedRosters.RemoveRange(_botDb.PinnedRosters);
             await _botDb.SaveChangesAsync();
         }
 
