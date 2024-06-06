@@ -89,6 +89,7 @@ public class Program
             .AddTransient<CwlService>()
             .AddTransient<HelpService>()
             .AddTransient<LinksService>()
+            .AddTransient<ReminderService>()
             .AddTransient<ClashKingApiClient>()
             .AddTransient<EmbedHelper>()
             .AddTransient<DiscordHelper>()

@@ -9,6 +9,7 @@ namespace ZenBotCS.Entities
         public DbSet<WarHistory> WarHistories { get; set; }
         public DbSet<CwlSignup> CwlSignups { get; set; }
         public DbSet<PinnedRoster> PinnedRosters { get; set; }
+        public DbSet<ReminderMisses> ReminderMisses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -22,6 +23,10 @@ namespace ZenBotCS.Entities
 
             modelBuilder.Entity<PinnedRoster>()
                 .HasIndex(x => x.ClanTag)
+                .IsUnique();
+
+            modelBuilder.Entity<ReminderMisses>()
+                .HasIndex(x => new { x.ChannelId, x.ClanTag })
                 .IsUnique();
 
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ZenBotCS.Entities;
 
@@ -11,9 +12,11 @@ using ZenBotCS.Entities;
 namespace ZenBotCS.Migrations.BotDb
 {
     [DbContext(typeof(BotDataContext))]
-    partial class BotDataContextModelSnapshot : ModelSnapshot
+    [Migration("20240606083300_AddReminderMisses")]
+    partial class AddReminderMisses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
