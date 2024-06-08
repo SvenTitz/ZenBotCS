@@ -122,7 +122,7 @@ namespace ZenBotCS.Services.SlashCommands
                     .WithTitle("Player Missed Attacks*")
                     .WithColor(Color.DarkPurple)
                     .WithDescription(stringBuilder.ToString())
-                    .WithFooter($"Filter: {warTypeFilter}\n*in the least 50 recorded wars for each family clan.");
+                    .WithFooter($"Filter: {warTypeFilter}\n*in the last 50 recorded wars for each family clan.");
 
                 return embedBuilder.Build();
 
