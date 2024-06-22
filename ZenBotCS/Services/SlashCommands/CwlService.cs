@@ -894,9 +894,8 @@ namespace ZenBotCS.Services.SlashCommands
             var playerTags = _gspreadService.GetPlayerTags(spreadsheetUrl);
             var userIds = _botDb.CwlSignups.Where(s => playerTags.Contains(s.PlayerTag)).Select(s => s.DiscordId).ToList();
 
-            var tasks = userIds.Select(async (userId, index) =>
+            foreach (var userId in userIds)
             {
-                await Task.Delay(index * 100);
                 var user = context.Guild.GetUser(userId);
                 if (user != null && !user.Roles.Contains(role))
                 {
@@ -909,9 +908,8 @@ namespace ZenBotCS.Services.SlashCommands
                         _logger.LogError(ex, "Failed to assign role to user {userId}", user.Id);
                     }
                 }
-            });
+            }
 
-            await Task.WhenAll(tasks);
             return "done";
         }
 
@@ -928,20 +926,17 @@ namespace ZenBotCS.Services.SlashCommands
                     .Where(u => u.Roles.Any(r => roleIds.Contains(r.Id)))
                     .ToList();
 
-                var tasks = usersWithRoles.Select(async (user, index) =>
+                foreach (var user in usersWithRoles)
                 {
                     try
                     {
-                        await Task.Delay(index * 100);
                         await user.RemoveRolesAsync(roleIds);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to remove roles from user {userId}", user.Id);
                     }
-                });
-
-                await Task.WhenAll(tasks);
+                }
 
                 return "Done removing roles";
             }
