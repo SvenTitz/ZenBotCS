@@ -715,6 +715,7 @@ namespace ZenBotCS.Services.SlashCommands
                 data.Add(
                 [
                     signup.PlayerName,
+                    signup.PlayerTag,
                     signup.PlayerThLevel,
                     signup.OptOutDays.HasFlag(OptOutDays.Day1) ? "" : 1,
                     signup.OptOutDays.HasFlag(OptOutDays.Day2) ? "" : 1,
@@ -881,48 +882,37 @@ namespace ZenBotCS.Services.SlashCommands
         }
 
 
-        public async Task<string> RolesAssign(SocketInteractionContext context)
+        public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
         {
-            try
+            spreadsheetUrl ??= _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.Url;
+
+            if (spreadsheetUrl == null)
             {
-                var groupedSignups = (await _botDb.CwlSignups.Where(s => !s.Archieved).ToListAsync()).GroupBy(s => s.DiscordId);
-                var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
+                return "Please provide either a spreadsheet-url or select a clan with a pinned roster.";
+            }
 
-                ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
+            var playerTags = _gspreadService.GetPlayerTags(spreadsheetUrl);
+            var userIds = _botDb.CwlSignups.Where(s => playerTags.Contains(s.PlayerTag)).Select(s => s.DiscordId).ToList();
 
-                foreach (var userSignups in groupedSignups)
+            var tasks = userIds.Select(async (userId, index) =>
+            {
+                await Task.Delay(index * 33);
+                var user = context.Guild.GetUser(userId);
+                if (user != null && !user.Roles.Contains(role))
                 {
-                    var clanTags = userSignups.Select(us => us.ClanTag).ToHashSet();
-                    HashSet<ulong> roleIds = [];
-                    foreach (var clanTag in clanTags)
+                    try
                     {
-                        var clanOption = clanOptions?.FirstOrDefault(o => o.ClanTag == clanTag);
-
-                        if (clanOption is not null
-                            && clanOption.CwlRoleId > 0)
-                        {
-                            roleIds.Add(clanOption.CwlRoleId);
-                        }
+                        await user.AddRoleAsync(role);
                     }
-                    if (userSignups.Any(s => s.WarGeneral))
+                    catch (Exception ex)
                     {
-                        roleIds.Add(warGeneralRoleId);
-                    }
-
-                    if (roleIds.Count != 0)
-                    {
-                        var user = context.Guild.GetUser(userSignups.Key);
-                        await user.AddRolesAsync(roleIds);
+                        _logger.LogError(ex, "Failed to assign role to user {userId}", user.Id);
                     }
                 }
+            });
 
-                return $"Added {groupedSignups.SelectMany(s => s).Count()} roles to {groupedSignups.Count()} users.";
-
-            }
-            catch (Exception e)
-            {
-                return $"**Error**: {e.Message}";
-            }
+            await Task.WhenAll(tasks);
+            return "done";
         }
 
         public async Task<string> RolesRemove(SocketInteractionContext context)
@@ -933,10 +923,25 @@ namespace ZenBotCS.Services.SlashCommands
                 var roleIds = clanOptions!.Where(o => o.CwlRoleId > 0).Select(o => o.CwlRoleId).ToList();
                 ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
                 roleIds.Add(warGeneralRoleId);
-                foreach (var user in context.Guild.Users.Where(u => u.Roles.Any(r => roleIds.Contains(r.Id))))
+
+                var usersWithRoles = context.Guild.Users
+                    .Where(u => u.Roles.Any(r => roleIds.Contains(r.Id)))
+                    .ToList();
+
+                var tasks = usersWithRoles.Select(async (user, index) =>
                 {
-                    await user.RemoveRolesAsync(roleIds);
-                }
+                    try
+                    {
+                        await Task.Delay(index * 33);
+                        await user.RemoveRolesAsync(roleIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to remove roles from user {userId}", user.Id);
+                    }
+                });
+
+                await Task.WhenAll(tasks);
 
                 return "Done removing roles";
             }

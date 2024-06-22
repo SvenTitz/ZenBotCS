@@ -7,6 +7,7 @@ using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 using ZenBotCS.Models;
 
 
@@ -154,7 +155,7 @@ public class GspreadService
         var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId);
 
         var updateRequestData = new ValueRange { Values = data };
-        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:L62");
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:M102");
         updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
         updateRequest.Execute();
         return string.Format(UrlTemplate, spreadsheetId, "0");
@@ -203,7 +204,7 @@ public class GspreadService
                     StartRowIndex = 0, // Start row index of the range
                     EndRowIndex = 2, // End row index of the range
                     StartColumnIndex = 0, // Start column index of the range
-                    EndColumnIndex = 12 // End column index of the range
+                    EndColumnIndex = 13 // End column index of the range
                 };
 
                 batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
@@ -214,7 +215,7 @@ public class GspreadService
                     StartRowIndex = 62, // Start row index of the range
                     EndRowIndex = 63, // End row index of the range
                     StartColumnIndex = 0, // Start column index of the range
-                    EndColumnIndex = 12 // End column index of the range
+                    EndColumnIndex = 13 // End column index of the range
                 };
 
                 batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
@@ -300,6 +301,53 @@ public class GspreadService
         };
 
         return new Request { RepeatCell = repeatCellRequest };
+    }
+
+    public List<string> GetPlayerTags(string spreadsheetUrl)
+    {
+        string? spreadsheetId = ExtractSpreadsheetId(spreadsheetUrl);
+        if (string.IsNullOrEmpty(spreadsheetId))
+        {
+            throw new ArgumentException("Invalid spreadsheet URL.");
+        }
+
+        // Define the range for column C
+        string range = $"B:B";
+
+        // Fetch the data from the specified range
+        SpreadsheetsResource.ValuesResource.GetRequest request =
+            _sheetsService.Spreadsheets.Values.Get(spreadsheetId, range);
+
+        ValueRange response = request.Execute();
+        IList<IList<object>> values = response.Values;
+
+        // Prepare a list to hold the results
+        List<string> result = [];
+
+        // Check if there are values in the response
+        if (values != null && values.Count > 0)
+        {
+            // Process the values, excluding the first two and the last one
+            foreach (var value in values)
+            {
+                if (value.Count <= 0)
+                    continue;
+
+                var valueString = value[0].ToString();
+
+                if (valueString?.StartsWith('#') ?? false)
+                    result.Add(valueString);
+            }
+        }
+
+        return result;
+    }
+
+    private string? ExtractSpreadsheetId(string url)
+    {
+        // Use a regular expression to extract the spreadsheet ID
+        var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)");
+        return match.Success ? match.Groups[1].Value : null;
     }
 
 
