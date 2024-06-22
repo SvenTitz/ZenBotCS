@@ -896,7 +896,7 @@ namespace ZenBotCS.Services.SlashCommands
 
             var tasks = userIds.Select(async (userId, index) =>
             {
-                await Task.Delay(index * 33);
+                await Task.Delay(index * 100);
                 var user = context.Guild.GetUser(userId);
                 if (user != null && !user.Roles.Contains(role))
                 {
@@ -932,7 +932,7 @@ namespace ZenBotCS.Services.SlashCommands
                 {
                     try
                     {
-                        await Task.Delay(index * 33);
+                        await Task.Delay(index * 100);
                         await user.RemoveRolesAsync(roleIds);
                     }
                     catch (Exception ex)
