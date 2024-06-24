@@ -15,6 +15,15 @@ public class AttackSuccessModel
         PlayerTh = playerTh;
     }
 
+    public AttackSuccessModel(string playerName, string playerTag, int playerTh, int attackCount, int successCount)
+    {
+        PlayerName = playerName;
+        PlayerTag = playerTag;
+        PlayerTh = playerTh;
+        AttackCount = attackCount;
+        SuccessCount = successCount;
+    }
+
     public void AddMiss()
     {
         AttackCount++;

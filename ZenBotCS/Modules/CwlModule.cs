@@ -292,6 +292,39 @@ namespace ZenBotCS.Modules
                 return;
             }
 
+            if (await CwlService.CheckMaxDefensesQuestionRequired(interaction))
+            {
+                (var message, var components) = CwlService.CreateCwlSignupMaxDefensesSelection();
+                await interaction.ModifyOriginalResponseAsync(x =>
+                {
+                    x.Content = message;
+                    x.Components = components;
+                });
+            }
+            else
+            {
+                (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
+                await interaction.ModifyOriginalResponseAsync(x =>
+                {
+                    x.Content = message;
+                    x.Components = components;
+                });
+            }
+        }
+
+        [ComponentInteraction("menu_cwl_signup_max_defenses", true)]
+        public async Task HandleCwlSignupMaxDefensesSelected()
+        {
+            if (Context.Interaction is not SocketMessageComponent interaction)
+                return;
+            await DeferAsync();
+
+            if (!CwlService.TryUpdateCachedSignupMaxedDefenses(interaction))
+            {
+                await CwlService.HandleInteractionError(interaction);
+                return;
+            }
+
             (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
@@ -365,27 +398,6 @@ namespace ZenBotCS.Modules
                 return;
             }
 
-            (var message, var components) = CwlService.CreateCwlSignupGeneralSelection();
-            await interaction.ModifyOriginalResponseAsync(x =>
-            {
-                x.Content = message;
-                x.Components = components;
-            });
-        }
-
-        [ComponentInteraction("menu_cwl_signup_general", true)]
-        public async Task HandleCwlSignupGeneralSelected()
-        {
-            if (Context.Interaction is not SocketMessageComponent interaction)
-                return;
-            await DeferAsync();
-
-            if (!CwlService.TryUpdateCachedSignupGeneral(interaction))
-            {
-                await CwlService.HandleInteractionError(interaction);
-                return;
-            }
-
             if (!await CwlService.SaveSignupToDb(interaction))
             {
                 await CwlService.HandleInteractionError(interaction);
@@ -408,12 +420,24 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
-            await interaction.ModifyOriginalResponseAsync(x =>
+            if (await CwlService.CheckMaxDefensesQuestionRequired(interaction))
             {
-                x.Content = message;
-                x.Components = components;
-            });
+                (var message, var components) = CwlService.CreateCwlSignupMaxDefensesSelection();
+                await interaction.ModifyOriginalResponseAsync(x =>
+                {
+                    x.Content = message;
+                    x.Components = components;
+                });
+            }
+            else
+            {
+                (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
+                await interaction.ModifyOriginalResponseAsync(x =>
+                {
+                    x.Content = message;
+                    x.Components = components;
+                });
+            }
         }
 
         [ComponentInteraction("button_cwl_signup_clan_cancel", true)]

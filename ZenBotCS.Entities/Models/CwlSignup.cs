@@ -30,6 +30,8 @@ public class CwlSignup
 
     public bool WarGeneral { get; set; }
 
+    public bool MaxDefeneses { get; set; }
+
     public bool Archieved { get; set; }
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

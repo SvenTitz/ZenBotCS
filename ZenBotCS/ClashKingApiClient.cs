@@ -67,6 +67,41 @@ namespace ZenBotCS
             return [];
         }
 
+        public async Task<List<string>> PostDiscordLinksAsync(ulong userId)
+        {
+            var uriBuilder = new UriBuilder
+            {
+                Host = _httpClient.BaseAddress!.Host,
+                Scheme = _httpClient.BaseAddress.Scheme,
+                Port = _httpClient.BaseAddress.Port,
+                Path = $"/discord_links",
+            };
+
+            try
+            {
+                List<string> data = [userId.ToString()];
+                var jsonPayload = JsonConvert.SerializeObject(data);
+                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(uriBuilder.Uri, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var resultJson = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<Dictionary<string, ulong?>>(resultJson);
+                    return result?.Where(kvp => kvp.Value is not null).Select(kvp => kvp.Key).ToList() ?? [];
+                }
+
+                return [];
+            }
+            catch (Exception ex)
+            {
+                // TODO
+                _logger.LogError(ex, "Error in PostDiscordLinksAsync");
+            }
+            return [];
+        }
+
         public async Task<List<Entities.Models.ClashKingApi.WarData>> GetClanWarHistory(string clanTag, int limit = 50)
         {
             UriBuilder uriBuilder = new();

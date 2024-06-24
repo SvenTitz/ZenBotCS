@@ -149,17 +149,55 @@ public class GspreadService
         return string.Format(UrlTemplate, spreadsheetId, sheetId);
     }
 
-    public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan)
+    public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan, bool isChampStyle)
     {
-        var templateId = _config["CwlRosterTemplateSpreadsheetId"]!;
-        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId);
+        // Select the appropriate template ID based on the isChampStyle flag
+        var templateId = isChampStyle
+            ? _config["CwlRosterChampStyleTemplateSpreadsheetId"]!
+            : _config["CwlRosterTemplateSpreadsheetId"]!;
 
+        var endColumn = isChampStyle ? 17 : 13;
+        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId, endColumn);
+
+        // Determine the range based on the size of the data array
+        var numRows = data.Length;
+        var numCols = data.Max(row => row?.Length ?? 0);
+        var range = $"A3:{endColumn}{2 + numRows}"; // Data will be written starting from A3
+
+        // Create the update request with the provided data
         var updateRequestData = new ValueRange { Values = data };
-        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, "Roster" + "!" + "A3:M102");
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, $"Roster!{range}");
         updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
         updateRequest.Execute();
+
+        // Create the requests to delete empty rows
+        var requests = new List<Request>();
+
+        // Delete all rows from after the data to row 102
+        if (numRows < 100)
+        {
+            requests.Add(new Request
+            {
+                DeleteDimension = new DeleteDimensionRequest
+                {
+                    Range = new DimensionRange
+                    {
+                        SheetId = 0, // Assuming the sheet ID is 0 for "Roster" sheet
+                        Dimension = "ROWS",
+                        StartIndex = numRows + 2, // Row index to start deleting (0-based index, +2 for 1-based to 0-based and header rows)
+                        EndIndex = 102 // Row index to end deleting (exclusive)
+                    }
+                }
+            });
+        }
+
+        var batchUpdateRequest = new BatchUpdateSpreadsheetRequest { Requests = requests };
+        var batchUpdate = _sheetsService.Spreadsheets.BatchUpdate(batchUpdateRequest, spreadsheetId);
+        batchUpdate.Execute();
+
         return string.Format(UrlTemplate, spreadsheetId, "0");
     }
+
 
 
     private string GetColumnLetter(int number)
@@ -177,7 +215,7 @@ public class GspreadService
         return columnLetter;
     }
 
-    public async Task<string> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId)
+    public async Task<string> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId, int endColumnIndex)
     {
         try
         {
@@ -204,7 +242,7 @@ public class GspreadService
                     StartRowIndex = 0, // Start row index of the range
                     EndRowIndex = 2, // End row index of the range
                     StartColumnIndex = 0, // Start column index of the range
-                    EndColumnIndex = 13 // End column index of the range
+                    EndColumnIndex = endColumnIndex // End column index of the range
                 };
 
                 batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
@@ -212,10 +250,10 @@ public class GspreadService
                 recolorRange = new GridRange()
                 {
                     SheetId = 0,
-                    StartRowIndex = 62, // Start row index of the range
-                    EndRowIndex = 63, // End row index of the range
+                    StartRowIndex = 102, // Start row index of the range
+                    EndRowIndex = 103, // End row index of the range
                     StartColumnIndex = 0, // Start column index of the range
-                    EndColumnIndex = 13 // End column index of the range
+                    EndColumnIndex = endColumnIndex // End column index of the range
                 };
 
                 batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));

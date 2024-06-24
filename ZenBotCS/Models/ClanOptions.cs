@@ -9,4 +9,5 @@ public class ClanOptions
     public ulong CwlRoleId { get; set; }
     public bool IsFWA { get; set; }
     public bool DisableCwlSignup { get; set; }
+    public bool ChampStyleCwlSignup { get; set; }
 }

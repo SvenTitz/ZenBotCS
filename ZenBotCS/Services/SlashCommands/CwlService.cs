@@ -27,6 +27,7 @@ namespace ZenBotCS.Services.SlashCommands
         IMemoryCache _cache,
         PlayerService _playerService,
         IConfiguration _config,
+        ClashKingApiClient _clashKingApiClient,
         ILogger<CwlService> _logger)
     {
         private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH"];
@@ -112,7 +113,8 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<(string, MessageComponent)> CreateCwlSignupAccountSelection(SocketUser user)
         {
 
-            var playerTags = _botDb.DiscordLinks.Where(dl => dl.DiscordId == user.Id).Select(dl => dl.PlayerTag);
+            //var playerTags = _botDb.DiscordLinks.Where(dl => dl.DiscordId == user.Id).Select(dl => dl.PlayerTag);
+            var playerTags = await _clashKingApiClient.PostDiscordLinksAsync(user.Id);
 
             if (!playerTags.Any())
             {
@@ -120,8 +122,13 @@ namespace ZenBotCS.Services.SlashCommands
                 return await Task.FromResult((errorMessage, new ComponentBuilder().Build()));
             }
 
-            var players = (await _playersClient.GetCachedPlayersAsync(playerTags)).Select(cp => cp.Content);
-            players = players.OrderByDescending(p => p?.TownHallLevel).ThenBy(p => p?.Name);
+            //var players = (await _playersClient.GetCachedPlayersAsync(playerTags)).Select(cp => cp.Content);
+            var playerTasks = playerTags.Select(async tag =>
+            {
+                return await _playersClient.GetOrFetchPlayerAsync(tag);
+            });
+            IEnumerable<Player> players = (await Task.WhenAll(playerTasks)).ToList();
+            players = players.OrderByDescending(p => p?.TownHallLevel).ThenBy(p => p?.Name).Take(25);
 
             var menuBuilder = new SelectMenuBuilder()
                 .WithPlaceholder("Select your account")
@@ -171,6 +178,26 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
+        public async Task<bool> CheckMaxDefensesQuestionRequired(SocketMessageComponent interaction)
+        {
+            try
+            {
+                var signup = GetSignupFromCache(interaction);
+                if (signup!.PlayerThLevel < 16)
+                    return false;
+
+                var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
+                var clanOption = clanOptions?.FirstOrDefault(o => o.ClanTag == signup.ClanTag);
+                return clanOption?.ChampStyleCwlSignup ?? false;
+
+            }
+            catch
+            {
+                await HandleInteractionError(interaction);
+                return false;
+            }
+        }
+
         public async Task<(string, MessageComponent)> CreateCwlSignupClanSelection()
         {
             var clans = await _clansClient.GetCachedClansAsync();
@@ -196,6 +223,24 @@ namespace ZenBotCS.Services.SlashCommands
                 .Build();
 
             var message = "Please select the family clan you are in.";
+            return (message, components);
+        }
+
+        public (string, MessageComponent) CreateCwlSignupMaxDefensesSelection()
+        {
+            var menuBuilder = new SelectMenuBuilder()
+                .WithPlaceholder("Select answer")
+                .WithCustomId("menu_cwl_signup_max_defenses")
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .AddOption("Yes, almost maxed", "true")
+                .AddOption("No, not quite maxed", "false");
+
+            var components = new ComponentBuilder()
+                .WithSelectMenu(menuBuilder)
+                .Build();
+
+            var message = "Are your defenses close to being maxed for TH16?";
             return (message, components);
         }
 
@@ -500,6 +545,22 @@ namespace ZenBotCS.Services.SlashCommands
             return true;
         }
 
+        public bool TryUpdateCachedSignupMaxedDefenses(SocketMessageComponent interaction)
+        {
+            var messageId = interaction.Message.Id;
+            var isMax = interaction.Data.Values.First() == "true";
+
+            if (!_cache.TryGetValue(messageId, out CwlSignup? data)
+               || data is null)
+            {
+                return false;
+            }
+
+            data.MaxDefeneses = isMax;
+            _cache.Set(messageId, data, Options.MemoryCacheEntryOptions);
+            return true;
+        }
+
         public bool TryUpdateCachedSignupOptOuts(SocketMessageComponent interaction)
         {
             var messageId = interaction.Message.Id;
@@ -643,8 +704,21 @@ namespace ZenBotCS.Services.SlashCommands
                 else
                 {
                     var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clanTag && !s.Archieved).ToList();
-                    var data = FormatDataForRosterSpreadsheet(signups);
-                    var url = await _gspreadService.WriteCwlRosterData(data, clan);
+
+                    var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
+                    var clanOption = clanOptions?.FirstOrDefault(o => o.ClanTag == clanTag);
+                    object?[][] data;
+                    string url;
+                    if (clanOption?.ChampStyleCwlSignup ?? false)
+                    {
+                        data = await FormatDataForRosterSpreadsheetChampStyle(signups);
+                        url = await _gspreadService.WriteCwlRosterData(data, clan, true);
+                    }
+                    else
+                    {
+                        data = FormatDataForRosterSpreadsheet(signups);
+                        url = await _gspreadService.WriteCwlRosterData(data, clan, false);
+                    }
 
                     var embed = new EmbedBuilder()
                             .WithTitle($"{clan.Name} Cwl Roster")
@@ -732,6 +806,68 @@ namespace ZenBotCS.Services.SlashCommands
             }
 
             return data.Select(d => d.ToArray()).ToArray();
+        }
+
+        private async Task<object?[][]> FormatDataForRosterSpreadsheetChampStyle(List<CwlSignup> signups)
+        {
+            var data = new List<List<object?>>();
+
+            var hitrates = await GetLastMonthHitrates(signups.Select(s => s.PlayerTag).ToList());
+
+            signups = [.. signups.OrderBy(s => s.PlayerThLevel).ThenBy(s => s.PlayerName)];
+            foreach (var signup in signups)
+            {
+                var hitrate = hitrates.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
+                data.Add(
+                [
+                    signup.PlayerName,
+                    signup.PlayerTag,
+                    signup.PlayerThLevel,
+                    signup.MaxDefeneses ? "Yes" : "No",
+                    hitrate?.GetSuccessRate(),
+                    hitrate?.AttackCount,
+                    hitrate?.SuccessCount,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day1) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day2) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day3) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day4) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day5) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day6) ? "" : 1,
+                    signup.OptOutDays.HasFlag(OptOutDays.Day7) ? "" : 1,
+                    null,
+                    signup.Bonus ? "Yes" : "No",
+                    signup.WarPreference.ToString(),
+                ]);
+
+            }
+
+            return data.Select(d => d.ToArray()).ToArray();
+        }
+
+        private async Task<List<AttackSuccessModel>> GetLastMonthHitrates(List<string> playerTags)
+        {
+            List<AttackSuccessModel> resList = [];
+            foreach (var playerTag in playerTags)
+            {
+                resList.Add(await GetLastMonthHitrate(playerTag));
+            }
+            return resList;
+        }
+
+        private async Task<AttackSuccessModel> GetLastMonthHitrate(string playerTag)
+        {
+            var warAttacks = await _clashKingApiClient.GetPlayerWarAttacksAsync(playerTag, 31);
+
+            var attacks = warAttacks.Items.SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.MemberData.TownhallLevel));
+
+            return new AttackSuccessModel
+            (
+                playerName: warAttacks.Items.FirstOrDefault()?.MemberData.Name ?? "",
+                playerTag: playerTag,
+                playerTh: warAttacks.Items.FirstOrDefault()?.MemberData.TownhallLevel ?? 0,
+                attackCount: attacks.Count(),
+                successCount: attacks.Count(a => a.Stars >= 3)
+            );
         }
 
         public async Task<Embed> Data(string clantag, string? spreadsheetId)
@@ -852,9 +988,9 @@ namespace ZenBotCS.Services.SlashCommands
                     var signupClan = clans.FirstOrDefault(c => c.Tag == signup.ClanTag);
                     var timestamp = (long)(signup.UpdatedAt.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
                     var fieldBuilder = new EmbedFieldBuilder()
-                        .WithName($"**{signup.PlayerName}** in **{signupClan?.Name}**")
+                        .WithName($"**{signup.PlayerName}{_embedHelper.ToSuperscript(signup.PlayerThLevel)}** in **{signupClan?.Name}**")
                         .WithValue($"OptOut Days: {GetOptOutDaysString(signup.OptOutDays)}\n" +
-                        $"War Preference: {signup.WarPreference}, Bonus?: {signup.Bonus}, WarGeneral?: {signup.WarGeneral}\n" +
+                        $"War Preference: {signup.WarPreference}, Bonus?: {signup.Bonus}\n" +
                         $"Timestamp: <t:{timestamp}:f>")
                         .WithIsInline(false);
                     embedBuilder.AddField(fieldBuilder);
@@ -1011,8 +1147,7 @@ namespace ZenBotCS.Services.SlashCommands
                 $"Clan: {clan.Name} ({clan.Tag})\n" +
                 $"OptOutDays: {signup.OptOutDays}\n" +
                 $"WarStyle: {signup.WarPreference}\n" +
-                $"Bonuses: {signup.Bonus}\n" +
-                $"WarGeneral: {signup.WarGeneral}";
+                $"Bonuses: {signup.Bonus}";
         }
 
 
