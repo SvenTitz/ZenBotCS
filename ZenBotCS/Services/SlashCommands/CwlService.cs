@@ -67,6 +67,7 @@ namespace ZenBotCS.Services.SlashCommands
                         "- Your account needs to be linked to discord and it needs to be in a family clan.\n" +
                         "- There is no \"back\" button, but you can just dismiss the message and start over.\n" +
                         "- You can check your signup with </cwl signup check:1194250784695660605>\n" +
+                        "- Do **not** sign up on accounts on which you do not want to participate in CWL.\n" +
                         "- If you need help ping leadership.")
                     .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
                     .Build(),
@@ -264,7 +265,7 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithSelectMenu(menuBuilder)
                 .Build();
 
-            var message = "Please select the days on which you are **__NOT__** able to participate in CWL. \nKeep in mind that the first battle days usually stats on the second of each month.";
+            var message = "Please select the days on which you are **__NOT__** able to participate in CWL. \nKeep in mind that the first battle days usually starts on the second day of each month.";
             return (message, components);
         }
 
