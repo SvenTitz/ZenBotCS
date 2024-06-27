@@ -179,7 +179,7 @@ namespace ZenBotCS.Modules
         {
             public required CwlService CwlService { get; set; }
 
-            [RequireUserPermission(Discord.GuildPermission.Administrator)]
+            [RequireUserPermission(Discord.GuildPermission.ManageRoles)]
             [SlashCommand("assign", "Assigns CWL roles form roster sheet. Either provide roster URL or select clan to use pinned roster")]
             public async Task Assign(
                 [Description("The role to be assigned")] SocketRole role,
@@ -191,7 +191,7 @@ namespace ZenBotCS.Modules
                 await FollowupAsync(message);
             }
 
-            [RequireUserPermission(Discord.GuildPermission.Administrator)]
+            [RequireUserPermission(Discord.GuildPermission.ManageRoles)]
             [SlashCommand("remove", "Removes all CWL roles for every user")]
             public async Task Remove()
             {
