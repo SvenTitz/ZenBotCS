@@ -157,7 +157,7 @@ public class GspreadService
             : _config["CwlRosterTemplateSpreadsheetId"]!;
 
         var endColumn = isChampStyle ? 17 : 13;
-        var spreadsheetId = await CopyCwlRosterSpreadsheet(clan, templateId, endColumn);
+        (var spreadsheetId, var sheetName) = await CopyCwlRosterSpreadsheet(clan, templateId, endColumn);
 
         // Determine the range based on the size of the data array
         var numRows = data.Length;
@@ -166,7 +166,7 @@ public class GspreadService
 
         // Create the update request with the provided data
         var updateRequestData = new ValueRange { Values = data };
-        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, $"Roster!{range}");
+        var updateRequest = _sheetsService.Spreadsheets.Values.Update(updateRequestData, spreadsheetId, $"{sheetName}!{range}");
         updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
         updateRequest.Execute();
 
@@ -215,7 +215,7 @@ public class GspreadService
         return columnLetter;
     }
 
-    public async Task<string> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId, int endColumnIndex)
+    public async Task<(string spreadsheetId, string? sheetName)> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId, int endColumnIndex)
     {
         try
         {
@@ -262,13 +262,15 @@ public class GspreadService
             var batchUpdateRequest = _sheetsService.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, copiedFile.Id);
             batchUpdateRequest.Execute();
 
+            var firstSheetName = await GetSheetNameAsync(copiedFile.Id, "0");
+
             var valueRange = new ValueRange { Values = [[clan.Name]] };
-            var updateRequest = _sheetsService.Spreadsheets.Values.Update(valueRange, copiedFile.Id, "Roster" + "!" + "A1:A1");
+            var updateRequest = _sheetsService.Spreadsheets.Values.Update(valueRange, copiedFile.Id, $"{firstSheetName}" + "!" + "A1:A1");
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
             updateRequest.Execute();
 
             // Get the ID of the copied spreadsheet
-            return copiedFile.Id;
+            return (copiedFile.Id, firstSheetName);
 
         }
         catch (Exception ex)
@@ -341,16 +343,22 @@ public class GspreadService
         return new Request { RepeatCell = repeatCellRequest };
     }
 
-    public List<string> GetPlayerTags(string spreadsheetUrl)
+    public async Task<List<string>> GetPlayerTags(string spreadsheetUrl)
     {
-        string? spreadsheetId = ExtractSpreadsheetId(spreadsheetUrl);
+        (string? spreadsheetId, string? sheetGid) = ExtractSpreadsheetInfo(spreadsheetUrl);
         if (string.IsNullOrEmpty(spreadsheetId))
         {
             throw new ArgumentException("Invalid spreadsheet URL.");
         }
 
+        string sheetName = "Sheet1"; // Default sheet name
+        if (!string.IsNullOrEmpty(sheetGid))
+        {
+            sheetName = (await GetSheetNameAsync(spreadsheetId, sheetGid)) ?? sheetName;
+        }
+
         // Define the range for column C
-        string range = $"B:B";
+        string range = $"{sheetName}!B:B";
 
         // Fetch the data from the specified range
         SpreadsheetsResource.ValuesResource.GetRequest request =
@@ -386,6 +394,34 @@ public class GspreadService
         // Use a regular expression to extract the spreadsheet ID
         var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)");
         return match.Success ? match.Groups[1].Value : null;
+    }
+
+    private (string? spreadsheetId, string? sheetGid) ExtractSpreadsheetInfo(string url)
+    {
+        // Use a regular expression to extract the spreadsheet ID and the sheet GID
+        var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)(?:/edit)?(?:\?gid=([0-9]+))?");
+        if (match.Success)
+        {
+            var spreadsheetId = match.Groups[1].Value;
+            var sheetGid = match.Groups[2].Success ? match.Groups[2].Value : null;
+            return (spreadsheetId, sheetGid);
+        }
+        return (null, null);
+    }
+
+    private async Task<string?> GetSheetNameAsync(string spreadsheetId, string sheetGid)
+    {
+        var request = _sheetsService.Spreadsheets.Get(spreadsheetId);
+        var response = await request.ExecuteAsync();
+
+        foreach (var sheet in response.Sheets)
+        {
+            if (sheet.Properties.SheetId.ToString() == sheetGid)
+            {
+                return sheet.Properties.Title;
+            }
+        }
+        return null;
     }
 
 

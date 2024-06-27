@@ -1028,7 +1028,7 @@ namespace ZenBotCS.Services.SlashCommands
                 return "Please provide either a spreadsheet-url or select a clan with a pinned roster.";
             }
 
-            var playerTags = _gspreadService.GetPlayerTags(spreadsheetUrl);
+            var playerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
             var userIds = _botDb.CwlSignups.Where(s => playerTags.Contains(s.PlayerTag)).Select(s => s.DiscordId).ToList();
 
             foreach (var userId in userIds)
