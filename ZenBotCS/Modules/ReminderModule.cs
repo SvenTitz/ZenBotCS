@@ -13,6 +13,7 @@ public class ReminderModule : InteractionModuleBase<SocketInteractionContext>
     {
         public required ReminderService ReminderService { get; set; }
 
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("add", "Add a missed attack reminder for a clan")]
         public async Task Add(
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
@@ -25,6 +26,7 @@ public class ReminderModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync(embed: embed);
         }
 
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("remove", "Remove a missed attack reminder for a clan")]
         public async Task Remove(
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
@@ -36,6 +38,7 @@ public class ReminderModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync(embed: embed);
         }
 
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
         [SlashCommand("list", "lists all missed attack reminders")]
         public async Task List()
         {
