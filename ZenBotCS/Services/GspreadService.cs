@@ -5,6 +5,7 @@ using Google.Apis.Drive.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
+using Google.Apis.Util.Store;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
@@ -25,13 +26,25 @@ public class GspreadService
     {
         _config = congig;
         _logger = logger;
-        var credential = GoogleCredential.FromFile(_config["PathToGspreadCredentials"])
-            .CreateScoped(SheetsService.Scope.Spreadsheets, DriveService.Scope.DriveFile, DriveService.Scope.Drive);
+
+        UserCredential credential;
+        using (var stream = new FileStream(_config["PathToGspreadCredentialsOAuth2"]!, FileMode.Open, FileAccess.Read))
+        {
+            string credPath = _config["PathToGspreadToken"]!;
+            credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                GoogleClientSecrets.FromStream(stream).Secrets,
+                new[] { SheetsService.Scope.Spreadsheets, DriveService.Scope.DriveFile, DriveService.Scope.Drive },
+                "user",
+                CancellationToken.None,
+                new FileDataStore(credPath, true)).Result;
+        }
+
         _sheetsService = new SheetsService(new SheetsService.Initializer
         {
             HttpClientInitializer = credential,
         });
-        _driveService = new DriveService(new BaseClientService.Initializer()
+
+        _driveService = new DriveService(new BaseClientService.Initializer
         {
             HttpClientInitializer = credential,
         });
