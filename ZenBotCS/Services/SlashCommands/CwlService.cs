@@ -1018,6 +1018,43 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
+        public async Task<Embed> SingupMissing(string clantag)
+        {
+            var spreadsheetUrl = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.Url;
+            if (spreadsheetUrl == null)
+            {
+                return _embedHelper.ErrorEmbed("Error", "No pinned roster url for that clan.");
+            }
+
+            var rosterPlayerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
+            var clan = await _clansClient.GetOrFetchClanAsync(clantag);
+            var clanPlayerTags = clan.Members.Select(m => m.Tag);
+
+            var missingPlayerTags = rosterPlayerTags.Where(tag => !clanPlayerTags.Contains(tag));
+            var missingPlayersTasks = missingPlayerTags.Select(async tag => await _playersClient.GetOrFetchPlayerAsync(tag));
+            var missingPlayers = await Task.WhenAll(missingPlayersTasks);
+            var extraPlayers = clan.Members.Where(m => !rosterPlayerTags.Contains(m.Tag));
+
+            var description = new StringBuilder();
+            description.AppendLine("**Missing Players from Roster:**");
+            foreach (var player in missingPlayers)
+            {
+                description.AppendLine($"- **{player.Name}{_embedHelper.ToSuperscript(player.TownHallLevel)}** ({player.Tag})");
+            }
+
+            description.AppendLine("\n\n**Exrta Players not in Roster:**");
+            foreach (var player in extraPlayers)
+            {
+                description.AppendLine($"- **{player.Name}{_embedHelper.ToSuperscript(player.TownHallLevel ?? 0)}** ({player.Tag})");
+            }
+
+            return new EmbedBuilder()
+                .WithTitle($"CWL Roster Check {clan.Name}")
+                .WithDescription(description.ToString())
+                .WithColor(Color.DarkPurple)
+                .Build();
+        }
+
 
         public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
         {
@@ -1286,6 +1323,7 @@ namespace ZenBotCS.Services.SlashCommands
 
             return result;
         }
+
 
     }
 }

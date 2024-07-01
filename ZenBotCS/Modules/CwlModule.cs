@@ -66,6 +66,13 @@ namespace ZenBotCS.Modules
             }
 
 
+            [SlashCommand("missing", "List of players that are still missing in the clan")]
+            public async Task Missing([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+            {
+                await DeferAsync();
+                var embed = await CwlService.SingupMissing(clantag);
+                await FollowupAsync(embed: embed);
+            }
 
             [SlashCommand("summary", "Gives summary of all cwl signups")]
             public async Task Summary(
