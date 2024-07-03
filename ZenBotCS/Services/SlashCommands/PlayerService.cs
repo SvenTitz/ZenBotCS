@@ -268,32 +268,39 @@ namespace ZenBotCS.Services.SlashCommands
 
                 foreach (var clanTag in clanTags)
                 {
-                    var war = (await _clansClient.GetActiveClanWarOrDefaultAsync(clanTag))?.Content;
-                    if (war is null
-                        || war.EndTime < DateTime.Now
-                        || (war.State != WarState.InWar && war.State != WarState.Preparation))
-                        continue;
+                    // var war = (await _clansClient.GetActiveClanWarOrDefaultAsync(clanTag))?.Content;
+                    var wars = (await _clansClient.GetClanWarsAsync(clanTag))
+                        .Select(cw => cw.Content)
+                        .Where(w => w is not null && w.EndTime > DateTime.UtcNow);
 
-                    var warClan = war.Clan.Tag == clanTag
-                        ? war.Clan
-                        : war.Opponent;
-
-                    var warMembers = warClan.Members.Where(m => playerTags.Contains(m.Tag)).ToList();
-
-                    if (warMembers is null || warMembers.Count == 0)
-                        continue;
-
-                    foreach (var warMember in warMembers)
+                    foreach (var war in wars)
                     {
-                        if (war.State == WarState.InWar
-                            && (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember))
+                        if (war is null
+                            || war.EndTime < DateTime.Now
+                            || (war.State != WarState.InWar && war.State != WarState.Preparation))
+                            continue;
+
+                        var warClan = war.Clan.Tag == clanTag
+                            ? war.Clan
+                            : war.Opponent;
+
+                        var warMembers = warClan.Members.Where(m => playerTags.Contains(m.Tag)).ToList();
+
+                        if (warMembers is null || warMembers.Count == 0)
+                            continue;
+
+                        foreach (var warMember in warMembers)
                         {
-                            var attackCount = war.AttacksPerMember - (warMember.Attacks?.Count ?? 0);
-                            openAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, attackCount, war.EndTime, war.StartTime));
-                        }
-                        else if (war.State == WarState.Preparation)
-                        {
-                            upcomingAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
+                            if (war.State == WarState.InWar
+                                && (warMember.Attacks is null || warMember.Attacks.Count < war.AttacksPerMember))
+                            {
+                                var attackCount = war.AttacksPerMember - (warMember.Attacks?.Count ?? 0);
+                                openAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, attackCount, war.EndTime, war.StartTime));
+                            }
+                            else if (war.State == WarState.Preparation)
+                            {
+                                upcomingAttacks.Add(new OpenAttacks(warMember.Name, warMember.TownhallLevel, warClan.Name, war.AttacksPerMember, war.EndTime, war.StartTime));
+                            }
                         }
                     }
                 }
