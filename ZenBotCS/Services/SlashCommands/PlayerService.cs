@@ -252,14 +252,14 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
-        public async Task<Embed> ToDo(SocketUser user)
+        public async Task<List<Embed>> ToDo(SocketUser user)
         {
             try
             {
                 var players = await GetPlayersFromTagAndUser(null, user);
 
                 if (players is null || players.Count == 0)
-                    return _embedHelper.ErrorEmbed("Error", "No accounts linked to you.");
+                    return [_embedHelper.ErrorEmbed("Error", "No accounts linked to you.")];
 
                 var playerTags = players.Select(p => p.Tag).ToList();
                 var clanTags = (await _clansClient.GetCachedClansAsync()).Select(c => c.Tag);
@@ -308,9 +308,10 @@ namespace ZenBotCS.Services.SlashCommands
                 openAttacks = [.. openAttacks.OrderBy(a => a.WarStartTime)];
                 upcomingAttacks = [.. upcomingAttacks.OrderBy(a => a.WarStartTime)];
 
-
+                List<Embed> embeds = [];
                 var embedBuilder = new EmbedBuilder()
-                    .WithTitle($"To-Do's for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}")
+                    .WithTitle($"Open Attacks for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}")
+                    .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
                     .WithColor(Color.DarkPurple);
 
                 var description = new StringBuilder();
@@ -329,9 +330,10 @@ namespace ZenBotCS.Services.SlashCommands
                 {
                     description.AppendLine("- None");
                 }
-                embedBuilder.AddField($"Open Attacks", description.ToString(), false);
+                embedBuilder.WithDescription(description.ToString());
+                embeds.Add(embedBuilder.Build());
 
-
+                embedBuilder.WithTitle($"Upcoming Attacks for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}");
                 description = new StringBuilder();
                 if (upcomingAttacks.Count > 0)
                 {
@@ -346,9 +348,11 @@ namespace ZenBotCS.Services.SlashCommands
                 {
                     description.AppendLine("- None");
                 }
-                embedBuilder.AddField($"Upcoming Attacks", description.ToString(), false);
+                embedBuilder.WithDescription(description.ToString());
+                embeds.Add(embedBuilder.Build());
 
 
+                embedBuilder.WithTitle($"Legend League Attacks for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}");
                 description = new StringBuilder();
                 var season = await _ckApiClient.GetCurrentSeason();
                 foreach (var player in players)
@@ -367,16 +371,17 @@ namespace ZenBotCS.Services.SlashCommands
                 }
                 if (description.Length > 0)
                 {
-                    embedBuilder.AddField($"Legend League Attacks", description.ToString(), false);
+                    embedBuilder.WithDescription(description.ToString());
+                    embeds.Add(embedBuilder.Build());
                 }
 
 
 
-                return embedBuilder.Build();
+                return embeds;
             }
             catch (Exception ex)
             {
-                return _embedHelper.ErrorEmbed("Error", ex.Message);
+                return [_embedHelper.ErrorEmbed("Error", ex.Message)];
             }
         }
 

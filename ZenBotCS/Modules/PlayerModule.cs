@@ -17,8 +17,8 @@ namespace ZenBotCS.Modules
         {
             await DeferAsync();
             user ??= Context.User;
-            var embed = await PlayerService.ToDo(user);
-            await FollowupAsync(embed: embed);
+            var embeds = await PlayerService.ToDo(user);
+            await FollowupAsync(embeds: [.. embeds]);
         }
 
         [Group("stats", "Commands related to player stats")]
