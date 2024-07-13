@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
+using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 using Legends = ZenBotCS.Entities.Models.ClashKingApi.Legends;
 
 namespace ZenBotCS
@@ -164,6 +165,30 @@ namespace ZenBotCS
                 _logger.LogError(ex, "Error in GetPlayerWarAttacksAsync");
             }
             return new();
+        }
+
+        public async Task<Player> GetPlayerStatsAsync(string playerTag)
+        {
+            UriBuilder uriBuilder = new UriBuilder();
+            try
+            {
+                uriBuilder.Host = _httpClient.BaseAddress!.Host;
+                uriBuilder.Scheme = _httpClient.BaseAddress.Scheme;
+                uriBuilder.Port = _httpClient.BaseAddress.Port;
+                uriBuilder.Path = $"/player/{Uri.EscapeDataString(playerTag)}/stats";
+
+                var response = await _httpClient.GetAsync(uriBuilder.Uri);
+                response.EnsureSuccessStatusCode();
+                var resultJson = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<Player>(resultJson, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+                return result ?? throw new Exception($"Could not pull player stats for tag {playerTag}");
+            }
+            catch (Exception ex)
+            {
+                // TODO
+                _logger.LogError(ex, "Error in GetPlayerStatsAsync");
+                return new Player { Name = "ERROR", Tag = playerTag };
+            }
         }
 
         public async Task<string> GetCurrentSeason()

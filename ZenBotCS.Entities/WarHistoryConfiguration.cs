@@ -18,10 +18,19 @@ public class WarHistoryConfiguration : IEntityTypeConfiguration<WarHistory>
                 wd => JsonConvert.DeserializeObject<List<WarData>>(wd, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }),
                 new ValueComparer<List<WarData>>
                 (
-                    (wd1, wd2) => wd1.SequenceEqual(wd2),
+                    (wd1, wd2) => EqualsExpression(wd1, wd2),
                     wd => wd.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                     wd => wd.ToList()
                 ));
 
+    }
+
+    private static bool EqualsExpression(List<WarData>? x, List<WarData>? y)
+    {
+        if (x is null)
+            return y is null;
+        if (y is null)
+            return false;
+        return x.SequenceEqual(y);
     }
 }

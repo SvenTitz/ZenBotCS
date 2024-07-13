@@ -82,6 +82,7 @@ public class Program
             //.AddHostedService<ComponentHandler>()
             .AddHostedService<DiscordLinkUpdateService>()
             .AddHostedService<WarHistoryUpdateService>()
+            .AddHostedService<PlayerStatsUpdateService>()
             .AddTransient<TestService>()
             .AddTransient<GspreadService>()
             .AddTransient<PlayerService>()
@@ -91,6 +92,7 @@ public class Program
             .AddTransient<LinksService>()
             .AddTransient<ReminderService>()
             .AddTransient<ClashKingApiClient>()
+            .AddTransient<ClashKingApiService>()
             .AddTransient<EmbedHelper>()
             .AddTransient<DiscordHelper>()
             ;

@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
+namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 
 public class BadgeUrls
 {

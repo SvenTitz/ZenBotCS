@@ -26,17 +26,17 @@ public class WarHistoryUpdateService(IServiceScopeFactory serviceScopeFactory, I
                 _logger.LogInformation("Pulling WarHistory for {count} clans", cachedClans.Count);
                 foreach (var clan in cachedClans)
                 {
-                    _logger.LogInformation("Pulling WarHistory for {name}", clan.Name);
+                    //_logger.LogInformation("Pulling WarHistory for {name}", clan.Name);
                     var newWarData = await clashKingApiClient.GetClanWarHistory(clan.Tag);
 
                     var entry = botDb.WarHistories.FirstOrDefault(wh => wh.ClanTag == clan.Tag);
                     if (entry is null)
                     {
-                        _logger.LogInformation("Creating new WarHistory entry for {name}", clan.Name);
+                        //_logger.LogInformation("Creating new WarHistory entry for {name}", clan.Name);
                         entry = new Entities.Models.WarHistory() { ClanTag = clan.Tag };
                         botDb.WarHistories.Add(entry);
                     }
-                    _logger.LogInformation("Updating WarHistory entry for {name}", clan.Name);
+                    //_logger.LogInformation("Updating WarHistory entry for {name}", clan.Name);
                     entry.WarData = newWarData;
                     entry.UpdatedAt = DateTime.UtcNow;
 

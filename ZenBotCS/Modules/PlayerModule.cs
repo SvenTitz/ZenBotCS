@@ -1,6 +1,7 @@
 ﻿using Discord.Interactions;
 using Discord.WebSocket;
 using System.ComponentModel;
+using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
@@ -20,6 +21,7 @@ namespace ZenBotCS.Modules
             var embeds = await PlayerService.ToDo(user);
             await FollowupAsync(embeds: [.. embeds]);
         }
+
 
         [Group("stats", "Commands related to player stats")]
         public class PlayerStatsModule : InteractionModuleBase<SocketInteractionContext>
@@ -51,6 +53,16 @@ namespace ZenBotCS.Modules
                     user = Context.User;
                 var embed = await PlayerService.StatsAttacks(playerTag, user, warTypeFiler, limitDays);
                 await FollowupAsync(embed: embed);
+            }
+
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
+            [SlashCommand("data", "Get all saved data for a player except war attacks")]
+            public async Task Data([Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))] string playerTag)
+            {
+                await DeferAsync();
+                var embeds = await PlayerService.StatsData(playerTag);
+                await FollowupAsync(embeds: embeds);
             }
         }
 

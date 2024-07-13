@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 
-namespace ZenBotCS.Entities.Models.ClashKingApi.Legends;
+namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 
-public class NewAttack
+public class NewDefense
 {
     [JsonProperty("change")]
     public int Change { get; set; }
@@ -12,7 +12,4 @@ public class NewAttack
 
     [JsonProperty("trophies")]
     public int Trophies { get; set; }
-
-    [JsonProperty("hero_gear")]
-    public List<HeroGear> HeroGear { get; set; } = [];
 }

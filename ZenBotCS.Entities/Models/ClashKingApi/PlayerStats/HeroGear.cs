@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace ZenBotCS.Entities.Models.ClashKingApi.Legends;
+namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 
 public class HeroGear
 {

@@ -10,6 +10,7 @@ namespace ZenBotCS.Entities
         public DbSet<CwlSignup> CwlSignups { get; set; }
         public DbSet<PinnedRoster> PinnedRosters { get; set; }
         public DbSet<ReminderMisses> ReminderMisses { get; set; }
+        public DbSet<PlayerStats> PlayerStats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,6 +31,9 @@ namespace ZenBotCS.Entities
                 .IsUnique();
 
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());
+
+            modelBuilder.ApplyConfiguration(new PlayerStatsConfiguration());
+
         }
 
         public void AddOrUpdateDiscordLink(DiscordLink discordLink)

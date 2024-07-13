@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 
-namespace ZenBotCS.Entities.Models.ClashKingApi.Legends;
+namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 
-public class LegendData
+public class LegendsDay
 {
     [JsonProperty("defenses")]
     public List<int> Defenses { get; set; } = [];
