@@ -481,7 +481,7 @@ namespace ZenBotCS.Services.SlashCommands
                 .Build();
 
             var playerActivityText = new StringBuilder();
-            foreach (var kvp in playerStats.AttackWins ?? [])
+            foreach (var kvp in playerStats.Activity ?? [])
             {
                 playerActivityText.AppendLine($"- `{kvp.Key}:` {kvp.Value}");
             }
