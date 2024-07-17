@@ -1,5 +1,4 @@
 ﻿using CocApi.Cache;
-using CocApi.Rest.Models;
 using Discord;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +10,7 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands
 {
-    public class ClanService(ClansClient _clansClient, ClashKingApiClient _clashKingApiClient, EmbedHelper _embedHelper, BotDataContext _botDb)
+    public class ClanService(ClansClient _clansClient, ClashKingApiClient _clashKingApiClient, ClashKingApiService _clashKingApiService, EmbedHelper _embedHelper, BotDataContext _botDb)
     {
 
         public async Task<Embed> Add(string clanTag)
@@ -76,7 +75,7 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 var clans = await (from i in _clansClient.ScopeFactory.CreateScope().ServiceProvider.GetRequiredService<CacheDbContext>().Clans.AsNoTracking()
                                    where i.Download
-                                   select i.Content).ToListAsync<Clan>().ConfigureAwait(continueOnCapturedContext: false);
+                                   select i.Content).ToListAsync<CocApi.Rest.Models.Clan>().ConfigureAwait(continueOnCapturedContext: false);
 
                 var builder = new EmbedBuilder()
                     .WithTitle("Clans:")
@@ -157,7 +156,7 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
-        public async Task<Embed> StatsAttacks(string clanTag, AttackStatFilter attackStatFilter, WarTypeFilter warTypeFilter, uint limitWars, uint minNumberAttacks, int? playerTh = null)
+        public async Task<Embed> StatsAttacks(string clanTag, AttackStatFilter attackStatFilter, WarTypeFilter warTypeFilter, uint limitWars, uint limitDays, uint minNumberAttacks, bool clanExclusive, int? playerTh = null)
         {
             Func<int, int?, bool> attackFilter = null!;
             Func<int, bool> successFilter = null!;
@@ -177,7 +176,13 @@ namespace ZenBotCS.Services.SlashCommands
                     break;
             }
 
-            var attackData = await GetAttackStats(clanTag, warTypeFilter, limitWars, minNumberAttacks, attackFilter, successFilter, playerTh);
+
+            var attackData = clanExclusive switch
+            {
+                true => await GetAttackStatsClanOnly(clanTag, warTypeFilter, limitWars, limitDays, minNumberAttacks, attackFilter, successFilter, playerTh),
+                false => await GetAttackStatsAllClans(clanTag, warTypeFilter, limitWars, limitDays, minNumberAttacks, attackFilter, successFilter, playerTh)
+            };
+
             attackData = attackData.OrderByDescending(d => d.GetSuccessRate()).ToList();
 
             List<string[]> data = [["Rate", "Count", "Player"]];
@@ -196,7 +201,7 @@ namespace ZenBotCS.Services.SlashCommands
             var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
             var title = $"{clan.Name} {attackStatFilter} Ranking";
             var playerThText = playerTh is null ? "all" : playerTh.ToString();
-            var filter = $"{warTypeFilter}, limitWars = {limitWars}, minNumberOfAttacks = {minNumberAttacks}, playerTHs = {playerThText}";
+            var filter = $"{warTypeFilter}, limitWars = {limitWars}, LimitDays: {limitDays}, minNumberOfAttacks = {minNumberAttacks}, playerTHs = {playerThText}";
             return new EmbedBuilder()
                 .WithTitle(title)
                 .WithDescription("```\n" + tableString + "\n```")
@@ -205,10 +210,11 @@ namespace ZenBotCS.Services.SlashCommands
                 .Build();
         }
 
-        private async Task<List<AttackSuccessModel>> GetAttackStats(
+        private async Task<List<AttackSuccessModel>> GetAttackStatsClanOnly(
             string clanTag,
             WarTypeFilter warTypeFilter,
             uint limitWars,
+            uint limitDays,
             uint minNumberAttacks,
             Func<int, int?, bool> attackFilterFunc,
             Func<int, bool> successFunc,
@@ -221,7 +227,15 @@ namespace ZenBotCS.Services.SlashCommands
             if (wars is null || wars.Count <= 0)
                 return [];
 
-            wars = wars.OrderByDescending(w => w.EndTime).Take((int)limitWars).ToList();
+            wars = wars
+                .OrderByDescending(w => w.EndTime).Take((int)limitWars)
+                .Where(w =>
+                {
+                    var endTime = DateTime.ParseExact(w.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    TimeSpan difference = DateTime.UtcNow - endTime;
+                    return difference.TotalDays <= limitDays;
+                })
+                .ToList();
 
             var attackDataDict = new Dictionary<string, AttackSuccessModel>();
 
@@ -268,5 +282,58 @@ namespace ZenBotCS.Services.SlashCommands
         }
 
 
+        private async Task<List<AttackSuccessModel>> GetAttackStatsAllClans(
+           string clanTag,
+           WarTypeFilter warTypeFilter,
+           uint limitWars,
+           uint limitDays,
+           uint minNumberAttacks,
+           Func<int, int?, bool> attackFilterFunc,
+           Func<int, bool> successFunc,
+           int? playerTh = null)
+        {
+            var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+            var attackDataDict = new Dictionary<string, AttackSuccessModel>();
+
+            foreach (var member in clan.Members)
+            {
+                var warHits = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(member.Tag);
+                var warHitsFiltered = warHits.Items
+                                .OrderByDescending(w => w.WarData.EndTime).Take((int)limitWars)
+                                .Where(w =>
+                                {
+                                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                                    TimeSpan difference = DateTime.UtcNow - endTime;
+                                    return difference.TotalDays <= limitDays;
+                                });
+
+                var attackDataEntry = new AttackSuccessModel(member.Name, member.Tag, member.TownHallLevel ?? 0);
+                attackDataDict[member.Tag] = attackDataEntry;
+
+                foreach (var warHit in warHitsFiltered)
+                {
+                    if (playerTh is not null && warHit.MemberData.TownhallLevel != playerTh)
+                        continue;
+                    if (warTypeFilter == WarTypeFilter.CWLOnly && warHit.WarData.AttacksPerMember != 1)
+                        continue;
+                    if (warTypeFilter == WarTypeFilter.RegularOnly && warHit.WarData.AttacksPerMember != 2)
+                        continue;
+
+                    foreach (var attack in warHit.Attacks)
+                    {
+                        var opponentTh = attack.Defender.TownhallLevel;
+                        if (!attackFilterFunc(warHit.MemberData.TownhallLevel, opponentTh))
+                            continue;
+
+                        if (successFunc(attack.Stars))
+                            attackDataEntry.AddSuccess();
+                        else
+                            attackDataEntry.AddMiss();
+                    }
+                }
+            }
+
+            return [.. attackDataDict.Values.Where(x => x.AttackCount >= minNumberAttacks)];
+        }
     }
 }

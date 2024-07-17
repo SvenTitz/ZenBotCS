@@ -241,7 +241,7 @@ namespace ZenBotCS.Services.SlashCommands
                 var embedBuilder = new EmbedBuilder()
                     .WithTitle("Player Attack Stats")
                     .WithColor(Color.DarkPurple)
-                    .WithFooter($"Filter: {warTypeFilter}")
+                    .WithFooter($"Filter: {warTypeFilter}, LimitDays: {limitDays}")
                     .WithDescription(stringBuilder.ToString());
 
                 return embedBuilder.Build();

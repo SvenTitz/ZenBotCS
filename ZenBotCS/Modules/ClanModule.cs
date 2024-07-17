@@ -60,15 +60,19 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
                 AttackStatFilter attackStatFilter = AttackStatFilter.Even3Star,
             [Summary("WarTypeFilter", "Filter between Regular wars and CWL (default = RegularAndCWL)")]
                 WarTypeFilter warTypeFilter = WarTypeFilter.RegularAndCWL,
-            [Summary("NumberOfWars", "Limits the stats to the last X wars (max = default = 50)")]
+            [Summary("LimitWars", "Limits the stats to the last X wars (max = default = 50)")]
                 uint limitWars = 50,
+            [Summary("LimitDays", "Limits the stats to the last X Days (default = 90)")]
+                uint limitDays = 90,
             [Summary("MinNumberOfAttacks", "Minimum Number of attacks need to display stats (default = 4)")]
                 uint minNumberAttacks = 4,
-             [Summary("PlayerTownhall", "Let's you only show stats for a certain TH. No entry = all THs (default = all THs)"), Autocomplete(typeof(TownHallAutocompleteHandler))]
-                int? playerTh = null)
+            [Summary("PlayerTownhall", "Let's you only show stats for a certain TH. No entry = all THs (default = all THs)"), Autocomplete(typeof(TownHallAutocompleteHandler))]
+                int? playerTh = null,
+            [Summary("ExclusivelyClanAttacks", "Only use attacks done in this clan vs. attacks done in any clan (default = False)")]
+                bool clanExclusive = false)
         {
             await DeferAsync();
-            var embed = await ClanService.StatsAttacks(clanTag, attackStatFilter, warTypeFilter, limitWars, minNumberAttacks, playerTh);
+            var embed = await ClanService.StatsAttacks(clanTag, attackStatFilter, warTypeFilter, limitWars, limitDays, minNumberAttacks, clanExclusive, playerTh);
             await FollowupAsync(embed: embed);
         }
     }
