@@ -2,6 +2,7 @@
 using Discord;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Extensions;

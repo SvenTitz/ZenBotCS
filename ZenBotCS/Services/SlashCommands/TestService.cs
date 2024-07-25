@@ -1,5 +1,6 @@
 ﻿using CocApi.Cache;
 using CocApi.Rest.Apis;
+using ZenBotCS.Clients;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
 

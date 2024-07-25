@@ -1,5 +1,7 @@
 ﻿using CocApi.Cache.Services;
 using Discord.Interactions;
+using Discord.WebSocket;
+using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
@@ -53,7 +55,8 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
         public required Services.SlashCommands.ClanService ClanService { get; set; }
 
         [SlashCommand("attacks", "Get a breakdown of players war attacks")]
-        public async Task Attacks(
+        public async Task Attacks
+        (
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))]
                 string clanTag,
             [Summary("AttackStatFilter", "Determin which stat you are looking for (default = Even3Star)")]
@@ -73,6 +76,42 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
         {
             await DeferAsync();
             var embed = await ClanService.StatsAttacks(clanTag, attackStatFilter, warTypeFilter, limitWars, limitDays, minNumberAttacks, clanExclusive, playerTh);
+            await FollowupAsync(embed: embed);
+        }
+    }
+
+    [Group("settings", "Commands related to clan settings")]
+    public class ClanSettingsModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        public required Services.SlashCommands.ClanService ClanService { get; set; }
+
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
+        [SlashCommand("edit", "Add or Edit Clan settings.")]
+        public async Task Edit
+            (
+                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clanTag,
+                ClanType? clanType = null,
+                int order = 1,
+                SocketRole? memberRole = null,
+                SocketRole? elderRole = null,
+                SocketRole? leadershipRole = null,
+                SocketRole? cwlRole = null,
+                string? colorHex = null,
+                bool? enableCwlSignup = null,
+                bool? enableChampStyleSignup = null
+            )
+        {
+            await DeferAsync();
+            var embed = await ClanService.SettingsEdit(clanTag, clanType, order, memberRole, elderRole, leadershipRole, cwlRole, colorHex, enableCwlSignup, enableChampStyleSignup);
+            await FollowupAsync(embed: embed);
+        }
+
+        [RequireUserPermission(Discord.GuildPermission.Administrator)]
+        [SlashCommand("reset", "Reset Clan settings.")]
+        public async Task Reset([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clanTag)
+        {
+            await DeferAsync();
+            var embed = ClanService.SettingsReset(clanTag);
             await FollowupAsync(embed: embed);
         }
     }

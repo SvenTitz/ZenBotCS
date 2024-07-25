@@ -1,4 +1,5 @@
-﻿using ZenBotCS.Entities;
+﻿using ZenBotCS.Clients;
+using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 

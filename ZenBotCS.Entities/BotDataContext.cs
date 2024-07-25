@@ -11,6 +11,7 @@ namespace ZenBotCS.Entities
         public DbSet<PinnedRoster> PinnedRosters { get; set; }
         public DbSet<ReminderMisses> ReminderMisses { get; set; }
         public DbSet<PlayerStats> PlayerStats { get; set; }
+        public DbSet<ClanSettings> ClanSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

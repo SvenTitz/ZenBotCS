@@ -28,6 +28,7 @@ namespace ZenBotCS.Services.SlashCommands
         PlayerService _playerService,
         IConfiguration _config,
         ClashKingApiClient _clashKingApiClient,
+        ClashKingApiService _clashKingApiService,
         ILogger<CwlService> _logger)
     {
         private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH"];
@@ -187,9 +188,9 @@ namespace ZenBotCS.Services.SlashCommands
                 if (signup!.PlayerThLevel < 16)
                     return false;
 
-                var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
-                var clanOption = clanOptions?.FirstOrDefault(o => o.ClanTag == signup.ClanTag);
-                return clanOption?.ChampStyleCwlSignup ?? false;
+                var clanSettings = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == signup.ClanTag);
+
+                return clanSettings?.ChampStyleCwlRoster ?? false;
 
             }
             catch
@@ -202,8 +203,10 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<(string, MessageComponent)> CreateCwlSignupClanSelection()
         {
             var clans = await _clansClient.GetCachedClansAsync();
-            var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
-            clans = clans.Where(c => !clanOptions?.FirstOrDefault(o => o.ClanTag == c.Tag)?.DisableCwlSignup ?? false).ToList();
+            var clanSettings = _botDb.ClanSettings.AsNoTracking();
+            var clanSettingsDict = _botDb.ClanSettings.AsNoTracking().ToDictionary(cs => cs.ClanTag, cs => cs);
+            clans = clans.Where(c => clanSettings?.FirstOrDefault(o => o.ClanTag == c.Tag)?.EnableCwlSignup ?? false).ToList();
+            clans = clans.OrderBy(c => clanSettingsDict[c.Tag].ClanType).ThenBy(c => clanSettingsDict[c.Tag].Order).ToList();
 
             var menuBuilder = new SelectMenuBuilder()
                 .WithPlaceholder("Select the clan")
@@ -706,19 +709,18 @@ namespace ZenBotCS.Services.SlashCommands
                 {
                     var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clanTag && !s.Archieved).ToList();
 
-                    var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
-                    var clanOption = clanOptions?.FirstOrDefault(o => o.ClanTag == clanTag);
+                    var clanSettings = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag);
                     object?[][] data;
                     string url;
-                    if (clanOption?.ChampStyleCwlSignup ?? false)
+                    if (clanSettings?.ChampStyleCwlRoster ?? false)
                     {
                         data = await FormatDataForRosterSpreadsheetChampStyle(signups);
-                        url = await _gspreadService.WriteCwlRosterData(data, clan, true);
+                        url = await _gspreadService.WriteCwlRosterData(data, clan, clanSettings, true);
                     }
                     else
                     {
                         data = FormatDataForRosterSpreadsheet(signups);
-                        url = await _gspreadService.WriteCwlRosterData(data, clan, false);
+                        url = await _gspreadService.WriteCwlRosterData(data, clan, clanSettings, false);
                     }
 
                     var embed = new EmbedBuilder()
@@ -864,9 +866,16 @@ namespace ZenBotCS.Services.SlashCommands
 
         private async Task<AttackSuccessModel> GetLastMonthHitrate(string playerTag)
         {
-            var warAttacks = await _clashKingApiClient.GetPlayerWarAttacksAsync(playerTag, 31);
+            var warAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(playerTag);
 
-            var attacks = warAttacks.Items.SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.MemberData.TownhallLevel));
+            var attacks = warAttacks.Items
+                .Where(w =>
+                {
+                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    TimeSpan difference = DateTime.UtcNow - endTime;
+                    return difference.TotalDays <= 31;
+                })
+                .SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.MemberData.TownhallLevel));
 
             return new AttackSuccessModel
             (
@@ -1098,8 +1107,8 @@ namespace ZenBotCS.Services.SlashCommands
         {
             try
             {
-                var clanOptions = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>()?.ClanOptions;
-                var roleIds = clanOptions!.Where(o => o.CwlRoleId > 0).Select(o => o.CwlRoleId).ToList();
+                var clanSettings = _botDb.ClanSettings.AsNoTracking();
+                var roleIds = clanSettings!.Where(cs => cs.CwlRoleId != null && cs.CwlRoleId > 0).Select(o => o.CwlRoleId!.Value).ToList();
                 ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
                 roleIds.Add(warGeneralRoleId);
 

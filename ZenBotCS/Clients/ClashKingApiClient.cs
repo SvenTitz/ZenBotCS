@@ -7,7 +7,7 @@ using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 using Legends = ZenBotCS.Entities.Models.ClashKingApi.Legends;
 
-namespace ZenBotCS
+namespace ZenBotCS.Clients
 {
 
 

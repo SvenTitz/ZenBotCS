@@ -10,7 +10,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using ZenBotCS.Entities.Models;
-using ZenBotCS.Models;
 
 
 namespace ZenBotCS.Services;
@@ -163,7 +162,7 @@ public class GspreadService
         return string.Format(UrlTemplate, spreadsheetId, sheetId);
     }
 
-    public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan, bool isChampStyle)
+    public async Task<string> WriteCwlRosterData(object?[][] data, Clan clan, ClanSettings? clanSettings, bool isChampStyle)
     {
         // Select the appropriate template ID based on the isChampStyle flag
         var templateId = isChampStyle
@@ -171,7 +170,7 @@ public class GspreadService
             : _config["CwlRosterTemplateSpreadsheetId"]!;
 
         var endColumn = isChampStyle ? 17 : 13;
-        (var spreadsheetId, var sheetName) = await CopyCwlRosterSpreadsheet(clan, templateId, endColumn);
+        (var spreadsheetId, var sheetName) = await CopyCwlRosterSpreadsheet(clan, clanSettings, templateId, endColumn);
 
         // Determine the range based on the size of the data array
         var numRows = data.Length;
@@ -229,7 +228,7 @@ public class GspreadService
         return columnLetter;
     }
 
-    public async Task<(string spreadsheetId, string? sheetName)> CopyCwlRosterSpreadsheet(Clan clan, string templateSpreadsheetId, int endColumnIndex)
+    public async Task<(string spreadsheetId, string? sheetName)> CopyCwlRosterSpreadsheet(Clan clan, ClanSettings? clanSettings, string templateSpreadsheetId, int endColumnIndex)
     {
         try
         {
@@ -241,15 +240,12 @@ public class GspreadService
             var request = _driveService.Files.Copy(copyRequest, templateSpreadsheetId);
             var copiedFile = await request.ExecuteAsync();
 
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest { Requests = [] };
-
             ShareSpreadsheet(copiedFile.Id);
 
-            var clanOptionsList = _config.GetRequiredSection(ClanOptionsList.String).Get<ClanOptionsList>();
-            var clanOptions = clanOptionsList?.ClanOptions.FirstOrDefault(co => co.ClanTag == clan.Tag);
-
-            if (clanOptions is not null)
+            if (clanSettings?.ColorHex is not null)
             {
+                var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest { Requests = [] };
+
                 var recolorRange = new GridRange()
                 {
                     SheetId = 0,
@@ -259,7 +255,7 @@ public class GspreadService
                     EndColumnIndex = endColumnIndex // End column index of the range
                 };
 
-                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
+                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanSettings.ColorHex));
 
                 recolorRange = new GridRange()
                 {
@@ -270,11 +266,11 @@ public class GspreadService
                     EndColumnIndex = endColumnIndex // End column index of the range
                 };
 
-                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanOptions.ColorHex));
-            }
+                batchUpdateSpreadsheetRequest.Requests.Add(BuildRecolorRangeRequest(copiedFile.Id, recolorRange, clanSettings.ColorHex));
 
-            var batchUpdateRequest = _sheetsService.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, copiedFile.Id);
-            batchUpdateRequest.Execute();
+                var batchUpdateRequest = _sheetsService.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, copiedFile.Id);
+                batchUpdateRequest.Execute();
+            }
 
             var firstSheetName = await GetSheetNameAsync(copiedFile.Id, "0");
 
