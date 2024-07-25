@@ -680,7 +680,7 @@ namespace ZenBotCS.Services.SlashCommands
 
                 var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clanTag);
                 if (pinnedRoster is not null
-                    && !string.IsNullOrEmpty(pinnedRoster.Url)
+                    && !string.IsNullOrEmpty(pinnedRoster.SpreadsheetId)
                     && !forceNew)
                 {
                     var embed = new EmbedBuilder()
@@ -693,7 +693,7 @@ namespace ZenBotCS.Services.SlashCommands
 
                     var urlButton = new ButtonBuilder()
                         .WithLabel("Pinned Roster")
-                        .WithUrl(pinnedRoster.Url)
+                        .WithUrl(_gspreadService.GetUrl(pinnedRoster))
                         .WithStyle(ButtonStyle.Link);
 
                     var components = new ComponentBuilder()
@@ -749,6 +749,12 @@ namespace ZenBotCS.Services.SlashCommands
         {
             try
             {
+                (var spreadsheetId, var gid) = _gspreadService.ExtractSpreadsheetInfo(rosterUrl);
+                if (spreadsheetId is null || gid is null)
+                {
+                    throw new ArgumentException(@"Invalid spreadsheet url. Please make sure it follow the pattern `https://docs.google.com/spreadsheets/d/<sheetId>#gid=<gid>`");
+                }
+
                 var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
 
                 var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clanTag);
@@ -757,7 +763,8 @@ namespace ZenBotCS.Services.SlashCommands
                     pinnedRoster = new PinnedRoster { ClanTag = clanTag };
                     _botDb.PinnedRosters.Add(pinnedRoster);
                 }
-                pinnedRoster.Url = rosterUrl;
+                pinnedRoster.SpreadsheetId = spreadsheetId;
+                pinnedRoster.Gid = gid;
                 _botDb.SaveChanges();
 
                 var builder = new EmbedBuilder()
@@ -1020,7 +1027,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<Embed> SingupMissing(string clantag)
         {
-            var spreadsheetUrl = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.Url;
+            var spreadsheetUrl = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId;
             if (spreadsheetUrl == null)
             {
                 return _embedHelper.ErrorEmbed("Error", "No pinned roster url for that clan.");
@@ -1058,12 +1065,12 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
         {
-            spreadsheetUrl ??= _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.Url;
-
-            if (spreadsheetUrl == null)
+            if (spreadsheetUrl is null || _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId is null)
             {
                 return "Please provide either a spreadsheet-url or select a clan with a pinned roster.";
             }
+
+            spreadsheetUrl ??= _gspreadService.GetUrl(_botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)!);
 
             var playerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
             var userIds = _botDb.CwlSignups.Where(s => playerTags.Contains(s.PlayerTag)).Select(s => s.DiscordId).ToList();

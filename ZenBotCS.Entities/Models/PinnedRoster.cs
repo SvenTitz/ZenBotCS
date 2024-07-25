@@ -13,5 +13,7 @@ public class PinnedRoster
     [MaxLength(50)]
     public string ClanTag { get; set; } = string.Empty;
 
-    public string Url { get; set; } = string.Empty;
+    public string SpreadsheetId { get; set; } = string.Empty;
+
+    public string Gid { get; set; } = string.Empty;
 }

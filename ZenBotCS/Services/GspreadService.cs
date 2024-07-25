@@ -9,6 +9,7 @@ using Google.Apis.Util.Store;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
+using ZenBotCS.Entities.Models;
 using ZenBotCS.Models;
 
 
@@ -409,10 +410,10 @@ public class GspreadService
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    private (string? spreadsheetId, string? sheetGid) ExtractSpreadsheetInfo(string url)
+    public (string? spreadsheetId, string? sheetGid) ExtractSpreadsheetInfo(string url)
     {
         // Use a regular expression to extract the spreadsheet ID and the sheet GID
-        var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)(?:/edit)?(?:\?gid=([0-9]+))?");
+        var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)/?(?:edit)?(?:.*?[#&]gid=([0-9]+))?");
         if (match.Success)
         {
             var spreadsheetId = match.Groups[1].Value;
@@ -437,6 +438,9 @@ public class GspreadService
         return null;
     }
 
-
+    internal string GetUrl(PinnedRoster pinnedRoster)
+    {
+        return string.Format(UrlTemplate, pinnedRoster.SpreadsheetId, pinnedRoster.Gid);
+    }
 }
 
