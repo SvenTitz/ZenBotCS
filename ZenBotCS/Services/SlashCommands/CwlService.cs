@@ -751,13 +751,18 @@ namespace ZenBotCS.Services.SlashCommands
         {
             try
             {
+                var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+
+                if (string.IsNullOrEmpty(rosterUrl))
+                {
+                    return SignupRosterPinRemove(clan);
+                }
+
                 (var spreadsheetId, var gid) = _gspreadService.ExtractSpreadsheetInfo(rosterUrl);
                 if (spreadsheetId is null || gid is null)
                 {
                     throw new ArgumentException(@"Invalid spreadsheet url. Please make sure it follow the pattern `https://docs.google.com/spreadsheets/d/<sheetId>#gid=<gid>`");
                 }
-
-                var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
 
                 var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clanTag);
                 if (pinnedRoster == null)
@@ -769,24 +774,30 @@ namespace ZenBotCS.Services.SlashCommands
                 pinnedRoster.Gid = gid;
                 _botDb.SaveChanges();
 
-                var builder = new EmbedBuilder()
-                    .WithColor(Color.Green);
-
-                if (string.IsNullOrEmpty(rosterUrl))
-                {
-                    builder.WithDescription($"Reset pinned roster for {clan.Name}.");
-                }
-                else
-                {
-                    builder.WithDescription($"Pinned [Roster]({rosterUrl}) for {clan.Name}.");
-                }
-
-                return builder.Build();
+                return new EmbedBuilder()
+                    .WithColor(Color.Green)
+                    .WithDescription($"Pinned [Roster]({rosterUrl}) for {clan.Name}.")
+                    .Build();
             }
             catch (Exception ex)
             {
                 return _embedHelper.ErrorEmbed("Error", ex.Message);
             }
+        }
+
+        private Embed SignupRosterPinRemove(Clan clan)
+        {
+            var pinnedRoster = _botDb.PinnedRosters.FirstOrDefault(pr => pr.ClanTag == clan.Tag);
+            if (pinnedRoster is not null)
+            {
+                _botDb.PinnedRosters.Remove(pinnedRoster);
+                _botDb.SaveChanges();
+            }
+
+            return new EmbedBuilder()
+                    .WithColor(Color.Green)
+                    .WithDescription($"Reset pinned roster for {clan.Name}.")
+                    .Build();
         }
 
         private object?[][] FormatDataForRosterSpreadsheet(List<CwlSignup> signups)

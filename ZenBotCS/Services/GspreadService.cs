@@ -409,7 +409,7 @@ public class GspreadService
     public (string? spreadsheetId, string? sheetGid) ExtractSpreadsheetInfo(string url)
     {
         // Use a regular expression to extract the spreadsheet ID and the sheet GID
-        var match = Regex.Match(url, @"/spreadsheets/d/([a-zA-Z0-9-_]+)/?(?:edit)?(?:.*?[#&]gid=([0-9]+))?");
+        var match = Regex.Match(url, @"/spreadsheets/(?:u/\d+/)?d/([a-zA-Z0-9-_]+)/?(?:edit|htmlview)?(?:.*?[#&]gid=([0-9]+))?");
         if (match.Success)
         {
             var spreadsheetId = match.Groups[1].Value;
