@@ -1074,7 +1074,7 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
         {
-            if (spreadsheetUrl is null || _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId is null)
+            if (spreadsheetUrl is null && _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId is null)
             {
                 return "Please provide either a spreadsheet-url or select a clan with a pinned roster.";
             }
