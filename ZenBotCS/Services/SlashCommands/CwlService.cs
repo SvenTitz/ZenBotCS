@@ -1047,12 +1047,13 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<Embed> SingupMissing(string clantag)
         {
-            var spreadsheetUrl = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId;
-            if (spreadsheetUrl == null)
+            var spreadsheetId = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId;
+            if (spreadsheetId == null)
             {
                 return _embedHelper.ErrorEmbed("Error", "No pinned roster url for that clan.");
             }
 
+            var spreadsheetUrl = _gspreadService.GetUrl(_botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)!);
             var rosterPlayerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
             var clan = await _clansClient.GetOrFetchClanAsync(clantag);
             var clanPlayerTags = clan.Members.Select(m => m.Tag);
