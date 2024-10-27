@@ -103,7 +103,8 @@ namespace ZenBotCS.Modules
                 await FollowupAsync(embed: embed);
             }
 
-            [RequireUserPermission(Discord.GuildPermission.Administrator)]
+            [RequireUserPermission(Discord.GuildPermission.Administrator, Group = "Permisson")]
+            [RequireOwnPlayerTag("player-tag", Group = "Permisson")]
             [SlashCommand("delete", "Deletes a signup for one player")]
             public async Task Delete([Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))] string playerTag)
             {
