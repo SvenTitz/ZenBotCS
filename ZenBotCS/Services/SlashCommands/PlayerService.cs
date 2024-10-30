@@ -7,6 +7,7 @@ using System.Text;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
+using ZenBotCS.Extensions;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
 using ZenBotCS.Models.Enums;
@@ -400,7 +401,7 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 var userTags = _botDb.DiscordLinks.Where(dl => dl.DiscordId == user.Id).Select(dl => dl.PlayerTag).ToList();
                 playerTags.AddRange(userTags);
-                var userPlayers = (await _playersClient.GetCachedPlayersAsync(userTags)).Select(cp => cp.Content);
+                var userPlayers = (await _playersClient.GetOrFetchPlayersAsync(userTags));
                 players.AddRange(userPlayers);
             }
 

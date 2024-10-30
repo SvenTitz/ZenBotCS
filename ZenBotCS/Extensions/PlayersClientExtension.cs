@@ -14,5 +14,15 @@ namespace ZenBotCS.Extensions
 
             return players;
         }
+
+        public static async Task<List<Player>> GetOrFetchPlayersAsync(this PlayersClient playersClient, IEnumerable<string> tags, CancellationToken? cancellationToken = null)
+        {
+            var playerTasks = tags.Select(async tag =>
+            {
+                return await playersClient.GetOrFetchPlayerAsync(tag);
+            });
+            List<Player> players = [.. (await Task.WhenAll(playerTasks))];
+            return players;
+        }
     }
 }

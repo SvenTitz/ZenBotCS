@@ -12,6 +12,7 @@ using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.Enums;
+using ZenBotCS.Extensions;
 using ZenBotCS.Helper;
 using ZenBotCS.Models;
 using WarPreference = ZenBotCS.Entities.Models.Enums.WarPreference;
@@ -126,11 +127,7 @@ namespace ZenBotCS.Services.SlashCommands
             }
 
             //var players = (await _playersClient.GetCachedPlayersAsync(playerTags)).Select(cp => cp.Content);
-            var playerTasks = playerTags.Select(async tag =>
-            {
-                return await _playersClient.GetOrFetchPlayerAsync(tag);
-            });
-            IEnumerable<Player> players = (await Task.WhenAll(playerTasks)).ToList();
+            IEnumerable<Player> players = await _playersClient.GetOrFetchPlayersAsync(playerTags);
             players = players.OrderByDescending(p => p?.TownHallLevel).ThenBy(p => p?.Name).Take(25);
 
             var menuBuilder = new SelectMenuBuilder()
@@ -335,7 +332,7 @@ namespace ZenBotCS.Services.SlashCommands
             var clanFrom = await _clansClient.GetOrFetchClanAsync(clantagFrom);
             var clanTo = await _clansClient.GetOrFetchClanAsync(clantagTo);
             var signups = _botDb.CwlSignups.Where(s => s.ClanTag == clantagFrom && !s.Archieved);
-            var players = (await _playersClient.GetCachedPlayersAsync(signups.Select(s => s.PlayerTag))).Select(cp => cp.Content).ToList();
+            var players = (await _playersClient.GetOrFetchPlayersAsync(signups.Select(s => s.PlayerTag)));
             var sortedPlayers = players.Where(p => p is not null).Cast<Player>().OrderBy(p => p.Name).ToList();
 
             if (players is null || players.Count() == 0)
@@ -426,7 +423,7 @@ namespace ZenBotCS.Services.SlashCommands
             }
             else
             {
-                selectedPlayers = (await _playersClient.GetCachedPlayersAsync(selectedValues)).Select(cp => cp.Content).Where(p => p is not null).Cast<Player>().ToList();
+                selectedPlayers = (await _playersClient.GetOrFetchPlayersAsync(selectedValues)).Where(p => p is not null).Cast<Player>().ToList();
             }
 
             signupMoveContext.SelectedPlayers.AddRange(selectedPlayers);

@@ -17,7 +17,8 @@ namespace ZenBotCS.Services.Background
                 {
                     var _linksService = scope.ServiceProvider.GetRequiredService<SlashCommands.LinksService>();
 
-                    try {
+                    try
+                    {
                         await _linksService.Update();
                     }
                     catch (Exception ex)
