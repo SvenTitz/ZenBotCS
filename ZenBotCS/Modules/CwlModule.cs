@@ -238,6 +238,22 @@ namespace ZenBotCS.Modules
             });
         }
 
+        [ComponentInteraction("button_cwl_signup_check", true)]
+        public async Task HandleCwlSignupCheck()
+        {
+            await DeferAsync(ephemeral: true);
+            var embed = await CwlService.SignupCheck(null, Context.User);
+            await FollowupAsync(embed: embed, ephemeral: true);
+        }
+
+        [ComponentInteraction("button_cwl_signup_help", true)]
+        public async Task HandleCwlSignupHelp()
+        {
+            await DeferAsync(ephemeral: false);
+            var (message, embeds) = await CwlService.GetSignupHelpEmbed();
+            await FollowupAsync(text: message, embeds: embeds, ephemeral: true);
+        }
+
 
         [ComponentInteraction("button_cwl_signup_create", true)]
         public async Task CreateCwlSignup()

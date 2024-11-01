@@ -30,7 +30,8 @@ namespace ZenBotCS.Services.SlashCommands
         IConfiguration _config,
         ClashKingApiClient _clashKingApiClient,
         ClashKingApiService _clashKingApiService,
-        ILogger<CwlService> _logger)
+        ILogger<CwlService> _logger,
+        DiscordHelper _discordHelper)
     {
         private static readonly string[] _cwlDataHeaders = ["Stars", "% Dest", "TH"];
         private static readonly string[] _cwlEmptyAttack = ["", "", ""];
@@ -53,8 +54,18 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithLabel("Close Signup")
                 .WithCustomId("button_cwl_signup_close")
                 .WithStyle(ButtonStyle.Danger);
+            var checkButton = new ButtonBuilder()
+                .WithLabel("Check Your Signups")
+                .WithCustomId("button_cwl_signup_check")
+                .WithStyle(ButtonStyle.Primary);
+            var helpButton = new ButtonBuilder()
+                .WithLabel("Help")
+                .WithCustomId("button_cwl_signup_help")
+                .WithStyle(ButtonStyle.Primary);
             var component = new ComponentBuilder()
                 .WithButton(signupButton)
+                .WithButton(checkButton)
+                .WithButton(helpButton)
                 .WithButton(closeButton)
                 .Build();
 
@@ -65,13 +76,8 @@ namespace ZenBotCS.Services.SlashCommands
                     .Build(),
                 new EmbedBuilder()
                     .WithTitle("CWL Signups")
-                    .WithDescription("Click the button below to sign up for the next upcoming CWL.\n\n" +
-                        "- Your account needs to be linked to discord and it needs to be in a family clan.\n" +
-                        "- There is no \"back\" button, but you can just dismiss the message and start over.\n" +
-                        "- You can check your signup with </cwl signup check:1194250784695660605>\n" +
-                        "- You can delete (and redo) your own signup with </cwl signup delete:1194250781797400692> if you made a mistake.\n" +
-                        "- Do **not** sign up on accounts on which you do not want to participate in CWL.\n" +
-                        "- If you need help ping leadership.")
+                    .WithDescription("- Click the \"Sign Up\" button to sign up for the next upcoming CWL.\n" +
+                                    "- Click the \"Help\" button for additional information.")
                     .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
                     .Build(),
             ];
@@ -90,8 +96,18 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithLabel("Reopen Signup")
                 .WithCustomId("button_cwl_signup_reopen")
                 .WithStyle(ButtonStyle.Danger);
+            var checkButton = new ButtonBuilder()
+                .WithLabel("Check Your Signups")
+                .WithCustomId("button_cwl_signup_check")
+                .WithStyle(ButtonStyle.Primary);
+            var helpButton = new ButtonBuilder()
+                .WithLabel("Help")
+                .WithCustomId("button_cwl_signup_help")
+                .WithStyle(ButtonStyle.Primary);
             var component = new ComponentBuilder()
                 .WithButton(signupButton)
+                .WithButton(checkButton)
+                .WithButton(helpButton)
                 .WithButton(reopenButton)
                 .Build();
 
@@ -101,7 +117,11 @@ namespace ZenBotCS.Services.SlashCommands
                     .Build(),
                 new EmbedBuilder()
                     .WithTitle("CWL Signups")
-                    .WithDescription("~~Click the button below to sign up for the next upcoming CWL.~~\n\n**CWL Signup has been closed.**")
+                    .WithDescription("~~- Click the \"Sign Up\" button to sign up for the next upcoming CWL.\n" +
+                                    "- Click the \"Help\" button for additional information.~~\n" +
+                                    "**CWL Signup has been closed.**")
+                    .WithImageUrl("https://cdn.discordapp.com/attachments/809874883768614922/1231630801792405704/Zen-CWL-Spacer.png?ex=6629d0d1&is=66287f51&hm=3372eb6161b41bb81bc6d89e02049e8e6ea1bc2126abb3f7bd8079306207b7c9&")
+
                     .Build(),
             ];
 
@@ -1350,6 +1370,13 @@ namespace ZenBotCS.Services.SlashCommands
             return result;
         }
 
+        public async Task<(string content, Embed[] embeds)> GetSignupHelpEmbed()
+        {
+            var messageLink = _config["CwlSignupHelpButton"];
+            if (messageLink == null)
+                return ("", [_embedHelper.ErrorEmbed("Error", "No message link specified in config.")]);
 
+            return await _discordHelper.GetMessageFromLinkAsync(messageLink);
+        }
     }
 }
