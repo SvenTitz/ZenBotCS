@@ -109,7 +109,15 @@ internal class InteractionHandler : DiscordClientService
         {
             if (arg is SocketSlashCommand slashCommand)
             {
-                _logger.LogInformation("{user} used {type}, with params: {data}", arg.User, slashCommand.Data.GetFullNameLogString(), slashCommand.Data.GetParamLogString());
+                _logger.LogInformation("{user} used {type}, with params: {data}", slashCommand.User, slashCommand.Data.GetFullNameLogString(), slashCommand.Data.GetParamLogString());
+            }
+            else if (arg is SocketMessageComponent messageComponent)
+            {
+                // Log button or component interaction
+                _logger.LogInformation("{user} used interaction {customId}, with data: {data}",
+                    messageComponent.User,
+                    messageComponent.Data.CustomId,
+                    messageComponent.Data.Values);
             }
 
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
