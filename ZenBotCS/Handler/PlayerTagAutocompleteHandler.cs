@@ -2,16 +2,12 @@
 using Discord;
 using Discord.Interactions;
 using ZenBotCS.Extensions;
+using ZenBotCS.Helper;
 
 namespace ZenBotCS.Handler;
 
-public class PlayerTagAutocompleteHandler : AutocompleteHandler
+public class PlayerTagAutocompleteHandler(PlayersClient _playersClient, EmbedHelper _embedHelper) : AutocompleteHandler
 {
-    private readonly PlayersClient _playersClient;
-    public PlayerTagAutocompleteHandler(PlayersClient playersClient)
-    {
-        _playersClient = playersClient;
-    }
 
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(IInteractionContext context, IAutocompleteInteraction autocompleteInteraction, IParameterInfo parameter, IServiceProvider services)
     {
@@ -24,7 +20,7 @@ public class PlayerTagAutocompleteHandler : AutocompleteHandler
 
         IEnumerable<AutocompleteResult> suggestions = players
             .Where(p => p.Name.Contains(autocompleteInteraction.Data.Current.Value.ToString() ?? string.Empty, StringComparison.InvariantCultureIgnoreCase))
-            .Select(p => new AutocompleteResult($"{p.Name} ({p.Tag})", p.Tag));
+            .Select(p => new AutocompleteResult($"{p.Name}{_embedHelper.ToSuperscript(p.TownHallLevel)} ({p.Tag})", p.Tag));
 
         return AutocompletionResult.FromSuccess(suggestions.Take(25));
     }
