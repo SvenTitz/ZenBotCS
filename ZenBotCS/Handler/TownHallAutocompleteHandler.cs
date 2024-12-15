@@ -18,6 +18,7 @@ public class TownHallAutocompleteHandler : AutocompleteHandler
             new AutocompleteResult($"TH 14", 14),
             new AutocompleteResult($"TH 15", 15),
             new AutocompleteResult($"TH 16", 16),
+            new AutocompleteResult($"TH 17", 17),
         ];
 
         return AutocompletionResult.FromSuccess(suggestions.Take(25));
