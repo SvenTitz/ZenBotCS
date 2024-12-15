@@ -27,10 +27,20 @@ public class GspreadService
         _config = congig;
         _logger = logger;
 
+        string credPath = _config["PathToGspreadToken"]!;
+
+#if !DEBUG
+        if (!System.IO.File.Exists(Path.Combine(credPath, "Google.Apis.Auth.OAuth2.Responses.TokenResponse-user")))
+        {
+            _logger.LogError("Goole OAuth2 Token gone again. FUCK MY LIFE");
+            return;
+        }
+#endif
+
         UserCredential credential;
         using (var stream = new FileStream(_config["PathToGspreadCredentialsOAuth2"]!, FileMode.Open, FileAccess.Read))
         {
-            string credPath = _config["PathToGspreadToken"]!;
+
             credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
                 GoogleClientSecrets.FromStream(stream).Secrets,
                 new[] { SheetsService.Scope.Spreadsheets, DriveService.Scope.DriveFile, DriveService.Scope.Drive },
