@@ -1139,8 +1139,6 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 var clanSettings = _botDb.ClanSettings.AsNoTracking();
                 var roleIds = clanSettings!.Where(cs => cs.CwlRoleId != null && cs.CwlRoleId > 0).Select(o => o.CwlRoleId!.Value).ToList();
-                ulong warGeneralRoleId = _config.GetValue<ulong>("WarGeneralRoleId");
-                roleIds.Add(warGeneralRoleId);
 
                 var usersWithRoles = context.Guild.Users
                     .Where(u => u.Roles.Any(r => roleIds.Contains(r.Id)))
