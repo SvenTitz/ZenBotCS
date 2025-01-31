@@ -16,7 +16,7 @@ namespace ZenBotCS.Clients
         private readonly HttpClient _httpClient;
         private readonly ILogger<ClashKingApiClient> _logger;
 
-        private const string HostUrl = "api.clashking.xyz";
+        private const string HostUrl = "api.clashk.ing";
 
         public ClashKingApiClient(ILogger<ClashKingApiClient> logger)
         {
