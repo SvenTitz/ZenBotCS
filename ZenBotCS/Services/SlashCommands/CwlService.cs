@@ -851,21 +851,24 @@ namespace ZenBotCS.Services.SlashCommands
         {
             var data = new List<List<object?>>();
 
-            var hitrates = await GetLastMonthHitrates(signups.Select(s => s.PlayerTag).ToList());
+            var hitrates1Month = await GetLastMonthHitrates(signups.Select(s => s.PlayerTag).ToList());
+            var hitrates3Months = await GetThreeMonthsHitrates(signups.Select(s => s.PlayerTag).ToList());
 
             signups = [.. signups.OrderBy(s => s.PlayerThLevel).ThenBy(s => s.PlayerName)];
             foreach (var signup in signups)
             {
-                var hitrate = hitrates.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
+                var hitrate1Month = hitrates1Month.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
+                var htirate3Months = hitrates3Months.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
                 data.Add(
                 [
                     signup.PlayerName,
                     signup.PlayerTag,
                     signup.PlayerThLevel,
                     signup.MaxDefeneses ? "Yes" : "No",
-                    hitrate?.GetSuccessRate(),
-                    hitrate?.AttackCount,
-                    hitrate?.SuccessCount,
+                    hitrate1Month?.GetSuccessRate(),
+                    hitrate1Month?.AttackCount,
+                    hitrate1Month?.SuccessCount,
+                    htirate3Months?.GetSuccessRate(),
                     signup.OptOutDays.HasFlag(OptOutDays.Day1) ? "" : 1,
                     signup.OptOutDays.HasFlag(OptOutDays.Day2) ? "" : 1,
                     signup.OptOutDays.HasFlag(OptOutDays.Day3) ? "" : 1,
@@ -888,12 +891,22 @@ namespace ZenBotCS.Services.SlashCommands
             List<AttackSuccessModel> resList = [];
             foreach (var playerTag in playerTags)
             {
-                resList.Add(await GetLastMonthHitrate(playerTag));
+                resList.Add(await GetHitrate(playerTag, 31));
             }
             return resList;
         }
 
-        private async Task<AttackSuccessModel> GetLastMonthHitrate(string playerTag)
+        private async Task<List<AttackSuccessModel>> GetThreeMonthsHitrates(List<string> playerTags)
+        {
+            List<AttackSuccessModel> resList = [];
+            foreach (var playerTag in playerTags)
+            {
+                resList.Add(await GetHitrate(playerTag, 90));
+            }
+            return resList;
+        }
+
+        private async Task<AttackSuccessModel> GetHitrate(string playerTag, int numberDays)
         {
             var warAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(playerTag);
 
@@ -902,7 +915,7 @@ namespace ZenBotCS.Services.SlashCommands
                 {
                     var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
                     TimeSpan difference = DateTime.UtcNow - endTime;
-                    return difference.TotalDays <= 31;
+                    return difference.TotalDays <= numberDays;
                 })
                 .SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.MemberData.TownhallLevel));
 

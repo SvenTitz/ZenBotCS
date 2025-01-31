@@ -179,7 +179,7 @@ public class GspreadService
             ? _config["CwlRosterChampStyleTemplateSpreadsheetId"]!
             : _config["CwlRosterTemplateSpreadsheetId"]!;
 
-        var endColumn = isChampStyle ? 17 : 13;
+        var endColumn = isChampStyle ? 18 : 13;
         (var spreadsheetId, var sheetName) = await CopyCwlRosterSpreadsheet(clan, clanSettings, templateId, endColumn);
 
         // Determine the range based on the size of the data array
