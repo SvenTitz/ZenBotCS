@@ -297,7 +297,6 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithCustomId("menu_cwl_signup_style")
                 .WithMinValues(1)
                 .WithMaxValues(1)
-                .AddOption("FWA Clans - Click this option", ((int)WarPreference.FWA).ToString())
                 .AddOption("Alternate - I don't mind sitting out", ((int)WarPreference.Alternate).ToString())
                 .AddOption("I just want my 8 stars for max rewards", ((int)WarPreference.EightStars).ToString())
                 .AddOption("I want to war as much as possible", ((int)WarPreference.Always).ToString());
