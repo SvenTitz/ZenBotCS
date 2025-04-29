@@ -857,8 +857,8 @@ namespace ZenBotCS.Services.SlashCommands
             signups = [.. signups.OrderBy(s => s.PlayerThLevel).ThenBy(s => s.PlayerName)];
             foreach (var signup in signups)
             {
-                var hitrate1Month = hitrates1Month.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
-                var htirate3Months = hitrates3Months.FirstOrDefault(hr => hr.PlayerTag == signup.PlayerTag);
+                var hitrate1Month = hitrates1Month.FirstOrDefault(hr => hr?.PlayerTag == signup.PlayerTag);
+                var htirate3Months = hitrates3Months.FirstOrDefault(hr => hr?.PlayerTag == signup.PlayerTag);
                 data.Add(
                 [
                     signup.PlayerName,
@@ -886,9 +886,9 @@ namespace ZenBotCS.Services.SlashCommands
             return data.Select(d => d.ToArray()).ToArray();
         }
 
-        private async Task<List<AttackSuccessModel>> GetLastMonthHitrates(List<string> playerTags)
+        private async Task<List<AttackSuccessModel?>> GetLastMonthHitrates(List<string> playerTags)
         {
-            List<AttackSuccessModel> resList = [];
+            List<AttackSuccessModel?> resList = [];
             foreach (var playerTag in playerTags)
             {
                 resList.Add(await GetHitrate(playerTag, 31));
@@ -896,9 +896,9 @@ namespace ZenBotCS.Services.SlashCommands
             return resList;
         }
 
-        private async Task<List<AttackSuccessModel>> GetThreeMonthsHitrates(List<string> playerTags)
+        private async Task<List<AttackSuccessModel?>> GetThreeMonthsHitrates(List<string> playerTags)
         {
-            List<AttackSuccessModel> resList = [];
+            List<AttackSuccessModel?> resList = [];
             foreach (var playerTag in playerTags)
             {
                 resList.Add(await GetHitrate(playerTag, 90));
@@ -906,9 +906,12 @@ namespace ZenBotCS.Services.SlashCommands
             return resList;
         }
 
-        private async Task<AttackSuccessModel> GetHitrate(string playerTag, int numberDays)
+        private async Task<AttackSuccessModel?> GetHitrate(string playerTag, int numberDays)
         {
             var warAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(playerTag);
+
+            if (warAttacks is null)
+                return null;
 
             var attacks = warAttacks.Items
                 .Where(w =>

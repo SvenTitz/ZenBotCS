@@ -37,7 +37,12 @@ public class WarHistoryUpdateService(IServiceScopeFactory serviceScopeFactory, I
                         botDb.WarHistories.Add(entry);
                     }
                     //_logger.LogInformation("Updating WarHistory entry for {name}", clan.Name);
-                    entry.WarData = newWarData;
+
+                    if (newWarData is not null)
+                        entry.WarData = newWarData;
+                    else
+                        _logger.LogWarning("Could not get Updated War Data for Clan {name} ({tag})", clan.Name, clan.Tag);
+
                     entry.UpdatedAt = DateTime.UtcNow;
 
                     botDb.SaveChanges();

@@ -159,6 +159,12 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             var clan = await _clansClient.GetOrFetchClanAsync(clantag);
 
             var warDataList = await _clashKingApiClient.GetClanWarHistory(clantag, 50);
+
+            if (warDataList is null)
+            {
+                return _embedHelper.ErrorEmbed("Error", $"Could not fetch War History for {clan.Name} ({clan.Tag})");
+            }
+
             if (!includeCwl)
             {
                 warDataList = warDataList.Where(d => d.AttacksPerMember == 2).ToList();
@@ -345,6 +351,9 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         foreach (var member in clan.Members)
         {
             var warHits = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(member.Tag);
+            if (warHits is null)
+                continue;
+
             var warHitsFiltered = warHits.Items
                 .OrderByDescending(w => w.WarData.EndTime).Take((int)limitWars)
                 .Where(w =>

@@ -14,7 +14,7 @@ public class Player
     public int Townhall { get; set; }
 
     [JsonProperty("last_online")]
-    public long LastOnline { get; set; }
+    public long? LastOnline { get; set; }
 
     [JsonProperty("looted")]
     public Loot Looted { get; set; } = new();
@@ -23,10 +23,10 @@ public class Player
     public int Trophies { get; set; }
 
     [JsonProperty("warStars")]
-    public int WarStars { get; set; }
+    public int? WarStars { get; set; }
 
     [JsonProperty("clanCapitalContributions")]
-    public int ClanCapitalContributions { get; set; }
+    public int? ClanCapitalContributions { get; set; }
 
     [JsonProperty("donations")]
     public Dictionary<string, Donations>? Donations { get; set; } = [];

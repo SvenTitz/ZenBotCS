@@ -26,20 +26,29 @@ public class PlayerStatsUpdateService(IServiceScopeFactory _serviceScopeFactory,
                 _logger.LogInformation("Pulling PlayerStats for {count} players", chachedPlayers.Count);
                 foreach (var player in chachedPlayers.Where(p => p.TownHallLevel >= 7))
                 {
-                    //_logger.LogInformation("Pulling Stats for {name}", player.Name);
+                    //_logger.LogInformation("Pulling Stats for {name} ({tag})", player.Name, player.Tag);
                     var newStats = await clashKingApiClient.GetPlayerStatsAsync(player.Tag);
                     var newWarHits = await clashKingApiClient.GetPlayerWarAttacksAsync(player.Tag, 100);
 
                     var entry = botDb.PlayerStats.FirstOrDefault(ps => ps.PlayerTag == player.Tag);
                     if (entry is null)
                     {
-                        //_logger.LogInformation("Creating new PlayerStats entry for {name}", player.Name);
+                        //_logger.LogInformation("Creating new PlayerStats entry for {name} ({tag})", player.Name, player.Tag);
                         entry = new Entities.Models.PlayerStats() { PlayerTag = player.Tag };
                         botDb.PlayerStats.Add(entry);
                     }
-                    //_logger.LogInformation("Updating PlayerStats entry for {name}", player.Name);
-                    entry.Player = newStats;
-                    entry.PlayerWarhits = newWarHits;
+                    //_logger.LogInformation("Updating PlayerStats entry for {name} ({tag})", player.Name, player.Tag);
+
+                    if (newStats is not null)
+                        entry.Player = newStats;
+                    else
+                        _logger.LogWarning("Could not get Updated Stats for {name} ({tag})", player.Name, player.Tag);
+
+                    if (newWarHits is not null)
+                        entry.PlayerWarhits = newWarHits;
+                    else
+                        _logger.LogWarning("Could not get Updated War Hits for {name} ({tag})", player.Name, player.Tag);
+
                     entry.UpdatedAt = DateTime.UtcNow;
 
                     botDb.SaveChanges();

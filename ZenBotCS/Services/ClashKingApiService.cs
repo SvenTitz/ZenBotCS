@@ -8,7 +8,7 @@ namespace ZenBotCS.Services;
 public class ClashKingApiService(ClashKingApiClient _ckApiClient, BotDataContext _botDb)
 {
 
-    public async Task<(Player player, DateTime lastUpdated)> GetOrFetchPlayerStatsAsync(string playerTag)
+    public async Task<(Player? player, DateTime lastUpdated)> GetOrFetchPlayerStatsAsync(string playerTag)
     {
         var playerStats = _botDb.PlayerStats.FirstOrDefault(p => p.PlayerTag == playerTag);
         var player = playerStats?.Player ?? await _ckApiClient.GetPlayerStatsAsync(playerTag);
@@ -16,7 +16,7 @@ public class ClashKingApiService(ClashKingApiClient _ckApiClient, BotDataContext
         return (player, timestamp);
     }
 
-    public async Task<PlayerWarhits> GetOrFetchPlayerWarhitsAsync(string playerTag)
+    public async Task<PlayerWarhits?> GetOrFetchPlayerWarhitsAsync(string playerTag)
     {
         var playerStats = _botDb.PlayerStats.FirstOrDefault(p => p.PlayerTag == playerTag);
         var playerWarHits = playerStats?.PlayerWarhits ?? await _ckApiClient.GetPlayerWarAttacksAsync(playerTag, 100);

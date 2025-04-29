@@ -147,13 +147,15 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 var players = await GetPlayersFromTagAndUser(playerTag, user);
 
-                if (!players.Any())
+                if (players.Count == 0)
                     return _embedHelper.ErrorEmbed("Error", "Could not find any Players linked to that user.");
 
                 PlayerWarhits warHits = new();
                 foreach (var player in players)
                 {
-                    warHits.Items.AddRange((await _ckApiClient.GetPlayerWarAttacksAsync(player!.Tag, limitDays)).Items);
+                    var warHitItems = await _ckApiClient.GetPlayerWarAttacksAsync(player!.Tag, limitDays);
+                    if (warHitItems is not null)
+                        warHits.Items.AddRange(warHitItems.Items);
                 }
 
                 if (warTypeFilter == WarTypeFilter.CWLOnly)
@@ -358,7 +360,7 @@ namespace ZenBotCS.Services.SlashCommands
                 var season = await _ckApiClient.GetCurrentSeason();
                 foreach (var player in players)
                 {
-                    if (player.League?.Name != "Legend League")
+                    if (player.League?.Name != "Legend League" || season is null)
                         continue;
 
                     var legendPlayer = await _ckApiClient.GetPlayerLegends(player.Tag, season);
@@ -412,6 +414,12 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<Embed[]> StatsData(string playerTag)
         {
             var (playerStats, lastUpdated) = await _ckApiService.GetOrFetchPlayerStatsAsync(playerTag);
+
+            if (playerStats is null)
+            {
+                return [embedHelper.ErrorEmbed("Error", "Could not fetch player data from CK API.")];
+            }
+
             var clan = await _clansClient.GetOrFetchClanOrDefaultAsync(playerStats.ClanTag);
 
             var embedTemplate = new EmbedBuilder()
