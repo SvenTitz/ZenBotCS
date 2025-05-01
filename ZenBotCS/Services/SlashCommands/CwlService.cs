@@ -1127,7 +1127,8 @@ namespace ZenBotCS.Services.SlashCommands
             spreadsheetUrl ??= _gspreadService.GetUrl(_botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)!);
 
             var playerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
-            var userIds = _botDb.CwlSignups.Where(s => playerTags.Contains(s.PlayerTag)).Select(s => s.DiscordId).ToList();
+            var discordLinks = await _clashKingApiClient.PostDiscordLinksAsync(playerTags);
+            var userIds = discordLinks.Values.OfType<ulong>().Distinct();
 
             foreach (var userId in userIds)
             {
