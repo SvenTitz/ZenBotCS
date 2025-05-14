@@ -95,7 +95,7 @@ public class Program
             .AddTransient<ClashKingApiService>()
             .AddTransient<EmbedHelper>()
             .AddTransient<DiscordHelper>()
-            ;
+            .AddTransient<UtilService>();
 
         builder.Services.AddDbContext<BotDataContext>(options =>
         {
