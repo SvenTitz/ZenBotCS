@@ -83,7 +83,6 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
 
             var embedBuilder = new EmbedBuilder()
                 .WithTitle("Reddit Zen Dynasty Clans:")
-                .WithFooter(@"* dump Capital Gold here please.")
                 .WithColor(Color.DarkPurple);
 
             AddClansFieldByType(embedBuilder, ClanType.War, clansGroupedByType);
@@ -91,6 +90,7 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             AddClansFieldByType(embedBuilder, ClanType.Event, clansGroupedByType);
             AddClansFieldByType(embedBuilder, ClanType.Partner, clansGroupedByType);
             AddClansFieldByType(embedBuilder, ClanType.Other, clansGroupedByType);
+            await AddCcDumpClans(embedBuilder);
 
             return embedBuilder.Build();
         }
@@ -146,15 +146,31 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         var stringBuilder = new StringBuilder();
         foreach (var clan in clans)
         {
-            var isCcDump = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clan.Tag)?.CcGoldDump ?? false;
-            if (isCcDump)
-            {
-                stringBuilder.AppendLine($"- **[{clan.Name} ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50 ***");
-            }
-            else
-            {
-                stringBuilder.AppendLine($"- [**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50");
-            }
+            stringBuilder.AppendLine($"- [**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50");
+        }
+        clansFieldBuilder.WithValue(stringBuilder.ToString());
+
+        embedBuilder.AddField(clansFieldBuilder);
+    }
+
+    private async Task AddCcDumpClans(EmbedBuilder embedBuilder)
+    {
+        var ccDumpclanTags = _botDb.ClanSettings.Where(cs => cs.CcGoldDump).Select(cs => cs.ClanTag).ToList();
+
+        if (ccDumpclanTags.Count == 0)
+            return;
+
+        var clans = await _clansClient.GetCachedClansAsync();
+        clans = clans.Where(c => ccDumpclanTags.Contains(c.Tag)).ToList();
+
+        var clansFieldBuilder = new EmbedFieldBuilder()
+            .WithIsInline(false)
+            .WithName("CC Gold Dump");
+
+        var stringBuilder = new StringBuilder();
+        foreach (var clan in clans)
+        {
+            stringBuilder.AppendLine($"- [**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl})");
         }
         clansFieldBuilder.WithValue(stringBuilder.ToString());
 
