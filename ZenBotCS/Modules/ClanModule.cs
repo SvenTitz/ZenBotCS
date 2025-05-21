@@ -98,11 +98,12 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
                 SocketRole? cwlRole = null,
                 string? colorHex = null,
                 bool? enableCwlSignup = null,
-                bool? enableChampStyleSignup = null
+                bool? enableChampStyleSignup = null,
+                bool? isCcGoldDumpClan = null
             )
         {
             await DeferAsync();
-            var embed = await ClanService.SettingsEdit(clanTag, clanType, order, memberRole, elderRole, leadershipRole, cwlRole, colorHex, enableCwlSignup, enableChampStyleSignup);
+            var embed = await ClanService.SettingsEdit(clanTag, clanType, order, memberRole, elderRole, leadershipRole, cwlRole, colorHex, enableCwlSignup, enableChampStyleSignup, isCcGoldDumpClan);
             await FollowupAsync(embed: embed);
         }
 

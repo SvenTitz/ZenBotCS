@@ -32,4 +32,6 @@ public class ClanSettings
     public bool EnableCwlSignup { get; set; }
 
     public bool ChampStyleCwlRoster { get; set; }
+
+    public bool CcGoldDump { get; set; }
 }

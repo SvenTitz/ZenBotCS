@@ -83,6 +83,7 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
 
             var embedBuilder = new EmbedBuilder()
                 .WithTitle("Reddit Zen Dynasty Clans:")
+                .WithFooter(@"* dump Capital Gold here please.")
                 .WithColor(Color.DarkPurple);
 
             AddClansFieldByType(embedBuilder, ClanType.War, clansGroupedByType);
@@ -145,7 +146,15 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         var stringBuilder = new StringBuilder();
         foreach (var clan in clans)
         {
-            stringBuilder.AppendLine($"- [**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50");
+            var isCcDump = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clan.Tag)?.CcGoldDump ?? false;
+            if (isCcDump)
+            {
+                stringBuilder.AppendLine($"- **[{clan.Name} ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50 ***");
+            }
+            else
+            {
+                stringBuilder.AppendLine($"- [**{clan.Name}** ({clan.Tag})]({clan.ClanProfileUrl}) {clan.Members.Count}/50");
+            }
         }
         clansFieldBuilder.WithValue(stringBuilder.ToString());
 
@@ -402,7 +411,8 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         SocketRole? cwlRole,
         string? colorHex,
         bool? enableCwlSignup,
-        bool? enableChampStyleSignup)
+        bool? enableChampStyleSignup,
+        bool? isCcGoldDumpClan)
     {
         var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
         var clanSettings = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag);
@@ -460,6 +470,11 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         if (enableChampStyleSignup is not null)
         {
             clanSettings.ChampStyleCwlRoster = enableChampStyleSignup.Value;
+        }
+
+        if (isCcGoldDumpClan is not null)
+        {
+            clanSettings.CcGoldDump = isCcGoldDumpClan.Value;
         }
 
         _botDb.SaveChanges();
