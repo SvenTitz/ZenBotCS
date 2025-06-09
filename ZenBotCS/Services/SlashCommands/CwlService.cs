@@ -1288,7 +1288,7 @@ namespace ZenBotCS.Services.SlashCommands
                             {
                                 member.Attacks[i]!.Stars.ToString(),
                                 member.Attacks[i]!.DestructionPercentage.ToString(),
-                                member.Attacks[i]!.DefenderTownHall.ToString(),
+                                member.Attacks[i]!.GetSheetFormattedThLevel(),
                             });
                     }
                 }
@@ -1308,12 +1308,14 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 int index = wars.IndexOf(war);
                 var clan = war.Clans[clantag];
+                var opponentClan = war.Clan.Tag == clantag ? war.Opponent : war.Clan;
+                var thMinIndexMap = GetThMinIndexMap(opponentClan);
                 foreach (var member in clan.Members)
                 {
                     var model = GetOrAddCwlDataMemberModel(memberModels, member);
                     if (member.Attacks is not null && member.Attacks.Count > 0)
                     {
-                        model.Attacks[index] = new CwlDataMemberAttack(member.Attacks[0]);
+                        model.Attacks[index] = new CwlDataMemberAttack(member.Attacks[0], opponentClan, thMinIndexMap);
                     }
                     else
                     {
@@ -1322,6 +1324,13 @@ namespace ZenBotCS.Services.SlashCommands
                 }
             }
             return memberModels;
+        }
+
+        private Dictionary<int, int> GetThMinIndexMap(WarClan opponent)
+        {
+            return opponent.Members
+                .GroupBy(m => m.TownhallLevel)
+                .ToDictionary(g => g.Key, g => g.Min(m => m.MapPosition));
         }
 
         private CwlDataMemberModel GetOrAddCwlDataMemberModel(List<CwlDataMemberModel> members, ClanWarMember member)
