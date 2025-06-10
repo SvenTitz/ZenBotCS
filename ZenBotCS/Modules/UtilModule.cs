@@ -28,5 +28,12 @@ public class UtilModule : InteractionModuleBase<SocketInteractionContext>
         await RespondAsync(message, ephemeral: true);
     }
 
+    [SlashCommand("spintimes", "returns a list of the next spin times and mandatory wars")]
+    public async Task SpinTimes()
+    {
+        var embed = UtilService.SpinTimes();
+        await RespondAsync(embed: embed);
+    }
+
 }
 
