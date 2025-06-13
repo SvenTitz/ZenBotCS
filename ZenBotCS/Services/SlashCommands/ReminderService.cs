@@ -1,10 +1,10 @@
-﻿using CocApi.Cache;
+﻿using System.Text;
+using CocApi.Cache;
 using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Text;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Helper;

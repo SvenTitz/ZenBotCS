@@ -1,8 +1,8 @@
-﻿using Discord;
+﻿using System.ComponentModel;
+using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using System.ComponentModel;
 using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Services.SlashCommands;

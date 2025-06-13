@@ -1,9 +1,9 @@
-﻿using CocApi.Cache;
+﻿using System.Text;
+using CocApi.Cache;
 using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using System.Text;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;

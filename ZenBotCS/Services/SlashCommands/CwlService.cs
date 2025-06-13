@@ -1,4 +1,5 @@
-﻿using CocApi.Cache;
+﻿using System.Text;
+using CocApi.Cache;
 using CocApi.Rest.Models;
 using Discord;
 using Discord.Interactions;
@@ -7,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Text;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;

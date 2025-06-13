@@ -1,4 +1,5 @@
-﻿using CocApi.Cache;
+﻿using System.Globalization;
+using CocApi.Cache;
 using CocApi.Cache.Extensions;
 using CocApi.Rest.Client;
 using CocApi.Rest.Extensions;
@@ -12,7 +13,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Core;
-using System.Globalization;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Handler;

@@ -1,7 +1,7 @@
-﻿using Discord;
+﻿using System.Text;
+using Discord;
 using Discord.Addons.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Text;
 using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Helper

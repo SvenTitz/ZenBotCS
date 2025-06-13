@@ -1,10 +1,10 @@
-﻿using CocApi.Rest.Models;
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using System.Text;
-using System.Text.RegularExpressions;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;

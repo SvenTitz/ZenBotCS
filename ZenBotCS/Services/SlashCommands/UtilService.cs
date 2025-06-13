@@ -1,6 +1,6 @@
-﻿using Discord;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
+using Discord;
 using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands

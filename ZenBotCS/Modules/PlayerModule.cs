@@ -1,6 +1,6 @@
-﻿using Discord.Interactions;
+﻿using System.ComponentModel;
+using Discord.Interactions;
 using Discord.WebSocket;
-using System.ComponentModel;
 using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;

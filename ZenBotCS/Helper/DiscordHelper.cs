@@ -1,7 +1,7 @@
-﻿using Discord;
+﻿using System.Text.RegularExpressions;
+using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
 
 namespace ZenBotCS.Helper
 {
