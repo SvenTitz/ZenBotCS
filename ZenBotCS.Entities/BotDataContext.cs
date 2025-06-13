@@ -12,6 +12,9 @@ namespace ZenBotCS.Entities
         public DbSet<ReminderMisses> ReminderMisses { get; set; }
         public DbSet<PlayerStats> PlayerStats { get; set; }
         public DbSet<ClanSettings> ClanSettings { get; set; }
+        public DbSet<LeadershipLogMessage> LeadershipLogMessages { get; set; }
+        public DbSet<LeadershipLogUser> LeadershipLogUsers { get; set; }
+        public DbSet<LeadershipLogPlayerTag> LeadershipLogPlayerTags { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

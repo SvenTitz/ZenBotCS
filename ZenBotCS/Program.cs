@@ -83,6 +83,7 @@ public class Program
             .AddHostedService<DiscordLinkUpdateService>()
             .AddHostedService<WarHistoryUpdateService>()
             .AddHostedService<PlayerStatsUpdateService>()
+            .AddHostedService<LeadershipLogBackfillService>()
             .AddTransient<TestService>()
             .AddTransient<GspreadService>()
             .AddTransient<PlayerService>()
@@ -95,7 +96,8 @@ public class Program
             .AddTransient<ClashKingApiService>()
             .AddTransient<EmbedHelper>()
             .AddTransient<DiscordHelper>()
-            .AddTransient<UtilService>();
+            .AddTransient<UtilService>()
+            .AddTransient<GatekeepService>();
 
         builder.Services.AddDbContext<BotDataContext>(options =>
         {

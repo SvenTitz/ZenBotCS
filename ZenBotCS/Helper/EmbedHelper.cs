@@ -187,5 +187,53 @@ namespace ZenBotCS.Helper
             return new string(superscriptChars);
         }
 
+        public Embed[] BuildEmbedsFromLongDescription(
+            StringBuilder descriptionBuilder,
+            EmbedBuilder baseEmbed)
+        {
+            const int MaxDescriptionLength = 4096;
+            var lines = descriptionBuilder.ToString().Split("\r\n");
+            var chunks = new List<string>();
+            var currentChunk = new StringBuilder();
+
+            foreach (var line in lines)
+            {
+                // +1 accounts for the newline we add back
+                if (currentChunk.Length + line.Length + 1 > MaxDescriptionLength)
+                {
+                    chunks.Add(currentChunk.ToString().TrimEnd());
+                    currentChunk.Clear();
+                }
+
+                currentChunk.AppendLine(line);
+            }
+
+            // Add the final chunk
+            if (currentChunk.Length > 0)
+            {
+                chunks.Add(currentChunk.ToString().TrimEnd());
+            }
+
+            // Build embeds from chunks
+            var embeds = new List<Embed>();
+
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                var builder = new EmbedBuilder()
+                    .WithDescription(chunks[i])
+                    .WithColor(baseEmbed.Color.GetValueOrDefault())
+                    .WithFooter(baseEmbed.Footer?.Text, baseEmbed.Footer?.IconUrl);
+
+                if (i == 0 && baseEmbed.Title != null)
+                {
+                    builder.WithTitle(baseEmbed.Title);
+                }
+
+                embeds.Add(builder.Build());
+            }
+
+            return [.. embeds];
+        }
+
     }
 }
