@@ -15,7 +15,7 @@ public class GatekeepModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("notes", "returns notes for the given user and all linked accounts if there are any")]
     public async Task Notes(SocketUser user)
     {
-        await DeferAsync();
+        await DeferAsync(ephemeral: true);
         var embeds = await Service.Notes(user);
         await FollowupAsync(embeds: embeds, ephemeral: true);
     }
