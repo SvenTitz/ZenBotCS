@@ -526,4 +526,70 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             .WithDescription("Done")
             .Build();
     }
+
+    public async Task<Embed> StatsActivity(string clanTag, uint minAttacks, uint minActivity, uint maxDays)
+    {
+        var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+
+        List<ActivityData> activityData = [];
+        foreach (var member in clan.Members)
+        {
+            var memberData = await _clashKingApiService.GetOrFetchPlayerStatsAsync(member.Tag);
+            var memberAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(member.Tag);
+
+            var activity = memberData.player?.Activity?.TakeLast(2).Select(kvp => kvp.Value).Sum();
+            var attacks = memberAttacks?.Items
+                .OrderByDescending(w => w.WarData.EndTime)
+                .Where(w =>
+                {
+                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    TimeSpan difference = DateTime.UtcNow - endTime;
+                    return difference.TotalDays <= 60;
+                })
+                .SelectMany(w => w.Attacks.Where(a => a.DestructionPercentage > 0))
+                .Count();
+
+            var activityString = activity.ToString()?.PadLeft(4) ?? "    ";
+            var attacksString = attacks?.ToString()?.PadLeft(3) ?? "   ";
+
+            var inactive = (activity < minActivity && attacks < minAttacks)
+                        || memberData.player?.LastOnline < DateTimeOffset.UtcNow.AddDays(-maxDays).ToUnixTimeSeconds();
+
+            activityData.Add(new ActivityData(member.Name + _embedHelper.ToSuperscript(member.TownHallLevel ?? 0), member.Tag, attacksString, activityString, memberData.player?.LastOnline.ToString() ?? "", inactive));
+        }
+
+        var stringBuilder = new StringBuilder();
+        stringBuilder.AppendLine("### Active Members:");
+        stringBuilder.AppendLine("`Atk` `Acti` `last online`");
+        foreach (var ad in activityData.Where(ad => !ad.inactive).OrderByDescending(ad => ad.Activity))
+        {
+            var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
+                ? "- - -"
+                : $"<t:{ad.lastOnline}:R>";
+            stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
+        }
+        stringBuilder.AppendLine($"Count: **{activityData.Where(ad => !ad.inactive).Count()}**");
+
+        stringBuilder.AppendLine();
+        stringBuilder.AppendLine("### Inactive Members:");
+        stringBuilder.AppendLine("`Atk` `Acti` `last online`");
+        foreach (var ad in activityData.Where(ad => ad.inactive).OrderByDescending(ad => ad.Activity))
+        {
+            var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
+                ? "- - -"
+                : $"<t:{ad.lastOnline}:R>";
+            stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
+        }
+        stringBuilder.AppendLine($"Count: **{activityData.Where(ad => ad.inactive).Count()}**");
+
+
+        return new EmbedBuilder()
+            .WithTitle($"{clan.Name} Activity")
+            .WithDescription(stringBuilder.ToString())
+            .WithColor(Color.Purple)
+            .WithFooter("Atk = War attacks last 60 days, Acti = Activity score current + last season")
+            .Build();
+    }
+
+    private record ActivityData(string Name, string Tag, string Attacks, string Activity, string lastOnline, bool inactive);
 }
