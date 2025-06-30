@@ -248,6 +248,10 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
                 attackFilter = (memberTh, oppTh) => memberTh + 1 == oppTh;
                 successFilter = (stars) => stars >= 3;
                 break;
+            case AttackStatFilter.PlusTwo3Star:
+                attackFilter = (memberTh, oppTh) => memberTh + 2 == oppTh;
+                successFilter = (stars) => stars >= 3;
+                break;
             case AttackStatFilter.Reach2Star:
                 attackFilter = (memberTh, oppTh) => memberTh < oppTh;
                 successFilter = (stars) => stars >= 2;
