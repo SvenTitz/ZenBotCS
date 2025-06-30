@@ -1237,6 +1237,62 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
+        public async Task<Embed> SignupAdd(string playerTag, string clanTag, bool? bonus, WarPreference? warPreference)
+        {
+            Player player;
+            Clan clan;
+            try
+            {
+                player = await _playersClient.GetOrFetchPlayerAsync(playerTag);
+                clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+            }
+            catch (Exception e)
+            {
+                return _embedHelper.ErrorEmbed("Error", e.Message);
+            }
+            if (clan is null)
+            {
+                return _embedHelper.ErrorEmbed("Error", $"Invalid Clan Tag `{clanTag}`.");
+            }
+
+            if (player is null)
+            {
+                return _embedHelper.ErrorEmbed("Error", $"Invalid Player Tag `{playerTag}`");
+            }
+
+            var discordUserId = await _clashKingApiClient.PostDiscordLinksAsync(playerTag);
+            if (discordUserId is null)
+            {
+                return _embedHelper.ErrorEmbed("Error", $"{player.Name} not linked to a Discord user.");
+            }
+
+            var existingSignup = _botDb.CwlSignups.FirstOrDefault(s => s.PlayerTag == playerTag && !s.Archieved);
+            if (existingSignup is not null)
+            {
+                return _embedHelper.ErrorEmbed("Error", $"{player.Name} is already signed up in {clan.Name}");
+            }
+
+            var signup = new CwlSignup()
+            {
+                PlayerTag = player.Tag,
+                PlayerName = player.Name,
+                PlayerThLevel = player.TownHallLevel,
+                ClanTag = clan.Tag,
+                DiscordId = discordUserId.Value,
+                OptOutDays = 0,
+                WarPreference = warPreference ?? WarPreference.Alternate,
+                Bonus = bonus ?? false
+            };
+            _botDb.CwlSignups.Add(signup);
+            _botDb.SaveChanges();
+
+            return new EmbedBuilder()
+                .WithTitle("Cwl Signup Added")
+                .WithDescription($"Signed up {player.Name} ({player.Tag}) in {clan.Name}")
+                .WithColor(Color.Purple)
+                .Build();
+        }
+
         public async Task<string> GetSignupSummaryMessage(SocketMessageComponent interaction)
         {
             var signup = GetSignupFromCache(interaction)!;

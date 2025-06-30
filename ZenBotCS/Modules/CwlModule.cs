@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using ZenBotCS.Attributes;
+using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Handler;
 using ZenBotCS.Services.SlashCommands;
 
@@ -179,6 +180,24 @@ namespace ZenBotCS.Modules
                     x.Content = content;
                     x.Components = components;
                 });
+            }
+
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
+            [SlashCommand("add", "Signs up a user to cwl")]
+            public async Task Add(
+                [Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))]
+                string playerTag,
+                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))]
+                string clanTag,
+                [Description("Opt in for bonuses")]
+                bool bonus = false,
+                [Summary("WarPreference")]
+                WarPreference warPreference = WarPreference.Alternate)
+            {
+                await DeferAsync();
+                var embed = await CwlService.SignupAdd(playerTag, clanTag, bonus, warPreference);
+                await FollowupAsync(embed: embed);
             }
         }
 
