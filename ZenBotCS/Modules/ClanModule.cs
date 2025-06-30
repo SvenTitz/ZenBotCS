@@ -79,7 +79,7 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync(embed: embed);
         }
 
-        [SlashCommand("acticity", "Get a breakdown of clan member activity")]
+        [SlashCommand("activity", "Get a breakdown of clan member activity")]
         public async Task Activity(
             [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))]
                 string clanTag,
