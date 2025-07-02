@@ -1,9 +1,11 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
@@ -15,7 +17,7 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands;
 
-public partial class ClanService(CustomClansClient _clansClient, ClashKingApiClient _clashKingApiClient, ClashKingApiService _clashKingApiService, EmbedHelper _embedHelper, BotDataContext _botDb)
+public partial class ClanService(CustomClansClient _clansClient, ClashKingApiClient _clashKingApiClient, ClashKingApiService _clashKingApiService, EmbedHelper _embedHelper, BotDataContext _botDb, ILogger<ClanService> _logger)
 {
     [GeneratedRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$")]
     private static partial Regex ColorHexRegex();
@@ -533,15 +535,31 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
 
     public async Task<Embed> StatsActivity(string clanTag, uint minAttacks, uint minActivity, uint maxDays)
     {
+        var stopwatchTotal = new Stopwatch();
+        var stopwatchClansFetch = new Stopwatch();
+        var stopwatchMemberDataFetch = new Stopwatch();
+        var stopwatchHitDataFetch = new Stopwatch();
+        var stopwatchHitFilter = new Stopwatch();
+        var stopwatchStringBuilders = new Stopwatch();
+
+        stopwatchTotal.Start();
+
+        stopwatchClansFetch.Start();
         var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+        stopwatchClansFetch.Stop();
 
         List<ActivityData> activityData = [];
         foreach (var member in clan.Members)
         {
+            stopwatchMemberDataFetch.Start();
             var memberData = await _clashKingApiService.GetOrFetchPlayerStatsAsync(member.Tag);
+            stopwatchMemberDataFetch.Stop();
+            stopwatchHitDataFetch.Start();
             var memberAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(member.Tag);
+            stopwatchHitDataFetch.Stop();
 
             var activity = memberData.player?.Activity?.TakeLast(2).Select(kvp => kvp.Value).Sum();
+            stopwatchHitFilter.Start();
             var attacks = memberAttacks?.Items
                 .OrderByDescending(w => w.WarData.EndTime)
                 .Where(w =>
@@ -552,6 +570,7 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
                 })
                 .SelectMany(w => w.Attacks.Where(a => a.DestructionPercentage > 0))
                 .Count();
+            stopwatchHitFilter.Stop();
 
             var activityString = activity.ToString()?.PadLeft(4) ?? "    ";
             var attacksString = attacks?.ToString()?.PadLeft(3) ?? "   ";
@@ -562,6 +581,7 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             activityData.Add(new ActivityData(member.Name + _embedHelper.ToSuperscript(member.TownHallLevel ?? 0), member.Tag, attacksString, activityString, memberData.player?.LastOnline.ToString() ?? "", inactive));
         }
 
+        stopwatchStringBuilders.Start();
         var stringBuilder = new StringBuilder();
         stringBuilder.AppendLine("### Active Members:");
         stringBuilder.AppendLine("`Atk` `Acti` `last online`");
@@ -585,7 +605,16 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
         }
         stringBuilder.AppendLine($"Count: **{activityData.Where(ad => ad.inactive).Count()}**");
+        stopwatchStringBuilders.Stop();
+        stopwatchTotal.Stop();
 
+        _logger.LogInformation("Total: {total}ms, ClanFetch: {cfe}ms, MemberFetch: {mem}ms, HitFetch: {hitfe}ms, HitFilter: {hitfi}ms, StringBuilder: {stb}ms",
+            stopwatchTotal.ElapsedMilliseconds,
+            stopwatchClansFetch.ElapsedMilliseconds,
+            stopwatchMemberDataFetch.ElapsedMilliseconds,
+            stopwatchHitDataFetch.ElapsedMilliseconds,
+            stopwatchHitFilter.ElapsedMilliseconds,
+            stopwatchStringBuilders.ElapsedMilliseconds);
 
         return new EmbedBuilder()
             .WithTitle($"{clan.Name} Activity")
