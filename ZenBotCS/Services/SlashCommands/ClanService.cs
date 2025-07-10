@@ -284,7 +284,7 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
         var title = $"{clan.Name} {attackStatFilter} Ranking";
         var playerThText = playerTh is null ? "all" : playerTh.ToString();
-        var filter = $"{warTypeFilter}, limitWars = {limitWars}, LimitDays: {limitDays}, minNumberOfAttacks = {minNumberAttacks}, playerTHs = {playerThText}";
+        var filter = $"{warTypeFilter}, limitWars: {limitWars}, LimitDays: {limitDays}, minNumberOfAttacks: {minNumberAttacks}, playerTHs: {playerThText}, clanExclusive: {clanExclusive}";
         return new EmbedBuilder()
             .WithTitle(title)
             .WithDescription("```\n" + tableString + "\n```")
@@ -400,9 +400,9 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             {
                 if (playerTh is not null && warHit.MemberData.TownhallLevel != playerTh)
                     continue;
-                if (warTypeFilter == WarTypeFilter.CWLOnly && warHit.WarData.AttacksPerMember != 1)
+                if (warTypeFilter == WarTypeFilter.CWLOnly && warHit.WarData.Type != "cwl")
                     continue;
-                if (warTypeFilter == WarTypeFilter.RegularOnly && warHit.WarData.AttacksPerMember != 2)
+                if (warTypeFilter == WarTypeFilter.RegularOnly && warHit.WarData.Type == "cwl")
                     continue;
 
                 foreach (var attack in warHit.Attacks)
