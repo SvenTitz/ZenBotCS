@@ -11,7 +11,7 @@ public class ClashKingApiClient
 {
     private readonly RestClient _restApiClient;
     private readonly ILogger<ClashKingApiClient> _logger;
-    private const string BaseUrl = "https://api.clashking.xyz/";
+    private const string BaseUrl = "https://api.clashk.ing/";
 
     public ClashKingApiClient(ILogger<ClashKingApiClient> logger)
     {
