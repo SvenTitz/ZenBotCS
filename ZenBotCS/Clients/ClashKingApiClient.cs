@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
+using ZenBotCS.Entities.Models.ClashKingApi;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerStats;
 using ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 using Legends = ZenBotCS.Entities.Models.ClashKingApi.Legends;
@@ -78,8 +79,8 @@ public class ClashKingApiClient
     public async Task<List<Entities.Models.ClashKingApi.WarData>?> GetClanWarHistory(string clanTag, int limit = 50)
     {
         var request = CreateRequest($"/war/{Uri.EscapeDataString(clanTag)}/previous?limit={limit}", Method.Get);
-        var result = await ExecuteRequestAsync<List<Entities.Models.ClashKingApi.WarData>>(request);
-        return result;
+        var result = await ExecuteRequestAsync<WarDataResponse>(request);
+        return result?.Items;
     }
 
     public async Task<PlayerWarhits?> GetPlayerWarAttacksAsync(string playerTag, uint limitDays)
