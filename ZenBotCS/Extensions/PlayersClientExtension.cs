@@ -9,8 +9,15 @@ namespace ZenBotCS.Extensions
     {
         public static async Task<List<Player>> GetCachedPlayersAsync(this PlayersClient playersClient)
         {
-            var players = await (from i in playersClient.ScopeFactory.CreateScope().ServiceProvider.GetRequiredService<CacheDbContext>().Players.AsNoTracking()
-                                 select i.Content).ToListAsync<Player>().ConfigureAwait(continueOnCapturedContext: false);
+            using var scope = playersClient.ScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<CacheDbContext>();
+
+            var players = await dbContext.Players
+                .AsNoTracking()
+                .Where(p => p.Content != null)
+                .Select(p => p.Content!)
+                .ToListAsync()
+                .ConfigureAwait(false);
 
             return players;
         }
