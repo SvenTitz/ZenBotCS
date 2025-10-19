@@ -14,7 +14,7 @@ namespace ZenBotCS.Extensions
 
             var players = await dbContext.Players
                 .AsNoTracking()
-                .Where(p => p.Content != null)
+                .Where(p => p.RawContent != null)
                 .Select(p => p.Content!)
                 .ToListAsync()
                 .ConfigureAwait(false);
