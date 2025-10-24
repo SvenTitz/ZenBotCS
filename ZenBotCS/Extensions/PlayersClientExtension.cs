@@ -2,6 +2,7 @@
 using CocApi.Rest.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ZenBotCS.Extensions
 {
@@ -22,13 +23,31 @@ namespace ZenBotCS.Extensions
             return players;
         }
 
-        public static async Task<List<Player>> GetOrFetchPlayersAsync(this PlayersClient playersClient, IEnumerable<string> tags, CancellationToken? cancellationToken = null)
+        public static async Task<List<Player>> GetOrFetchPlayersAsync(
+            this PlayersClient playersClient,
+            IEnumerable<string> tags,
+            CancellationToken? cancellationToken = null)
         {
             var playerTasks = tags.Select(async tag =>
             {
-                return await playersClient.GetOrFetchPlayerAsync(tag);
+                try
+                {
+                    return await playersClient.GetOrFetchPlayerAsync(tag, cancellationToken ?? default);
+                }
+                catch (Exception ex)
+                {
+                    playersClient.Logger.LogError(ex, "Failed to fetch player with tag {Tag}", tag);
+                    return null;
+                }
             });
-            List<Player> players = [.. (await Task.WhenAll(playerTasks))];
+
+            var results = await Task.WhenAll(playerTasks);
+
+            var players = results
+                .Where(static p => p is not null)
+                .Select(static p => p!)
+                .ToList();
+
             return players;
         }
     }
