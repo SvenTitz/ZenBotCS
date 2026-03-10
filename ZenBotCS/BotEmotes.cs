@@ -14,6 +14,8 @@ public static class BotEmotes
     public static IEmote TH14 => Emote.Parse("<:th14:1027658536882286653>");
     public static IEmote TH15 => Emote.Parse("<:th15:1027658448697032714>");
     public static IEmote TH16 => Emote.Parse("<:th16:1183775328884228216>");
+    public static IEmote TH17 => Emote.Parse("<:th17:1309517214113599530>");
+    public static IEmote TH18 => Emote.Parse("<:TH18:1439243755264806942>");
 
     public static IEmote GetThEmote(int thLevel)
     {
@@ -29,6 +31,8 @@ public static class BotEmotes
             14 => TH14,
             15 => TH15,
             16 => TH16,
+            17 => TH17,
+            18 => TH18,
             _ => TH7,
         };
     }
