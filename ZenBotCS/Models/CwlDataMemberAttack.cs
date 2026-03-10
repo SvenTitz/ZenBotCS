@@ -34,7 +34,7 @@ namespace ZenBotCS.Models
             var currentMP = opponentClan.Members.FirstOrDefault(m => m.Tag == attack.DefenderTag)?.MapPosition ?? 0;
 
             var lowerTH = thMinIndexMap
-                .Where(kv => kv.Value < currentMP)
+                .Where(kv => kv.Value <= currentMP)
                 .Select(kv => kv.Key)
                 .DefaultIfEmpty(currentTH)
                 .Min();
