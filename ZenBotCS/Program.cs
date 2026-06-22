@@ -5,6 +5,7 @@ using CocApi.Rest.Client;
 using CocApi.Rest.Extensions;
 using Discord;
 using Discord.Addons.Hosting;
+using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -75,6 +76,10 @@ public class Program
         {
             config.LogLevel = LogSeverity.Info;
             config.UseCompiledLambda = true;
+            // Run commands synchronously so the per-interaction DI scope (InteractionHandler) stays
+            // alive until the command finishes. With RunMode.Async the command runs on a background
+            // task and the scope — and its BotDataContext — would be disposed mid-execution.
+            config.DefaultRunMode = RunMode.Sync;
         });
 
         builder.Services

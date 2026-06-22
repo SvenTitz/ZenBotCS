@@ -4,6 +4,7 @@ using Discord.Addons.Hosting;
 using Discord.Addons.Hosting.Util;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ZenBotCS.Extensions;
 
@@ -120,9 +121,14 @@ internal class InteractionHandler : DiscordClientService
                     messageComponent.Data.Values);
             }
 
+            // Open a DI scope per interaction so the scoped BotDataContext is not shared across
+            // concurrent interactions. Requires RunMode.Sync (see Program.cs): ExecuteCommandAsync
+            // must await command completion before this scope — and its DbContext — is disposed.
+            await using var scope = _provider.CreateAsyncScope();
+
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
             var ctx = new SocketInteractionContext(Client, arg);
-            await _interactionService.ExecuteCommandAsync(ctx, _provider);
+            await _interactionService.ExecuteCommandAsync(ctx, scope.ServiceProvider);
         }
         catch (Exception ex)
         {

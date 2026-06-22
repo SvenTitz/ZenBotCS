@@ -1,7 +1,6 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using ZenBotCS.Entities;
 
 namespace ZenBotCS.Attributes;
@@ -25,12 +24,11 @@ public class RequireOwnPlayerTag(string _parameterName) : PreconditionAttribute
 
         var parameterValue = innermostOptions.FirstOrDefault(option => option.Name == _parameterName)?.Value.ToString() ?? "";
 
-        using var scope = services.CreateScope();
+        // 'services' is the per-interaction DI scope (see InteractionHandler), so resolve the
+        // scoped BotDataContext directly — no extra scope needed.
         var botDb = services.GetRequiredService<BotDataContext>();
         var userId = context.User.Id;
         var usersTags = botDb.DiscordLinks.Where(dl => dl.DiscordId == userId).Select(dl => dl.PlayerTag).ToList();
-
-        var logger = services.GetRequiredService<ILogger<RequireOwnPlayerTag>>();
 
         if (usersTags.Contains(parameterValue))
         {
