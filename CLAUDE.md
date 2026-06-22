@@ -13,6 +13,11 @@ leadership notes. Two projects:
   workers, EF migrations.
 - `ZenBotCS.Entities` — `BotDataContext`, entity models, enums, ClashKing DTOs.
 
+The CoC game data comes from the **CocApi** library (`devhl-labs/CocApi`) and its
+EF-Core cache — a non-obvious dependency with its own database and event model.
+Before touching anything clan/player/war-related, read
+[`docs/cocapi-integration.md`](docs/cocapi-integration.md).
+
 ## Build / run / migrate
 
 ```bash
