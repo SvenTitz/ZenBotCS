@@ -149,26 +149,21 @@ dotnet ef migrations add <Name> --project ZenBotCS \
 
 ## Known issues / improvement backlog
 
-These are latent today (low concurrency hides them) but worth addressing:
+**Recently addressed:** per-interaction `DbContext` scoping (each interaction now
+opens its own DI scope; `RunMode.Sync`), background-service crash safety (the update
+loops catch and log per cycle so a transient failure can't stop the host), and
+`ClashKingApiClient` lifetime (now a singleton reusing one `RestClient`).
 
-1. **Interaction commands share a single `DbContext`.** `BotDataContext` is
-   scoped, but interactions execute against the **root** service provider
-   (`InteractionHandler.ExecuteCommandAsync`), so every command shares one
-   instance. `DbContext` is not thread-safe — this risks concurrency exceptions
-   and an ever-growing change tracker under load. Fix: open a DI scope per
-   interaction. (`Attributes/RequireOwnPlayerTag` creates a scope but then
-   resolves from the root provider, so the scope is a no-op.)
-2. **Some background services have no exception guard.** In .NET 8 an unhandled
-   exception in a `BackgroundService` stops the whole host. `WarHistoryUpdateService`
-   and `PlayerStatsUpdateService` lack a try/catch around their loops
-   (`DiscordLinkUpdateService` has one — use it as the model).
-3. **`ClashKingApiClient` is transient and news up its own `RestClient`** →
-   a new `HttpClient` per resolution. Prefer a singleton or `IHttpClientFactory`.
-4. **Commands are registered both per-guild and globally**, producing duplicate
+**Still open:**
+
+1. **Commands are registered both per-guild and globally**, producing duplicate
    entries in the home guild.
-5. **`CwlService` is a ~1,400-line god class** mixing the signup state machine,
+2. **`CwlService` is a ~1,400-line god class** mixing the signup state machine,
    spreadsheet formatting, roster generation, and role assignment — the main
    maintenance liability.
+3. **Fragile interaction error handling.** On exception `InteractionHandler`
+   unconditionally fetches and deletes the original response, which itself throws
+   if the command failed before responding.
 
 ---
 

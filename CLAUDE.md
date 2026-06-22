@@ -61,18 +61,19 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
 
 ## Gotchas (read before changing infra)
 
-- **Per-interaction `DbContext` scoping is broken.** Interactions run against the
-  **root** provider, so the scoped `BotDataContext` is effectively a singleton
-  shared by all commands (not thread-safe). If you touch the interaction pipeline,
-  prefer opening a scope per interaction. `Attributes/RequireOwnPlayerTag` shows
-  the bug: it calls `services.CreateScope()` but then resolves from `services`, not
-  `scope.ServiceProvider`.
-- **Background services can crash the host.** An unhandled exception in a
-  `BackgroundService` stops the whole app (.NET 8 default). `WarHistoryUpdateService`
-  and `PlayerStatsUpdateService` currently lack try/catch; `DiscordLinkUpdateService`
-  has the correct pattern.
-- **`ClashKingApiClient` is transient and creates its own `RestClient`** — avoid
-  resolving it in hot paths; prefer reuse.
+- **`DbContext` is scoped per interaction — keep it that way.** `InteractionHandler`
+  opens a DI scope per interaction and the InteractionService runs in `RunMode.Sync`
+  so the scoped `BotDataContext` lives for the whole command. Don't resolve
+  `BotDataContext` from the root provider, and don't switch to `RunMode.Async`
+  without making the scope outlive execution — either reintroduces a single shared,
+  non-thread-safe context.
+- **Background services must catch inside their loop.** An unhandled exception in a
+  `BackgroundService` stops the whole app (.NET 8 default = `StopHost`). The three
+  update services wrap each cycle in try/catch and log-and-continue; keep that
+  pattern when adding workers (`DiscordLinkUpdateService` is the simplest model).
+- **`ClashKingApiClient` is a singleton** reusing one `RestClient`/`HttpClient`.
+  It's stateless and thread-safe — don't give it per-request mutable state or make
+  it depend on scoped services.
 - **Command registration is both guild-scoped (hardcoded guild id in
   `InteractionHandler`) and global** → duplicate commands in the home guild.
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
