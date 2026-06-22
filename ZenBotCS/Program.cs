@@ -97,7 +97,10 @@ public class Program
             .AddTransient<HelpService>()
             .AddTransient<LinksService>()
             .AddTransient<ReminderService>()
-            .AddTransient<ClashKingApiClient>()
+            // Singleton: ClashKingApiClient owns one reused RestClient (and its HttpClient). As a
+            // transient it created a new HttpClient per resolution, risking socket/handler exhaustion.
+            // It's stateless and thread-safe, and depends only on ILogger, so a singleton is safe.
+            .AddSingleton<ClashKingApiClient>()
             .AddTransient<ClashKingApiService>()
             .AddTransient<EmbedHelper>()
             .AddTransient<DiscordHelper>()
