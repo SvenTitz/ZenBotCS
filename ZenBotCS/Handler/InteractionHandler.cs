@@ -135,12 +135,22 @@ internal class InteractionHandler : DiscordClientService
         {
             Logger.LogError(ex, "Exception occurred whilst attempting to handle interaction.");
 
-            if (arg.Type == InteractionType.ApplicationCommand)
+            // Best-effort cleanup: if the command already acknowledged the interaction (e.g. it
+            // deferred) but then failed before sending a real response, remove the dangling
+            // "thinking…" message. Guard with HasResponded — GetOriginalResponseAsync throws when
+            // nothing was sent — and never let cleanup throw back out of the handler.
+            try
             {
-                var msg = await arg.GetOriginalResponseAsync();
-                await msg.DeleteAsync();
+                if (arg.Type == InteractionType.ApplicationCommand && arg.HasResponded)
+                {
+                    var msg = await arg.GetOriginalResponseAsync();
+                    await msg.DeleteAsync();
+                }
             }
-
+            catch (Exception cleanupEx)
+            {
+                Logger.LogWarning(cleanupEx, "Failed to clean up the original interaction response.");
+            }
         }
     }
 }

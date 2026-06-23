@@ -152,17 +152,15 @@ dotnet ef migrations add <Name> --project ZenBotCS \
 **Recently addressed:** per-interaction `DbContext` scoping (each interaction now
 opens its own DI scope; `RunMode.Sync`), background-service crash safety (the update
 loops catch and log per cycle so a transient failure can't stop the host),
-`ClashKingApiClient` lifetime (now a singleton reusing one `RestClient`), and
-duplicate command registration (now global-only).
+`ClashKingApiClient` lifetime (now a singleton reusing one `RestClient`), duplicate
+command registration (now global-only), and the interaction error handler (cleanup
+is now guarded and can't throw out of the handler).
 
 **Still open:**
 
 1. **`CwlService` is a ~1,400-line god class** mixing the signup state machine,
    spreadsheet formatting, roster generation, and role assignment — the main
    maintenance liability.
-2. **Fragile interaction error handling.** On exception `InteractionHandler`
-   unconditionally fetches and deletes the original response, which itself throws
-   if the command failed before responding.
 
 ---
 
