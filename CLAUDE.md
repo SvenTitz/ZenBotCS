@@ -74,7 +74,8 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
 - **`ClashKingApiClient` is a singleton** reusing one `RestClient`/`HttpClient`.
   It's stateless and thread-safe — don't give it per-request mutable state or make
   it depend on scoped services.
-- **Command registration is both guild-scoped (hardcoded guild id in
-  `InteractionHandler`) and global** → duplicate commands in the home guild.
+- **Commands are registered globally only** (`RegisterCommandsGloballyAsync` in
+  `InteractionHandler`). Don't re-add `RegisterCommandsToGuildAsync` — registering
+  both bulk-writes the same set twice and duplicates every command in that guild.
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.

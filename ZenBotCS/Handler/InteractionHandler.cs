@@ -33,7 +33,8 @@ internal class InteractionHandler : DiscordClientService
         await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _provider);
         await Client.WaitForReadyAsync(stoppingToken);
 
-        await _interactionService.RegisterCommandsToGuildAsync(1078588731549814805);
+        // Register globally only. Registering to a guild as well bulk-writes the same commands
+        // twice, so the home guild shows every command duplicated.
         await _interactionService.RegisterCommandsGloballyAsync();
     }
 
