@@ -13,7 +13,9 @@ namespace ZenBotCS.Modules
     [Group("cwl", "Commands related to cwl")]
     public class CwlModule : InteractionModuleBase<SocketInteractionContext>
     {
-        public required CwlService CwlService { get; set; }
+        public required CwlSignupWizardService CwlSignupWizardService { get; set; }
+        public required CwlDataService CwlDataService { get; set; }
+        public required CwlSignupService CwlSignupService { get; set; }
         public required ILogger<CwlModule> Logger { get; set; }
 
         [SlashCommand("data", "Get data for the current cwl in a spreadsheet")]
@@ -22,23 +24,25 @@ namespace ZenBotCS.Modules
             [Summary("SpreadsheetId")] string? spreadsheetId = null)
         {
             await DeferAsync();
-            var embed = await CwlService.Data(clantag, spreadsheetId);
+            var embed = await CwlDataService.Data(clantag, spreadsheetId);
             await FollowupAsync(embed: embed);
         }
 
         [Group("signup", "Commands related to cwl roster")]
         public class Signups : InteractionModuleBase<SocketInteractionContext>
         {
-            public required CwlService CwlService { get; set; }
+            public required CwlSignupWizardService CwlSignupWizardService { get; set; }
+            public required CwlRosterService CwlRosterService { get; set; }
+            public required CwlSignupService CwlSignupService { get; set; }
 
             [RequireUserPermission(Discord.GuildPermission.Administrator)]
             [SlashCommand("post", "Post the signup embed")]
             public async Task Post()
             {
-                (var embeds, var component) = CwlService.SignupPost();
+                (var embeds, var component) = CwlSignupWizardService.SignupPost();
                 await Context.Channel.SendMessageAsync(embeds: embeds, components: component);
                 await RespondAsync(
-                    text: $"There are currently already {CwlService.GetCurrentSignupCount()} signups. Remember to reset these with `/cwl signup reset` if this is not intentional",
+                    text: $"There are currently already {CwlSignupService.GetCurrentSignupCount()} signups. Remember to reset these with `/cwl signup reset` if this is not intentional",
                     ephemeral: true);
             }
 
@@ -50,7 +54,7 @@ namespace ZenBotCS.Modules
                 [Summary("ForceNew")] bool forceNew = false)
             {
                 await DeferAsync();
-                var (embed, components) = await CwlService.SignupRoster(clantag, forceNew);
+                var (embed, components) = await CwlRosterService.SignupRoster(clantag, forceNew);
                 await FollowupAsync(embed: embed, components: components);
             }
 
@@ -62,7 +66,7 @@ namespace ZenBotCS.Modules
                 [Summary("RosterSpreadsheetUrl")] string rosterUrl = "")
             {
                 await DeferAsync();
-                var embed = await CwlService.SingupRosterPin(clantag, rosterUrl);
+                var embed = await CwlRosterService.SingupRosterPin(clantag, rosterUrl);
                 await FollowupAsync(embed: embed);
             }
 
@@ -71,7 +75,7 @@ namespace ZenBotCS.Modules
             public async Task Missing([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
             {
                 await DeferAsync();
-                var embed = await CwlService.SingupMissing(clantag);
+                var embed = await CwlSignupService.SingupMissing(clantag);
                 await FollowupAsync(embed: embed);
             }
 
@@ -83,11 +87,11 @@ namespace ZenBotCS.Modules
                 Embed embed;
                 if (clantag is null)
                 {
-                    embed = await CwlService.SignupSummaryAllClans();
+                    embed = await CwlSignupService.SignupSummaryAllClans();
                 }
                 else
                 {
-                    embed = await CwlService.SignupSummaryClan(clantag);
+                    embed = await CwlSignupService.SignupSummaryClan(clantag);
                 }
                 await FollowupAsync(embed: embed);
             }
@@ -100,7 +104,7 @@ namespace ZenBotCS.Modules
                 await DeferAsync();
                 if (playerTag is null && user is null)
                     user = Context.User;
-                var embed = await CwlService.SignupCheck(playerTag, user);
+                var embed = await CwlSignupService.SignupCheck(playerTag, user);
                 await FollowupAsync(embed: embed);
             }
 
@@ -110,7 +114,7 @@ namespace ZenBotCS.Modules
             public async Task Delete([Summary("PlayerTag"), Autocomplete(typeof(PlayerTagAutocompleteHandler))] string playerTag)
             {
                 await DeferAsync(true);
-                await CwlService.SignupDelete(playerTag);
+                await CwlSignupService.SignupDelete(playerTag);
                 await FollowupAsync($"Deleted signup of {playerTag}", ephemeral: true);
             }
 
@@ -118,7 +122,7 @@ namespace ZenBotCS.Modules
             [SlashCommand("reset", "Archives all current signup, to reset for a new CWL Season")]
             public async Task Reset()
             {
-                var (embed, component) = CwlService.SignupArchiveConfirmDialog();
+                var (embed, component) = CwlSignupService.SignupArchiveConfirmDialog();
                 await RespondAsync(embed: embed, components: component, ephemeral: true);
             }
 
@@ -130,7 +134,7 @@ namespace ZenBotCS.Modules
                     return;
                 await DeferAsync();
 
-                await CwlService.SignupsReset();
+                await CwlSignupService.SignupsReset();
 
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
@@ -162,7 +166,7 @@ namespace ZenBotCS.Modules
             public async Task Dump(bool includeArchives)
             {
                 await DeferAsync();
-                var embed = await CwlService.SignupDump(includeArchives);
+                var embed = await CwlSignupService.SignupDump(includeArchives);
                 await FollowupAsync(embed: embed);
             }
 
@@ -174,7 +178,7 @@ namespace ZenBotCS.Modules
             {
                 await DeferAsync(true);
                 var message = await FollowupAsync($"Builder members selection...");
-                (var content, var components) = await CwlService.CreateCwlSignupMove(clantagFrom, clantagTo, message.Id);
+                (var content, var components) = await CwlSignupWizardService.CreateCwlSignupMove(clantagFrom, clantagTo, message.Id);
                 await Context.Interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = content;
@@ -196,7 +200,7 @@ namespace ZenBotCS.Modules
                 WarPreference warPreference = WarPreference.Alternate)
             {
                 await DeferAsync();
-                var embed = await CwlService.SignupAdd(playerTag, clanTag, bonus, warPreference);
+                var embed = await CwlSignupService.SignupAdd(playerTag, clanTag, bonus, warPreference);
                 await FollowupAsync(embed: embed);
             }
         }
@@ -204,7 +208,7 @@ namespace ZenBotCS.Modules
         [Group("roles", "Commands related to CWL Roles")]
         public class Roles : InteractionModuleBase<SocketInteractionContext>
         {
-            public required CwlService CwlService { get; set; }
+            public required CwlRolesService CwlRolesService { get; set; }
 
             [RequireUserPermission(Discord.GuildPermission.ManageRoles)]
             [SlashCommand("assign", "Assigns CWL roles form roster sheet. Either provide roster URL or select clan to use pinned roster")]
@@ -214,7 +218,7 @@ namespace ZenBotCS.Modules
                 [Summary("clan"), Description("Use this clans pinned roster spreadsheet url"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string? clantag = null)
             {
                 await DeferAsync();
-                var message = await CwlService.RolesAssign(Context, role, spreadsheetUrl, clantag);
+                var message = await CwlRolesService.RolesAssign(Context, role, spreadsheetUrl, clantag);
                 await FollowupAsync(message);
             }
 
@@ -223,7 +227,7 @@ namespace ZenBotCS.Modules
             public async Task Remove()
             {
                 await DeferAsync();
-                var message = await CwlService.RolesRemove(Context);
+                var message = await CwlRolesService.RolesRemove(Context);
                 await FollowupAsync(message);
             }
 
@@ -234,7 +238,7 @@ namespace ZenBotCS.Modules
         public async Task HandleCwlSignupClose()
         {
             await DeferAsync(true);
-            (var message, var embes, var components) = CwlService.HandleCwlSignupClose();
+            (var message, var embes, var components) = CwlSignupWizardService.HandleCwlSignupClose();
             await Context.Interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -248,7 +252,7 @@ namespace ZenBotCS.Modules
         public async Task HandleCwlSignupReopen()
         {
             await DeferAsync(true);
-            (var message, var embes, var components) = CwlService.HandleCwlSignupReopen();
+            (var message, var embes, var components) = CwlSignupWizardService.HandleCwlSignupReopen();
             await Context.Interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -261,7 +265,7 @@ namespace ZenBotCS.Modules
         public async Task HandleCwlSignupCheck()
         {
             await DeferAsync(ephemeral: true);
-            var embed = await CwlService.SignupCheck(null, Context.User);
+            var embed = await CwlSignupService.SignupCheck(null, Context.User);
             await FollowupAsync(embed: embed, ephemeral: true);
         }
 
@@ -269,7 +273,7 @@ namespace ZenBotCS.Modules
         public async Task HandleCwlSignupHelp()
         {
             await DeferAsync(ephemeral: false);
-            var (message, embeds) = await CwlService.GetSignupHelpEmbed();
+            var (message, embeds) = await CwlSignupWizardService.GetSignupHelpEmbed();
             await FollowupAsync(text: message, embeds: embeds, ephemeral: true);
         }
 
@@ -280,7 +284,7 @@ namespace ZenBotCS.Modules
             if (Context.Interaction is not SocketMessageComponent interaction)
                 return;
             await DeferAsync();
-            (var message, var components) = await CwlService.CreateCwlSignupAccountSelection(interaction.User);
+            (var message, var components) = await CwlSignupWizardService.CreateCwlSignupAccountSelection(interaction.User);
             await FollowupAsync(message, components: components, ephemeral: true);
         }
 
@@ -291,7 +295,7 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (CwlService.CheckAlreadyRegistered(interaction))
+            if (CwlSignupWizardService.CheckAlreadyRegistered(interaction))
             {
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
@@ -301,9 +305,9 @@ namespace ZenBotCS.Modules
                 return;
             }
 
-            await CwlService.TryCacheSigupDetails(interaction);
+            await CwlSignupWizardService.TryCacheSigupDetails(interaction);
 
-            (var message, var components) = await CwlService.CreateCwlSignupClanSelection();
+            (var message, var components) = await CwlSignupWizardService.CreateCwlSignupClanSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -318,15 +322,15 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (!CwlService.TryUpdateCachedSignupClan(interaction))
+            if (!CwlSignupWizardService.TryUpdateCachedSignupClan(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            if (!await CwlService.CheckCorrectClan(interaction))
+            if (!await CwlSignupWizardService.CheckCorrectClan(interaction))
             {
-                (var message2, var components2) = await CwlService.CreateClanConfirmationCheck(interaction);
+                (var message2, var components2) = await CwlSignupWizardService.CreateClanConfirmationCheck(interaction);
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = message2;
@@ -335,9 +339,9 @@ namespace ZenBotCS.Modules
                 return;
             }
 
-            if (await CwlService.CheckMaxDefensesQuestionRequired(interaction))
+            if (await CwlSignupWizardService.CheckMaxDefensesQuestionRequired(interaction))
             {
-                (var message, var components) = CwlService.CreateCwlSignupMaxDefensesSelection();
+                (var message, var components) = CwlSignupWizardService.CreateCwlSignupMaxDefensesSelection();
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = message;
@@ -346,7 +350,7 @@ namespace ZenBotCS.Modules
             }
             else
             {
-                (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
+                (var message, var components) = CwlSignupWizardService.CreateCwlSignupOptOutSelection();
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = message;
@@ -362,13 +366,13 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (!CwlService.TryUpdateCachedSignupMaxedDefenses(interaction))
+            if (!CwlSignupWizardService.TryUpdateCachedSignupMaxedDefenses(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
+            (var message, var components) = CwlSignupWizardService.CreateCwlSignupOptOutSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -383,7 +387,7 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (!CwlService.CheckValidOptOuts(interaction))
+            if (!CwlSignupWizardService.CheckValidOptOuts(interaction))
             {
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
@@ -393,13 +397,13 @@ namespace ZenBotCS.Modules
                 return;
             }
 
-            if (!CwlService.TryUpdateCachedSignupOptOuts(interaction))
+            if (!CwlSignupWizardService.TryUpdateCachedSignupOptOuts(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            (var message, var components) = CwlService.CreateCwlSignupStyleSelection();
+            (var message, var components) = CwlSignupWizardService.CreateCwlSignupStyleSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -414,13 +418,13 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (!CwlService.TryUpdateCachedSignupStyle(interaction))
+            if (!CwlSignupWizardService.TryUpdateCachedSignupStyle(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            (var message, var components) = CwlService.CreateCwlSignupBonusSelection();
+            (var message, var components) = CwlSignupWizardService.CreateCwlSignupBonusSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -435,19 +439,19 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (!CwlService.TryUpdateCachedSignupBonus(interaction))
+            if (!CwlSignupWizardService.TryUpdateCachedSignupBonus(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            if (!await CwlService.SaveSignupToDb(interaction))
+            if (!await CwlSignupWizardService.SaveSignupToDb(interaction))
             {
-                await CwlService.HandleInteractionError(interaction);
+                await CwlSignupWizardService.HandleInteractionError(interaction);
                 return;
             }
 
-            var content = await CwlService.GetSignupSummaryMessage(interaction);
+            var content = await CwlSignupWizardService.GetSignupSummaryMessage(interaction);
 
             await interaction.ModifyOriginalResponseAsync(x =>
             {
@@ -463,9 +467,9 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            if (await CwlService.CheckMaxDefensesQuestionRequired(interaction))
+            if (await CwlSignupWizardService.CheckMaxDefensesQuestionRequired(interaction))
             {
-                (var message, var components) = CwlService.CreateCwlSignupMaxDefensesSelection();
+                (var message, var components) = CwlSignupWizardService.CreateCwlSignupMaxDefensesSelection();
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = message;
@@ -474,7 +478,7 @@ namespace ZenBotCS.Modules
             }
             else
             {
-                (var message, var components) = CwlService.CreateCwlSignupOptOutSelection();
+                (var message, var components) = CwlSignupWizardService.CreateCwlSignupOptOutSelection();
                 await interaction.ModifyOriginalResponseAsync(x =>
                 {
                     x.Content = message;
@@ -490,7 +494,7 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            (var message, var components) = await CwlService.CreateCwlSignupClanSelection();
+            (var message, var components) = await CwlSignupWizardService.CreateCwlSignupClanSelection();
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
@@ -505,7 +509,7 @@ namespace ZenBotCS.Modules
                 return;
             await DeferAsync();
 
-            (var message, var components) = await CwlService.HandleCwlSignupMoveSelection(interaction);
+            (var message, var components) = await CwlSignupWizardService.HandleCwlSignupMoveSelection(interaction);
 
             await interaction.ModifyOriginalResponseAsync(x =>
             {
