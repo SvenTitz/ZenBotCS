@@ -600,7 +600,7 @@ namespace ZenBotCS.Services.SlashCommands
             return values.Count == 1 || !values.Contains(((int)OptOutDays.None).ToString());
         }
 
-        private OptOutDays ConvertOptOutDataToEnum(IEnumerable<string> values)
+        internal static OptOutDays ConvertOptOutDataToEnum(IEnumerable<string> values)
         {
             OptOutDays result = OptOutDays.None;
             foreach (string numString in values)
