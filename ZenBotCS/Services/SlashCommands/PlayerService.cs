@@ -193,45 +193,16 @@ namespace ZenBotCS.Services.SlashCommands
                 foreach (var group in groupedHits)
                 {
                     var attacks = group.SelectMany(i => i.Attacks).ToList();
-                    var reacheHits = attacks.Where(a => a.Defender.TownhallLevel > group.Key);
-                    data.Add(
-                    [
-                      $"{group.Key}Rea",
-                        $"{reacheHits.Count(wh => wh.Stars == 0)}/{reacheHits.Count()}",
-                        $"{reacheHits.Count(wh => wh.Stars == 1)}/{reacheHits.Count()}",
-                        $"{reacheHits.Count(wh => wh.Stars == 2)}/{reacheHits.Count()}",
-                        $"{reacheHits.Count(wh => wh.Stars == 3)}/{reacheHits.Count()}",
-                        reacheHits.Count() == 0 ? " - " : (reacheHits.Count(wh => wh.Stars >= 2) / (double)reacheHits.Count()).ToString("0%")
-                    ]);
-                    if (group.Key < 10)
-                        data.Last()[0] = data.Last()[0] + " ";
+                    var th = group.Key;
+                    var pad = th < 10;
 
-                    var evenHits = attacks.Where(a => a.Defender.TownhallLevel == group.Key);
-                    data.Add(
-                    [
-                      $"{group.Key}v{group.Key}",
-                        $"{evenHits.Count(wh => wh.Stars == 0)}/{evenHits.Count()}",
-                        $"{evenHits.Count(wh => wh.Stars == 1)}/{evenHits.Count()}",
-                        $"{evenHits.Count(wh => wh.Stars == 2)}/{evenHits.Count()}",
-                        $"{evenHits.Count(wh => wh.Stars == 3)}/{evenHits.Count()}",
-                        evenHits.Count() == 0 ? " - " : (evenHits.Count(wh => wh.Stars == 3) / (double)evenHits.Count()).ToString("0%")
-                    ]);
-                    if (group.Key < 10)
-                        data.Last()[0] = data.Last()[0] + "  ";
-
-                    var dipHits = attacks.Where(a => a.Defender.TownhallLevel < group.Key);
-                    data.Add(
-                    [
-                      $"{group.Key}Dip",
-                        $"{dipHits.Count(wh => wh.Stars == 0)}/{dipHits.Count()}",
-                        $"{dipHits.Count(wh => wh.Stars == 1)}/{dipHits.Count()}",
-                        $"{dipHits.Count(wh => wh.Stars == 2)}/{dipHits.Count()}",
-                        $"{dipHits.Count(wh => wh.Stars == 3)}/{dipHits.Count()}",
-                        dipHits.Count() == 0 ? " - " : (dipHits.Count(wh => wh.Stars == 3) / (double)dipHits.Count()).ToString("0%")
-                    ]);
-                    if (group.Key < 10)
-                        data.Last()[0] = data.Last()[0] + " ";
-
+                    // Reach (attacking up), even, and dip (attacking down) hits for this town hall.
+                    data.Add(BuildAttackStatRow($"{th}Rea" + (pad ? " " : ""),
+                        attacks.Where(a => a.Defender.TownhallLevel > th), stars => stars >= 2));
+                    data.Add(BuildAttackStatRow($"{th}v{th}" + (pad ? "  " : ""),
+                        attacks.Where(a => a.Defender.TownhallLevel == th), stars => stars == 3));
+                    data.Add(BuildAttackStatRow($"{th}Dip" + (pad ? " " : ""),
+                        attacks.Where(a => a.Defender.TownhallLevel < th), stars => stars == 3));
                     data.Add(["", "", "", "", "", ""]);
                 }
 
@@ -253,6 +224,19 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 return _embedHelper.ErrorEmbed("Error", ex.Message);
             }
+        }
+
+        // Builds one breakdown row — "<count>/<total>" per star bucket (0-3) plus a success rate —
+        // for a set of war hits. 'isSuccess' decides which star counts count as a success.
+        internal static string[] BuildAttackStatRow(string label, IEnumerable<Attack> hits, Func<int, bool> isSuccess)
+        {
+            var list = hits.ToList();
+            var total = list.Count;
+            string Cell(int stars) => $"{list.Count(a => a.Stars == stars)}/{total}";
+            var successRate = total == 0
+                ? " - "
+                : (list.Count(a => isSuccess(a.Stars)) / (double)total).ToString("0%");
+            return [label, Cell(0), Cell(1), Cell(2), Cell(3), successRate];
         }
 
         public async Task<List<Embed>> ToDo(SocketUser user)

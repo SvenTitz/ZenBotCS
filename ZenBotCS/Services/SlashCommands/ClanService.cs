@@ -564,28 +564,25 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         }
 
         var stringBuilder = new StringBuilder();
-        stringBuilder.AppendLine("### Active Members:");
-        stringBuilder.AppendLine("`Atk` `Acti` `last online`");
-        foreach (var ad in activityData.Where(ad => !ad.inactive).OrderByDescending(ad => ad.Activity))
-        {
-            var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
-                ? "- - -"
-                : $"<t:{ad.lastOnline}:R>";
-            stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
-        }
-        stringBuilder.AppendLine($"Count: **{activityData.Where(ad => !ad.inactive).Count()}**");
 
-        stringBuilder.AppendLine();
-        stringBuilder.AppendLine("### Inactive Members:");
-        stringBuilder.AppendLine("`Atk` `Acti` `last online`");
-        foreach (var ad in activityData.Where(ad => ad.inactive).OrderByDescending(ad => ad.Activity))
+        void AppendSection(string heading, bool inactive)
         {
-            var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
-                ? "- - -"
-                : $"<t:{ad.lastOnline}:R>";
-            stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
+            stringBuilder.AppendLine(heading);
+            stringBuilder.AppendLine("`Atk` `Acti` `last online`");
+            var members = activityData.Where(ad => ad.inactive == inactive).OrderByDescending(ad => ad.Activity).ToList();
+            foreach (var ad in members)
+            {
+                var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
+                    ? "- - -"
+                    : $"<t:{ad.lastOnline}:R>";
+                stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
+            }
+            stringBuilder.AppendLine($"Count: **{members.Count}**");
         }
-        stringBuilder.AppendLine($"Count: **{activityData.Where(ad => ad.inactive).Count()}**");
+
+        AppendSection("### Active Members:", inactive: false);
+        stringBuilder.AppendLine();
+        AppendSection("### Inactive Members:", inactive: true);
 
         return new EmbedBuilder()
             .WithTitle($"{clan.Name} Activity")
