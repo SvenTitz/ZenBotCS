@@ -409,6 +409,57 @@ public class GspreadService
         return result;
     }
 
+    /// <summary>
+    /// Reads the pinned roster sheet from column A through the given day column and returns one
+    /// entry per player row: name (col A), tag (col B), and whether they are opted in for that day
+    /// (the day cell equals "1"; "0" or blank means opted out).
+    /// </summary>
+    public async Task<List<(string Tag, string Name, bool OptedIn)>> GetRosterDayOptIns(string spreadsheetUrl, int dayColumnIndex)
+    {
+        (string? spreadsheetId, string? sheetGid) = ExtractSpreadsheetInfo(spreadsheetUrl);
+        if (string.IsNullOrEmpty(spreadsheetId))
+        {
+            throw new ArgumentException("Invalid spreadsheet URL.");
+        }
+
+        string sheetName = "Sheet1"; // Default sheet name
+        if (!string.IsNullOrEmpty(sheetGid))
+        {
+            sheetName = (await GetSheetNameAsync(spreadsheetId, sheetGid)) ?? sheetName;
+        }
+
+        // GetColumnLetter is 1-based (1 => A), dayColumnIndex is 0-based (3 => D).
+        string range = $"{sheetName}!A:{GetColumnLetter(dayColumnIndex + 1)}";
+
+        SpreadsheetsResource.ValuesResource.GetRequest request =
+            _sheetsService.Spreadsheets.Values.Get(spreadsheetId, range);
+
+        ValueRange response = request.Execute();
+        IList<IList<object>> values = response.Values;
+
+        List<(string Tag, string Name, bool OptedIn)> result = [];
+        if (values is null)
+            return result;
+
+        foreach (var row in values)
+        {
+            // Column A = name, column B = player tag; rows without a '#' tag (e.g. headers) are skipped.
+            if (row.Count < 2)
+                continue;
+
+            var tag = row[1]?.ToString();
+            if (!(tag?.StartsWith('#') ?? false))
+                continue;
+
+            var name = row[0]?.ToString() ?? "";
+            // The sheets API omits trailing empty cells, so a missing day cell means opted out.
+            var dayCell = row.Count > dayColumnIndex ? row[dayColumnIndex]?.ToString()?.Trim() : null;
+            result.Add((tag, name, dayCell == "1"));
+        }
+
+        return result;
+    }
+
     private string? ExtractSpreadsheetId(string url)
     {
         // Use a regular expression to extract the spreadsheet ID

@@ -208,6 +208,14 @@ namespace ZenBotCS.Modules
                 var embed = await CwlSignupService.SingupMissing(clantag);
                 await FollowupAsync(embed: embed);
             }
+
+            [SlashCommand("missing-day", "Compare the upcoming CWL war lineup to the pinned roster's day column")]
+            public async Task MissingDay([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+            {
+                await DeferAsync();
+                var embed = await CwlRosterService.RosterMissingDay(clantag);
+                await FollowupAsync(embed: embed);
+            }
         }
 
         [Group("roles", "Commands related to CWL Roles")]
