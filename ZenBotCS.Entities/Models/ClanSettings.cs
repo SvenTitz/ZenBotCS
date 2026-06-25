@@ -34,4 +34,12 @@ public class ClanSettings
     public bool ChampStyleCwlRoster { get; set; }
 
     public bool CcGoldDump { get; set; }
+
+    public bool CwlRosterReminderEnabled { get; set; }
+
+    public ulong? CwlRosterReminderChannelId { get; set; }
+
+    public ulong? CwlRosterReminderPingRoleId { get; set; }
+
+    public int CwlRosterReminderLeadHours { get; set; } = 4;
 }

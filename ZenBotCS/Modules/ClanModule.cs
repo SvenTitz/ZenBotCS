@@ -115,11 +115,15 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
                 string? colorHex = null,
                 bool? enableCwlSignup = null,
                 bool? enableChampStyleSignup = null,
-                bool? isCcGoldDumpClan = null
+                bool? isCcGoldDumpClan = null,
+                bool? cwlRosterReminderEnabled = null,
+                SocketTextChannel? cwlRosterReminderChannel = null,
+                SocketRole? cwlRosterReminderPingRole = null,
+                int? cwlRosterReminderLeadHours = null
             )
         {
             await DeferAsync();
-            var embed = await ClanService.SettingsEdit(clanTag, clanType, order, memberRole, elderRole, leadershipRole, cwlRole, colorHex, enableCwlSignup, enableChampStyleSignup, isCcGoldDumpClan);
+            var embed = await ClanService.SettingsEdit(clanTag, clanType, order, memberRole, elderRole, leadershipRole, cwlRole, colorHex, enableCwlSignup, enableChampStyleSignup, isCcGoldDumpClan, cwlRosterReminderEnabled, cwlRosterReminderChannel, cwlRosterReminderPingRole, cwlRosterReminderLeadHours);
             await FollowupAsync(embed: embed);
         }
 

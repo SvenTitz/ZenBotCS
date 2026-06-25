@@ -89,6 +89,7 @@ public class Program
             .AddHostedService<WarHistoryUpdateService>()
             .AddHostedService<PlayerStatsUpdateService>()
             .AddHostedService<LeadershipLogBackfillService>()
+            .AddHostedService<CwlRosterReminderService>()
             .AddTransient<TestService>()
             .AddTransient<GspreadService>()
             .AddTransient<PlayerService>()

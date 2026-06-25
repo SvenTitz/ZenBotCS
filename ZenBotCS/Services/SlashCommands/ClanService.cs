@@ -433,7 +433,11 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         string? colorHex,
         bool? enableCwlSignup,
         bool? enableChampStyleSignup,
-        bool? isCcGoldDumpClan)
+        bool? isCcGoldDumpClan,
+        bool? cwlRosterReminderEnabled,
+        SocketTextChannel? cwlRosterReminderChannel,
+        SocketRole? cwlRosterReminderPingRole,
+        int? cwlRosterReminderLeadHours)
     {
         var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
         var clanSettings = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag);
@@ -496,6 +500,26 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         if (isCcGoldDumpClan is not null)
         {
             clanSettings.CcGoldDump = isCcGoldDumpClan.Value;
+        }
+
+        if (cwlRosterReminderEnabled is not null)
+        {
+            clanSettings.CwlRosterReminderEnabled = cwlRosterReminderEnabled.Value;
+        }
+
+        if (cwlRosterReminderChannel is not null)
+        {
+            clanSettings.CwlRosterReminderChannelId = cwlRosterReminderChannel.Id;
+        }
+
+        if (cwlRosterReminderPingRole is not null)
+        {
+            clanSettings.CwlRosterReminderPingRoleId = cwlRosterReminderPingRole.Id;
+        }
+
+        if (cwlRosterReminderLeadHours is not null)
+        {
+            clanSettings.CwlRosterReminderLeadHours = cwlRosterReminderLeadHours.Value;
         }
 
         _botDb.SaveChanges();

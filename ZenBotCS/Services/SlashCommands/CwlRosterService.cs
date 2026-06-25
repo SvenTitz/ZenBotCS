@@ -262,68 +262,113 @@ namespace ZenBotCS.Services.SlashCommands
             try
             {
                 var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+                var (status, error) = await TryGetDayRosterStatus(clanTag);
+                if (status is null)
+                    return _embedHelper.ErrorEmbed("Error", error!);
 
-                // Find the CWL war currently in preparation (the upcoming day).
-                var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
-                if (group is null)
-                    return _embedHelper.ErrorEmbed("Error", "This clan does not seem to be in an active CWL.");
-
-                var wars = (await _clansClient.GetOrFetchLeagueWarsAsync(group))
-                    .Where(w => w.Clans.ContainsKey(clanTag))
-                    .OrderBy(w => w.StartTime)
-                    .ToList();
-
-                var prepIndex = wars.FindIndex(w => w.State == WarState.Preparation);
-                if (prepIndex < 0)
-                    return _embedHelper.ErrorEmbed("Error", "There is no CWL war currently in preparation for this clan.");
-
-                var dayNumber = prepIndex + 1;
-                var prepWar = wars[prepIndex];
-                var warClan = prepWar.Clan.Tag == clanTag ? prepWar.Clan : prepWar.Opponent;
-                var opponent = prepWar.Clan.Tag == clanTag ? prepWar.Opponent : prepWar.Clan;
-
-                // Read the matching day column from the pinned roster.
-                var pinned = _botDb.PinnedRosters.FirstOrDefault(p => p.ClanTag == clanTag);
-                if (pinned is null || string.IsNullOrEmpty(pinned.SpreadsheetId))
-                    return _embedHelper.ErrorEmbed("Error", "No pinned roster url for that clan.");
-
-                var champStyle = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag)?.ChampStyleCwlRoster ?? false;
-                // Normal roster day columns are D-J (index 3-9); champ-style are I-O (index 8-14).
-                var dayColumnIndex = (champStyle ? 8 : 3) + (dayNumber - 1);
-
-                var sheetEntries = await _gspreadService.GetRosterDayOptIns(_gspreadService.GetUrl(pinned), dayColumnIndex);
-
-                // Reconcile the sheet plan against the in-game lineup.
-                var lineup = warClan.Members.Select(m => (m.Tag, m.Name));
-                var (toOptIn, toOptOut) = ComputeDayRosterDiff(sheetEntries, lineup);
-
-                var description = new StringBuilder();
-                description.AppendLine($"**Opponent:** {opponent.Name}");
-                description.AppendLine();
-
-                if (toOptIn.Count == 0 && toOptOut.Count == 0)
-                {
-                    description.AppendLine($"✅ The in-game lineup already matches the roster for Day {dayNumber}.");
-                }
-                else
-                {
-                    description.AppendLine($"**✅ Opt in ({toOptIn.Count})** — in the roster for Day {dayNumber} but not in the war:");
-                    description.AppendLine(toOptIn.Count == 0 ? "- none" : string.Join("\n", toOptIn.Select(p => $"- {p.Name} ({p.Tag})")));
-                    description.AppendLine();
-                    description.AppendLine($"**🚫 Opt out ({toOptOut.Count})** — in the war but not in the roster for Day {dayNumber}:");
-                    description.AppendLine(toOptOut.Count == 0 ? "- none" : string.Join("\n", toOptOut.Select(p => $"- {p.Name} ({p.Tag})")));
-                }
-
-                return new EmbedBuilder()
-                    .WithTitle($"Day {dayNumber} Roster Check - {clan.Name}")
-                    .WithDescription(description.ToString())
-                    .WithColor(Color.DarkPurple)
-                    .Build();
+                return BuildDayRosterEmbed(clan.Name, status);
             }
             catch (Exception ex)
             {
                 return _embedHelper.ErrorEmbed("Error", ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Used by the automated reminder background service: returns a ready-to-post embed when the
+        /// clan's upcoming CWL day lineup does NOT match the pinned roster, otherwise null.
+        /// </summary>
+        public async Task<Embed?> TryBuildRosterReminder(string clanTag)
+        {
+            var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
+            var (status, _) = await TryGetDayRosterStatus(clanTag);
+            if (status is null || !status.HasMismatch)
+                return null;
+
+            return BuildDayRosterEmbed(clan.Name, status);
+        }
+
+        /// <summary>The CWL war currently in preparation (the upcoming day) for the clan, or null.</summary>
+        public async Task<ClanWar?> GetPreparationWar(string clanTag)
+        {
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
+            if (group is null)
+                return null;
+
+            return (await _clansClient.GetOrFetchLeagueWarsAsync(group))
+                .Where(w => w.Clans.ContainsKey(clanTag))
+                .OrderBy(w => w.StartTime)
+                .FirstOrDefault(w => w.State == WarState.Preparation);
+        }
+
+        // Gathers the day-roster reconciliation for the in-prep war, or a user-facing error reason.
+        private async Task<(DayRosterStatus? Status, string? Error)> TryGetDayRosterStatus(string clanTag)
+        {
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
+            if (group is null)
+                return (null, "This clan does not seem to be in an active CWL.");
+
+            var wars = (await _clansClient.GetOrFetchLeagueWarsAsync(group))
+                .Where(w => w.Clans.ContainsKey(clanTag))
+                .OrderBy(w => w.StartTime)
+                .ToList();
+
+            var prepIndex = wars.FindIndex(w => w.State == WarState.Preparation);
+            if (prepIndex < 0)
+                return (null, "There is no CWL war currently in preparation for this clan.");
+
+            var prepWar = wars[prepIndex];
+            var warClan = prepWar.Clan.Tag == clanTag ? prepWar.Clan : prepWar.Opponent;
+            var opponent = prepWar.Clan.Tag == clanTag ? prepWar.Opponent : prepWar.Clan;
+
+            var pinned = _botDb.PinnedRosters.FirstOrDefault(p => p.ClanTag == clanTag);
+            if (pinned is null || string.IsNullOrEmpty(pinned.SpreadsheetId))
+                return (null, "No pinned roster url for that clan.");
+
+            var champStyle = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag)?.ChampStyleCwlRoster ?? false;
+            // Normal roster day columns are D-J (index 3-9); champ-style are I-O (index 8-14).
+            var dayColumnIndex = (champStyle ? 8 : 3) + prepIndex;
+
+            var sheetEntries = await _gspreadService.GetRosterDayOptIns(_gspreadService.GetUrl(pinned), dayColumnIndex);
+            var lineup = warClan.Members.Select(m => (m.Tag, m.Name));
+            var (toOptIn, toOptOut) = ComputeDayRosterDiff(sheetEntries, lineup);
+
+            return (new DayRosterStatus(opponent.Name, prepIndex + 1, toOptIn, toOptOut), null);
+        }
+
+        private static Embed BuildDayRosterEmbed(string clanName, DayRosterStatus status)
+        {
+            var description = new StringBuilder();
+            description.AppendLine($"**Opponent:** {status.OpponentName}");
+            description.AppendLine();
+
+            if (!status.HasMismatch)
+            {
+                description.AppendLine($"✅ The in-game lineup already matches the roster for Day {status.DayNumber}.");
+            }
+            else
+            {
+                description.AppendLine($"**✅ Opt in ({status.ToOptIn.Count})** — in the roster for Day {status.DayNumber} but not in the war:");
+                description.AppendLine(status.ToOptIn.Count == 0 ? "- none" : string.Join("\n", status.ToOptIn.Select(p => $"- {p.Name} ({p.Tag})")));
+                description.AppendLine();
+                description.AppendLine($"**🚫 Opt out ({status.ToOptOut.Count})** — in the war but not in the roster for Day {status.DayNumber}:");
+                description.AppendLine(status.ToOptOut.Count == 0 ? "- none" : string.Join("\n", status.ToOptOut.Select(p => $"- {p.Name} ({p.Tag})")));
+            }
+
+            return new EmbedBuilder()
+                .WithTitle($"Day {status.DayNumber} Roster Check - {clanName}")
+                .WithDescription(description.ToString())
+                .WithColor(Color.DarkPurple)
+                .Build();
+        }
+
+        private record DayRosterStatus(
+            string OpponentName,
+            int DayNumber,
+            List<(string Tag, string Name)> ToOptIn,
+            List<(string Tag, string Name)> ToOptOut)
+        {
+            public bool HasMismatch => ToOptIn.Count > 0 || ToOptOut.Count > 0;
         }
 
         // Reconciles the roster's day column (who should play) against the in-game war lineup.
