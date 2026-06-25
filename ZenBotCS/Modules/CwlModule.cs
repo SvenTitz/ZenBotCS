@@ -32,7 +32,6 @@ namespace ZenBotCS.Modules
         public class Signups : InteractionModuleBase<SocketInteractionContext>
         {
             public required CwlSignupWizardService CwlSignupWizardService { get; set; }
-            public required CwlRosterService CwlRosterService { get; set; }
             public required CwlSignupService CwlSignupService { get; set; }
 
             [RequireUserPermission(Discord.GuildPermission.Administrator)]
@@ -44,39 +43,6 @@ namespace ZenBotCS.Modules
                 await RespondAsync(
                     text: $"There are currently already {CwlSignupService.GetCurrentSignupCount()} signups. Remember to reset these with `/cwl signup reset` if this is not intentional",
                     ephemeral: true);
-            }
-
-            [RequireOwner(Group = "Permission")]
-            [RequireLeadershipRole(Group = "Permission")]
-            [SlashCommand("roster", "Returns the pinned roster for a given clan, or generates a new one if none is pinned")]
-            public async Task Roster(
-                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
-                [Summary("ForceNew")] bool forceNew = false)
-            {
-                await DeferAsync();
-                var (embed, components) = await CwlRosterService.SignupRoster(clantag, forceNew);
-                await FollowupAsync(embed: embed, components: components);
-            }
-
-            [RequireOwner(Group = "Permission")]
-            [RequireLeadershipRole(Group = "Permission")]
-            [SlashCommand("pin-roster", "Pins the roster for the given clan")]
-            public async Task RosterPin(
-                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
-                [Summary("RosterSpreadsheetUrl")] string rosterUrl = "")
-            {
-                await DeferAsync();
-                var embed = await CwlRosterService.SingupRosterPin(clantag, rosterUrl);
-                await FollowupAsync(embed: embed);
-            }
-
-
-            [SlashCommand("missing", "List of players that are still missing in the clan")]
-            public async Task Missing([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
-            {
-                await DeferAsync();
-                var embed = await CwlSignupService.SingupMissing(clantag);
-                await FollowupAsync(embed: embed);
             }
 
             [SlashCommand("summary", "Gives summary of all cwl signups")]
@@ -201,6 +167,45 @@ namespace ZenBotCS.Modules
             {
                 await DeferAsync();
                 var embed = await CwlSignupService.SignupAdd(playerTag, clanTag, bonus, warPreference);
+                await FollowupAsync(embed: embed);
+            }
+        }
+
+        [Group("roster", "Commands related to CWL rosters")]
+        public class Roster : InteractionModuleBase<SocketInteractionContext>
+        {
+            public required CwlRosterService CwlRosterService { get; set; }
+            public required CwlSignupService CwlSignupService { get; set; }
+
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
+            [SlashCommand("get", "Returns the pinned roster for a given clan, or generates a new one if none is pinned")]
+            public async Task Get(
+                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
+                [Summary("ForceNew")] bool forceNew = false)
+            {
+                await DeferAsync();
+                var (embed, components) = await CwlRosterService.SignupRoster(clantag, forceNew);
+                await FollowupAsync(embed: embed, components: components);
+            }
+
+            [RequireOwner(Group = "Permission")]
+            [RequireLeadershipRole(Group = "Permission")]
+            [SlashCommand("pin", "Pins the roster for the given clan")]
+            public async Task Pin(
+                [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag,
+                [Summary("RosterSpreadsheetUrl")] string rosterUrl = "")
+            {
+                await DeferAsync();
+                var embed = await CwlRosterService.SingupRosterPin(clantag, rosterUrl);
+                await FollowupAsync(embed: embed);
+            }
+
+            [SlashCommand("missing-spin", "List of players that are still missing in the clan")]
+            public async Task MissingSpin([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clantag)
+            {
+                await DeferAsync();
+                var embed = await CwlSignupService.SingupMissing(clantag);
                 await FollowupAsync(embed: embed);
             }
         }
