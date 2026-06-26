@@ -1,6 +1,7 @@
 using System.Text;
 using CocApi.Rest.Models;
 using Discord;
+using Microsoft.Extensions.Logging;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
@@ -16,7 +17,8 @@ namespace ZenBotCS.Services.SlashCommands
         BotDataContext _botDb,
         GspreadService _gspreadService,
         EmbedHelper _embedHelper,
-        ClashKingApiService _clashKingApiService)
+        ClashKingApiService _clashKingApiService,
+        ILogger<CwlRosterService> _logger)
     {
         public async Task<(Embed, MessageComponent?)> SignupRoster(string clanTag, bool forceNew)
         {
@@ -295,14 +297,26 @@ namespace ZenBotCS.Services.SlashCommands
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return null;
 
-            var leagueWars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
-            if (leagueWars is null)
-                return null;
-
-            return leagueWars
+            return (await TryGetLeagueWars(group))
                 .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
                 .OrderBy(w => w.StartTime)
                 .FirstOrDefault(w => w.State == WarState.Preparation);
+        }
+
+        // CocApi's GetOrFetchLeagueWarsAsync can throw (e.g. a NullReferenceException) when the league
+        // group is stale and one of its war tags no longer resolves. Treat any failure as "no wars".
+        private async Task<List<ClanWar>> TryGetLeagueWars(ClanWarLeagueGroup group)
+        {
+            try
+            {
+                var wars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
+                return wars?.ToList() ?? [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch CWL league wars (likely a stale league group)");
+                return [];
+            }
         }
 
         // Gathers the day-roster reconciliation for the in-prep war, or a user-facing error reason.
@@ -312,11 +326,7 @@ namespace ZenBotCS.Services.SlashCommands
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return (null, "This clan does not seem to be in an active CWL.");
 
-            var leagueWars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
-            if (leagueWars is null)
-                return (null, "There is no CWL war currently in preparation for this clan.");
-
-            var wars = leagueWars
+            var wars = (await TryGetLeagueWars(group))
                 .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
                 .OrderBy(w => w.StartTime)
                 .ToList();
