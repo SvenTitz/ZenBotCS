@@ -292,11 +292,15 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<ClanWar?> GetPreparationWar(string clanTag)
         {
             var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
-            if (group is null)
+            if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return null;
 
-            return (await _clansClient.GetOrFetchLeagueWarsAsync(group))
-                .Where(w => w.Clans.ContainsKey(clanTag))
+            var leagueWars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
+            if (leagueWars is null)
+                return null;
+
+            return leagueWars
+                .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
                 .OrderBy(w => w.StartTime)
                 .FirstOrDefault(w => w.State == WarState.Preparation);
         }
@@ -305,11 +309,15 @@ namespace ZenBotCS.Services.SlashCommands
         private async Task<(DayRosterStatus? Status, string? Error)> TryGetDayRosterStatus(string clanTag)
         {
             var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
-            if (group is null)
+            if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return (null, "This clan does not seem to be in an active CWL.");
 
-            var wars = (await _clansClient.GetOrFetchLeagueWarsAsync(group))
-                .Where(w => w.Clans.ContainsKey(clanTag))
+            var leagueWars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
+            if (leagueWars is null)
+                return (null, "There is no CWL war currently in preparation for this clan.");
+
+            var wars = leagueWars
+                .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
                 .OrderBy(w => w.StartTime)
                 .ToList();
 
