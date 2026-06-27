@@ -10,10 +10,11 @@ rolling window, and mirrors them offsite to Google Drive with **rclone**.
   CWL signups, pinned rosters, clan settings, leadership notes, reminders, history.
 - **CoC cache DB** (`CocApiCacheConnectionString`) — regenerable from the API, but
   included so a restore is instant instead of waiting for the cache to refill.
-
-> Not covered by this script: `appsettings.json`, `gspread*.json`, and the Google
-> OAuth token directory (`PathToGspreadToken`). Keep those safe separately — losing
-> the OAuth token means re-authorising Google.
+- **Secrets** (optional, off by default) — `appsettings.json`, `gspread*.json`, and
+  the Google OAuth token directory. These contain the Discord/CoC tokens, DB
+  passwords, and Google secrets, so they are uploaded **encrypted** (rclone `crypt`)
+  and **never** to the plain Drive folder. Enable by filling in `SECRET_PATHS` in the
+  script (see step 5).
 
 ## One-time setup
 
@@ -67,6 +68,25 @@ Add (daily at 03:30 — use your real home path; check with `whoami`):
 30 3 * * * /home/YOURUSER/backup-zenbot.sh >> /home/YOURUSER/backup.log 2>&1
 ```
 
+### 5. (Optional) Encrypted secrets backup
+The secret files (`appsettings.json`, `gspread*.json`, the Google token dir) are
+backed up **encrypted** via an rclone `crypt` remote — never in plain text. Set up
+the remote:
+```bash
+rclone config
+```
+New remote named **`gcrypt`**, storage **`crypt`**, `remote>` = `gdrive:zenbot-secrets`
+(a *separate* Drive folder from the DB backups), then set a password (let rclone
+generate one, or type your own).
+
+> ⚠️ **Save that crypt password in your password manager.** It lives (obscured) in
+> the VPS's rclone config so the job can run unattended, but if the VPS is lost and
+> the password only lived there, the encrypted Drive backup is **unrecoverable**.
+
+Then fill in the `SECRET_PATHS=( … )` array in the script with the real paths (the
+Google ones are the `PathToGspread*` values from `appsettings.json`). That's it —
+the next run tars them up, encrypts, and uploads to `gcrypt:`.
+
 ## Retention
 
 - **Local** — `LOCAL_RETENTION_DAYS` (default 14), pruned with `find -mtime`.
@@ -87,3 +107,10 @@ gunzip < zenbot_2026-06-26_0330.sql.gz | mysql YOUR_BOT_DB
 ```
 Test a restore into a scratch database now and then — an untested backup isn't a
 backup.
+
+To restore the **secrets** after a full rebuild: re-create the `gcrypt` remote with
+the *same password* (from your password manager), then pull and unpack:
+```bash
+rclone copy gcrypt:secrets_2026-06-26_0330.tar.gz .
+tar xzf secrets_2026-06-26_0330.tar.gz   # extracts the files under their original paths
+```
