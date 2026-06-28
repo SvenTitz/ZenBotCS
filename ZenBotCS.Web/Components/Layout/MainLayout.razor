@@ -1,0 +1,31 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <header class="topbar">
+        <a class="brand" href="/">ZenBot Rosters</a>
+        <div class="auth">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="user">@context.User.Identity?.Name</span>
+                    <form action="/account/logout" method="post" class="inline-form">
+                        <AntiforgeryToken />
+                        <button type="submit" class="link-button">Sign out</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="signin" href="/account/login">Sign in with Discord</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </header>
+
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>

@@ -1,0 +1,61 @@
+@page "/"
+@inject RosterService Roster
+
+<PageTitle>CWL Rosters</PageTitle>
+
+<h1>CWL Rosters</h1>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        @if (context.User.Identity?.IsAuthenticated == true)
+        {
+            <p class="muted">Signed in as <strong>@context.User.Identity.Name</strong>, but your account doesn't have roster access.</p>
+        }
+        else
+        {
+            <p class="muted">Please <a href="/account/login">sign in with Discord</a> to view the rosters.</p>
+        }
+    </NotAuthorized>
+    <Authorized>
+        @if (_clans is null)
+        {
+            <p class="muted">Loading…</p>
+        }
+        else if (_clans.Count == 0)
+        {
+            <p class="muted">No clans have CWL signup enabled.</p>
+        }
+        else
+        {
+            <ul class="clan-list">
+                @foreach (var clan in _clans)
+                {
+                    <li>
+                        <a href="@($"/roster/{Uri.EscapeDataString(clan.ClanTag)}")">
+                            <span class="clan-tag">@clan.ClanTag</span>
+                        </a>
+                        <span class="badge">@clan.SignupCount signed up</span>
+                        @if (clan.ChampStyle)
+                        {
+                            <span class="badge badge-alt">champ style</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<ClanSummary>? _clans;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null || !(await AuthState).User.IsInRole(AuthRoles.RosterAccess))
+            return;
+
+        _clans = await Roster.GetSignupClansAsync();
+    }
+}

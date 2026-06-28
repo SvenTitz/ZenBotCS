@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenBotCS.Entities", "ZenBot
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenBotCS.Tests", "ZenBotCS.Tests\ZenBotCS.Tests.csproj", "{6204EF78-D4D1-4EC7-95EE-7B3DF1BE23B8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenBotCS.Web", "ZenBotCS.Web\ZenBotCS.Web.csproj", "{B73094A4-BB93-49F0-9624-CEC0C2534F21}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{6204EF78-D4D1-4EC7-95EE-7B3DF1BE23B8}.Release|x64.Build.0 = Release|Any CPU
 		{6204EF78-D4D1-4EC7-95EE-7B3DF1BE23B8}.Release|x86.ActiveCfg = Release|Any CPU
 		{6204EF78-D4D1-4EC7-95EE-7B3DF1BE23B8}.Release|x86.Build.0 = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|x64.Build.0 = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Debug|x86.Build.0 = Debug|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|x64.ActiveCfg = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|x64.Build.0 = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|x86.ActiveCfg = Release|Any CPU
+		{B73094A4-BB93-49F0-9624-CEC0C2534F21}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

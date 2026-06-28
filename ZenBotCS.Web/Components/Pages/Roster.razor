@@ -1,0 +1,98 @@
+@page "/roster/{ClanTag}"
+@inject RosterService Rosters
+
+<PageTitle>Roster @ClanTag</PageTitle>
+
+<p><a href="/">&larr; All clans</a></p>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        @if (context.User.Identity?.IsAuthenticated == true)
+        {
+            <p class="muted">Signed in as <strong>@context.User.Identity.Name</strong>, but your account doesn't have roster access.</p>
+        }
+        else
+        {
+            <p class="muted">Please <a href="/account/login">sign in with Discord</a> to view this roster.</p>
+        }
+    </NotAuthorized>
+    <Authorized>
+        <h1>Roster <span class="clan-tag">@ClanTag</span></h1>
+
+        @if (_signups is null)
+        {
+            <p class="muted">Loading…</p>
+        }
+        else if (_signups.Count == 0)
+        {
+            <p class="muted">No active signups for this clan.</p>
+        }
+        else
+        {
+            <table class="roster">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Tag</th>
+                        <th>TH</th>
+                        @if (_champStyle)
+                        {
+                            <th title="Max defenses">Max&nbsp;Def</th>
+                        }
+                        @for (var day = 1; day <= 7; day++)
+                        {
+                            <th title="@($"Day {day}")">D@(day)</th>
+                        }
+                        <th>Bonus</th>
+                        <th>War pref</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in _signups)
+                    {
+                        <tr>
+                            <td>@s.PlayerName</td>
+                            <td class="tag">@s.PlayerTag</td>
+                            <td class="num">@s.PlayerThLevel</td>
+                            @if (_champStyle)
+                            {
+                                <td class="center">@(s.MaxDefeneses ? "Yes" : "No")</td>
+                            }
+                            @foreach (var day in DayFlags)
+                            {
+                                <td class="center">@(s.OptOutDays.HasFlag(day) ? "" : "✓")</td>
+                            }
+                            <td class="center">@(s.Bonus ? "Yes" : "No")</td>
+                            <td>@s.WarPreference</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="muted small">A ✓ means the player is available that day. Source: CWL signups (read-only).</p>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private static readonly OptOutDays[] DayFlags =
+    [
+        OptOutDays.Day1, OptOutDays.Day2, OptOutDays.Day3, OptOutDays.Day4,
+        OptOutDays.Day5, OptOutDays.Day6, OptOutDays.Day7
+    ];
+
+    [Parameter] public string ClanTag { get; set; } = string.Empty;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<CwlSignup>? _signups;
+    private bool _champStyle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null || !(await AuthState).User.IsInRole(AuthRoles.RosterAccess))
+            return;
+
+        _champStyle = await Rosters.IsChampStyleAsync(ClanTag);
+        _signups = await Rosters.GetRosterAsync(ClanTag);
+    }
+}
