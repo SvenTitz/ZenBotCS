@@ -1,31 +1,66 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <header class="topbar">
-        <a class="brand" href="/">ZenBot Rosters</a>
-        <div class="auth">
-            <AuthorizeView>
-                <Authorized>
-                    <span class="user">@context.User.Identity?.Name</span>
-                    <form action="/account/logout" method="post" class="inline-form">
-                        <AntiforgeryToken />
-                        <button type="submit" class="link-button">Sign out</button>
-                    </form>
-                </Authorized>
-                <NotAuthorized>
-                    <a class="signin" href="/account/login">Sign in with Discord</a>
-                </NotAuthorized>
-            </AuthorizeView>
-        </div>
-    </header>
+<MudThemeProvider @ref="_themeProvider" Theme="_theme" @bind-IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main class="content">
-        @Body
-    </main>
-</div>
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudLink Href="/" Color="Color.Inherit" Underline="Underline.None">
+            <MudText Typo="Typo.h6">ZenBot Rosters</MudText>
+        </MudLink>
+        <MudSpacer />
+        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <MudIconButton Color="Color.Inherit" OnClick="@ToggleDarkMode"
+                           Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" />
+        </MudTooltip>
+        <AuthorizeView>
+            <Authorized>
+                <MudText Class="mx-3 d-none d-sm-flex">@context.User.Identity?.Name</MudText>
+                <form action="/account/logout" method="post" class="d-inline">
+                    <AntiforgeryToken />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit">Sign out</MudButton>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/account/login" Variant="Variant.Text" Color="Color.Inherit"
+                           StartIcon="@Icons.Custom.Brands.Discord">Sign in</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6 px-2 px-sm-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private MudThemeProvider _themeProvider = null!;
+    private bool _isDarkMode;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight { Primary = "#5865F2", AppbarBackground = "#5865F2" },
+        PaletteDark = new PaletteDark { Primary = "#7984F5", AppbarBackground = "#2B2D55" },
+    };
+
+    // Default to the OS light/dark setting; the toggle then overrides it for the session.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _isDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+}

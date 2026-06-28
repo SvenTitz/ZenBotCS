@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
+using ZenBotCS.Entities.Models.Enums;
 
 namespace ZenBotCS.Web.Services;
 
@@ -54,6 +55,17 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory)
             .Where(cs => cs.ClanTag == clanTag)
             .Select(cs => cs.ChampStyleCwlRoster)
             .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>Persist the leader-edited day lineup for a single signup (absolute value).</summary>
+    public async Task SetRosterDaysAsync(int signupId, RosterDays value, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var signup = await db.CwlSignups.FirstOrDefaultAsync(s => s.Id == signupId, ct)
+            ?? throw new InvalidOperationException($"Signup {signupId} not found.");
+        signup.RosterDays = value;
+        signup.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
     }
 }
 

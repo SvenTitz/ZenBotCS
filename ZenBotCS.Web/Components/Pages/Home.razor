@@ -1,47 +1,61 @@
 @page "/"
 @inject RosterService Roster
+@inject ClanNameService ClanNames
 
 <PageTitle>CWL Rosters</PageTitle>
 
-<h1>CWL Rosters</h1>
+<MudText Typo="Typo.h4" Class="mb-4">CWL Rosters</MudText>
 
 <AuthorizeView Roles="@AuthRoles.RosterAccess">
     <NotAuthorized>
         @if (context.User.Identity?.IsAuthenticated == true)
         {
-            <p class="muted">Signed in as <strong>@context.User.Identity.Name</strong>, but your account doesn't have roster access.</p>
+            <MudAlert Severity="Severity.Warning">
+                Signed in as <b>@context.User.Identity.Name</b>, but your account doesn't have roster access.
+            </MudAlert>
         }
         else
         {
-            <p class="muted">Please <a href="/account/login">sign in with Discord</a> to view the rosters.</p>
+            <MudAlert Severity="Severity.Info">
+                Please <MudLink Href="/account/login">sign in with Discord</MudLink> to view the rosters.
+            </MudAlert>
         }
     </NotAuthorized>
     <Authorized>
         @if (_clans is null)
         {
-            <p class="muted">Loading…</p>
+            <MudProgressCircular Indeterminate="true" />
         }
         else if (_clans.Count == 0)
         {
-            <p class="muted">No clans have CWL signup enabled.</p>
+            <MudText>No clans have CWL signup enabled.</MudText>
         }
         else
         {
-            <ul class="clan-list">
+            <MudGrid>
                 @foreach (var clan in _clans)
                 {
-                    <li>
-                        <a href="@($"/roster/{Uri.EscapeDataString(clan.ClanTag)}")">
-                            <span class="clan-tag">@clan.ClanTag</span>
-                        </a>
-                        <span class="badge">@clan.SignupCount signed up</span>
-                        @if (clan.ChampStyle)
-                        {
-                            <span class="badge badge-alt">champ style</span>
-                        }
-                    </li>
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Outlined="true">
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6">@ClanName(clan.ClanTag)</MudText>
+                                <MudText Typo="Typo.caption" Style="font-family:monospace;">@clan.ClanTag</MudText>
+                                <div class="mt-2">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@clan.SignupCount signed up</MudChip>
+                                    @if (clan.ChampStyle)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">champ style</MudChip>
+                                    }
+                                </div>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Href="@($"/roster/{Uri.EscapeDataString(clan.ClanTag)}")"
+                                           Variant="Variant.Text" Color="Color.Primary">View roster</MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
                 }
-            </ul>
+            </MudGrid>
         }
     </Authorized>
 </AuthorizeView>
@@ -50,6 +64,7 @@
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     private List<ClanSummary>? _clans;
+    private IReadOnlyDictionary<string, string> _names = new Dictionary<string, string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,5 +72,8 @@
             return;
 
         _clans = await Roster.GetSignupClansAsync();
+        _names = await ClanNames.GetAllAsync();
     }
+
+    private string ClanName(string clanTag) => _names.GetValueOrDefault(clanTag, clanTag);
 }

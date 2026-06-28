@@ -28,130 +28,88 @@ h1:focus {
     border-color: #929292;
 }
 
-/* ---- Roster site layout ---- */
-body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
-    color: #1b1b1f;
-    background: #fafafa;
+/* Pinned (sticky) Player column on the roster grid, so the name stays visible
+   when scrolling sideways (e.g. on mobile). Opaque background (overriding the
+   striped rows) so scrolling content doesn't show through; theme-aware via MudBlazor vars. */
+.sticky-col {
+    position: sticky !important;
+    left: 0 !important;
+    background-color: var(--mud-palette-surface) !important;
+    box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.25);
 }
 
-.page {
-    min-height: 100vh;
+th.sticky-col {
+    z-index: 3;
 }
 
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1.5rem;
-    background: #5865F2; /* Discord blurple */
-    color: #fff;
+td.sticky-col {
+    z-index: 2;
 }
 
-.topbar .brand {
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.15rem;
-    text-decoration: none;
+/* Make the wrapper the single horizontal scroll container, so the sticky columns and the
+   scroll-position watcher (roster-sticky.js) all anchor to the same element. */
+.roster-scroll {
+    overflow-x: auto;
 }
 
-.topbar .auth a,
-.topbar .auth .user {
-    color: #fff;
-}
+    .roster-scroll .mud-table-container {
+        overflow: visible !important;
+    }
 
-.topbar .auth {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.inline-form {
-    display: inline;
-    margin: 0;
-}
-
-.link-button {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    text-decoration: underline;
-    font: inherit;
-    padding: 0;
-}
-
-.content {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 1.5rem;
-}
-
-.muted { color: #6b6b70; }
-.small { font-size: 0.85rem; }
-
-.clan-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.clan-list li {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid #ececec;
-}
-
-.clan-tag {
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-}
-
-.badge {
-    background: #eceefe;
-    color: #3b40b8;
-    border-radius: 999px;
-    padding: 0.1rem 0.6rem;
-    font-size: 0.8rem;
-}
-
-.badge-alt {
-    background: #fdeccd;
-    color: #8a5a00;
-}
-
-table.roster {
-    border-collapse: collapse;
-    width: 100%;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-
-table.roster th,
-table.roster td {
-    border: 1px solid #e6e6e6;
-    padding: 0.35rem 0.6rem;
-    text-align: left;
-}
-
-table.roster th {
-    background: #f3f3f5;
-    font-weight: 600;
-}
-
-table.roster td.num,
-table.roster td.center,
-table.roster th[title] {
+/* Pinned War pref column. Sits left of the Days column (offset by its 3rem width).
+   Shows a 1-letter abbreviation when collapsed, full text when scrolled fully right. */
+.sticky-col-right {
+    position: sticky !important;
+    right: 2rem !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    white-space: nowrap;
     text-align: center;
+    background-color: var(--mud-palette-surface) !important;
+    box-shadow: -2px 0 4px -2px rgba(0, 0, 0, 0.25);
 }
 
-table.roster td.tag {
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-    color: #6b6b70;
+th.sticky-col-right {
+    z-index: 3;
 }
 
-table.roster tbody tr:nth-child(even) {
-    background: #fbfbfc;
+td.sticky-col-right {
+    z-index: 2;
+}
+
+.sticky-col-right .wp-full {
+    display: none;
+}
+
+.roster-scroll.at-right .sticky-col-right {
+    box-shadow: none;
+}
+
+    .roster-scroll.at-right .sticky-col-right .wp-abbr {
+        display: none;
+    }
+
+    .roster-scroll.at-right .sticky-col-right .wp-full {
+        display: inline;
+    }
+
+/* Pinned right-most column: per-player count of rostered days. Always narrow. */
+.sticky-col-days {
+    position: sticky !important;
+    right: 0 !important;
+    box-sizing: border-box;
+    width: 2rem;
+    min-width: 2rem;
+    max-width: 2rem;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    background-color: var(--mud-palette-surface) !important;
+}
+
+th.sticky-col-days {
+    z-index: 3;
+}
+
+td.sticky-col-days {
+    z-index: 2;
 }

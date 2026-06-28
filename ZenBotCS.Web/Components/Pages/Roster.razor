@@ -1,83 +1,127 @@
 @page "/roster/{ClanTag}"
 @inject RosterService Rosters
+@inject ClanNameService ClanNames
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
-<PageTitle>Roster @ClanTag</PageTitle>
+<PageTitle>Roster @_clanName</PageTitle>
 
-<p><a href="/">&larr; All clans</a></p>
+<MudButton Href="/" StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text" Class="mb-3">All clans</MudButton>
 
-<AuthorizeView Roles="@AuthRoles.RosterAccess">
+<AuthorizeView Roles="@AuthRoles.RosterAccess" Context="auth">
     <NotAuthorized>
-        @if (context.User.Identity?.IsAuthenticated == true)
+        @if (auth.User.Identity?.IsAuthenticated == true)
         {
-            <p class="muted">Signed in as <strong>@context.User.Identity.Name</strong>, but your account doesn't have roster access.</p>
+            <MudAlert Severity="Severity.Warning">
+                Signed in as <b>@auth.User.Identity.Name</b>, but your account doesn't have roster access.
+            </MudAlert>
         }
         else
         {
-            <p class="muted">Please <a href="/account/login">sign in with Discord</a> to view this roster.</p>
+            <MudAlert Severity="Severity.Info">
+                Please <MudLink Href="/account/login">sign in with Discord</MudLink> to view this roster.
+            </MudAlert>
         }
     </NotAuthorized>
     <Authorized>
-        <h1>Roster <span class="clan-tag">@ClanTag</span></h1>
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.h5">@_clanName</MudText>
+                <MudText Typo="Typo.caption" Style="font-family:monospace;">@ClanTag</MudText>
+            </div>
+            <MudSpacer />
+            <div>
+                <MudText Typo="Typo.caption" Class="d-block">War size</MudText>
+                <MudToggleGroup T="int" @bind-Value="_targetSize" Size="Size.Small" Color="Color.Primary">
+                    <MudToggleItem Value="15">15v15</MudToggleItem>
+                    <MudToggleItem Value="30">30v30</MudToggleItem>
+                </MudToggleGroup>
+            </div>
+        </MudStack>
+
+        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
+            Tick the days each player should play. Defaults to their declared availability; changes save automatically.
+        </MudText>
 
         @if (_signups is null)
         {
-            <p class="muted">Loading…</p>
+            <MudProgressCircular Indeterminate="true" />
         }
         else if (_signups.Count == 0)
         {
-            <p class="muted">No active signups for this clan.</p>
+            <MudText>No active signups for this clan.</MudText>
         }
         else
         {
-            <table class="roster">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Tag</th>
-                        <th>TH</th>
+            <div class="roster-scroll" @ref="_scrollContainer">
+                <MudTable Items="_signups" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.None">
+                    <HeaderContent>
+                        <MudTh Class="sticky-col">Player</MudTh>
+                        <MudTh>Tag</MudTh>
+                        <MudTh Style="text-align:center">TH</MudTh>
                         @if (_champStyle)
                         {
-                            <th title="Max defenses">Max&nbsp;Def</th>
+                            <MudTh Style="text-align:center">Max&nbsp;Def</MudTh>
                         }
-                        @for (var day = 1; day <= 7; day++)
+                        @for (var d = 1; d <= 7; d++)
                         {
-                            <th title="@($"Day {day}")">D@(day)</th>
+                            var dayNum = d;
+                            var flag = DayFlags[d - 1];
+                            var count = DayCount(flag);
+                            <MudTh Style="text-align:center">
+                                D@(dayNum)<br />
+                                <MudText Inline="true" Typo="Typo.body2" Color="@CountColor(count)"><b>@count</b></MudText>
+                            </MudTh>
                         }
-                        <th>Bonus</th>
-                        <th>War pref</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var s in _signups)
-                    {
-                        <tr>
-                            <td>@s.PlayerName</td>
-                            <td class="tag">@s.PlayerTag</td>
-                            <td class="num">@s.PlayerThLevel</td>
-                            @if (_champStyle)
-                            {
-                                <td class="center">@(s.MaxDefeneses ? "Yes" : "No")</td>
-                            }
-                            @foreach (var day in DayFlags)
-                            {
-                                <td class="center">@(s.OptOutDays.HasFlag(day) ? "" : "✓")</td>
-                            }
-                            <td class="center">@(s.Bonus ? "Yes" : "No")</td>
-                            <td>@s.WarPreference</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-            <p class="muted small">A ✓ means the player is available that day. Source: CWL signups (read-only).</p>
+                        <MudTh Style="text-align:center">Bonus</MudTh>
+                        <MudTh Class="sticky-col-right" Style="text-align:center">
+                            <span class="wp-abbr">WP</span><span class="wp-full">War pref</span>
+                        </MudTh>
+                        <MudTh Class="sticky-col-days" Style="text-align:center" title="Days rostered">#</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Player" Class="sticky-col">@context.PlayerName</MudTd>
+                        <MudTd DataLabel="Tag" Style="font-family:monospace;">@context.PlayerTag</MudTd>
+                        <MudTd DataLabel="TH" Style="text-align:center">@context.PlayerThLevel</MudTd>
+                        @if (_champStyle)
+                        {
+                            <MudTd DataLabel="Max Def" Style="text-align:center">@(context.MaxDefeneses ? "Yes" : "No")</MudTd>
+                        }
+                        @foreach (var day in DayFlags)
+                        {
+                            var available = IsAvailable(context, day);
+                            var playing = context.EffectiveRosterDays.HasFlag(day);
+                            <MudTd Style="@DayCellStyle(available, playing)">
+                                <MudTooltip Text="@(available ? null : "Player opted out of this day")" Disabled="available">
+                                    <MudCheckBox T="bool" Dense="true" Color="Color.Success"
+                                                 Value="playing"
+                                                 ValueChanged="@(v => OnDayToggled(context, day, v))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
+                        <MudTd DataLabel="Bonus" Style="text-align:center">@(context.Bonus ? "Yes" : "No")</MudTd>
+                        <MudTd DataLabel="War pref" Class="sticky-col-right" Style="text-align:center">
+                            <span class="wp-abbr" title="@context.WarPreference">@WarPrefAbbr(context.WarPreference)</span><span class="wp-full">@context.WarPreference</span>
+                        </MudTd>
+                        <MudTd Class="sticky-col-days" Style="text-align:center">@PlayingDayCount(context)</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+            <MudText Typo="Typo.caption" Class="mt-2 d-block mud-text-secondary">
+                <span style="@SwatchStyle("rgba(56,142,60,0.30)")"></span> playing &nbsp;
+                <span style="@SwatchStyle("rgba(211,47,47,0.16)")"></span> available but benched &nbsp;
+                <span style="@SwatchStyle("rgba(120,120,120,0.34)")"></span> opted out &nbsp;—&nbsp;
+                the number under each day is how many are rostered (green = matches @_targetSize).
+            </MudText>
         }
     </Authorized>
 </AuthorizeView>
 
 @code {
-    private static readonly OptOutDays[] DayFlags =
+    private static readonly RosterDays[] DayFlags =
     [
-        OptOutDays.Day1, OptOutDays.Day2, OptOutDays.Day3, OptOutDays.Day4,
-        OptOutDays.Day5, OptOutDays.Day6, OptOutDays.Day7
+        RosterDays.Day1, RosterDays.Day2, RosterDays.Day3, RosterDays.Day4,
+        RosterDays.Day5, RosterDays.Day6, RosterDays.Day7
     ];
 
     [Parameter] public string ClanTag { get; set; } = string.Empty;
@@ -86,13 +130,80 @@
 
     private List<CwlSignup>? _signups;
     private bool _champStyle;
+    private string _clanName = string.Empty;
+    private int _targetSize = 15;
+    private ElementReference _scrollContainer;
+    private bool _stickyRightInit;
+
+    // Wire up the pinned right-most column's scroll watcher once the table has rendered.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_signups is { Count: > 0 } && !_stickyRightInit)
+        {
+            _stickyRightInit = true;
+            await JS.InvokeVoidAsync("initRosterStickyRight", _scrollContainer);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        _clanName = ClanTag;
         if (AuthState is null || !(await AuthState).User.IsInRole(AuthRoles.RosterAccess))
             return;
 
+        _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
         _champStyle = await Rosters.IsChampStyleAsync(ClanTag);
         _signups = await Rosters.GetRosterAsync(ClanTag);
+        _targetSize = _signups.Count >= 30 ? 30 : 15; // 30v30 once a clan has 30+ signed up
+    }
+
+    // RosterDays and OptOutDays share the same bit layout, so a day flag value maps directly.
+    private static bool IsAvailable(CwlSignup s, RosterDays day) => ((int)s.OptOutDays & (int)day) == 0;
+
+    private int DayCount(RosterDays day) => _signups?.Count(s => s.EffectiveRosterDays.HasFlag(day)) ?? 0;
+
+    // Number of days a player is rostered (count of set day flags).
+    private static int PlayingDayCount(CwlSignup s) => DayFlags.Count(d => s.EffectiveRosterDays.HasFlag(d));
+
+    private static string WarPrefAbbr(WarPreference p) => p switch
+    {
+        WarPreference.FWA => "F",
+        WarPreference.Alternate => "A",
+        WarPreference.EightStars => "8",
+        WarPreference.Always => "W",
+        _ => "?"
+    };
+
+    private Color CountColor(int count) =>
+        count == _targetSize ? Color.Success : count > _targetSize ? Color.Error : Color.Warning;
+
+    private static string DayCellStyle(bool available, bool playing)
+    {
+        var bg = playing
+            ? "rgba(56,142,60,0.30)"        // playing — green
+            : !available
+                ? "rgba(120,120,120,0.34)"  // opted out — grey
+                : "rgba(211,47,47,0.16)";   // available but benched — soft red
+        return $"text-align:center;background:{bg}";
+    }
+
+    private static string SwatchStyle(string bg) =>
+        $"display:inline-block;width:0.9em;height:0.9em;vertical-align:middle;border-radius:2px;background:{bg};";
+
+    private async Task OnDayToggled(CwlSignup signup, RosterDays day, bool playing)
+    {
+        var previous = signup.RosterDays;
+        var current = signup.EffectiveRosterDays;
+        signup.RosterDays = playing ? current | day : current & ~day; // optimistic
+
+        try
+        {
+            await Rosters.SetRosterDaysAsync(signup.Id, signup.RosterDays.Value);
+        }
+        catch
+        {
+            signup.RosterDays = previous; // revert on failure
+            Snackbar.Add($"Couldn't save the change for {signup.PlayerName}. Please try again.", Severity.Error);
+        }
     }
 }

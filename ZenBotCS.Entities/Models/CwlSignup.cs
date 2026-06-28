@@ -24,6 +24,12 @@ public class CwlSignup
 
     public OptOutDays OptOutDays { get; set; }
 
+    /// <summary>
+    /// The leader-edited CWL lineup (which days this player actually plays), set via the roster site.
+    /// Null until first edited — until then <see cref="EffectiveRosterDays"/> falls back to availability.
+    /// </summary>
+    public RosterDays? RosterDays { get; set; }
+
     public WarPreference WarPreference { get; set; }
 
     public bool Bonus { get; set; }
@@ -35,4 +41,14 @@ public class CwlSignup
     public bool Archieved { get; set; }
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// The lineup to display/use: the leader-edited <see cref="RosterDays"/> if set, otherwise the
+    /// player's availability (all days except <see cref="OptOutDays"/>). Not stored.
+    /// </summary>
+    [NotMapped]
+    public RosterDays EffectiveRosterDays =>
+        RosterDays ?? (Enums.RosterDays)(~(int)OptOutDays & AllDaysMask);
+
+    private const int AllDaysMask = 0b111_1111; // Day1..Day7
 }

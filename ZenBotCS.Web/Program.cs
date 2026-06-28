@@ -5,6 +5,7 @@ using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using MudBlazor.Services;
 using ZenBotCS.Entities;
 using ZenBotCS.Web;
 using ZenBotCS.Web.Components;
@@ -15,9 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddMudServices();
 
 // Thin query service over the bot DB (keeps components free of EF plumbing).
 builder.Services.AddScoped<ZenBotCS.Web.Services.RosterService>();
+// Clan name lookup from the CoC cache DB (cached in memory).
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
 
 // Direct DB access: the website is a second consumer of the shared BotDataContext.
 // Use a DbContextFactory, not a scoped DbContext: in Blazor Server a scoped context lives for the

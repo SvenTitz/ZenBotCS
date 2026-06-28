@@ -22,6 +22,28 @@ ZenBotCS.Entities  ← shared BotDataContext + models
 - Interactivity is **Interactive Server** only (no WebAssembly), so components reach
   the DB directly and no separate API is needed. This uses a persistent
   SignalR/WebSocket connection — fine for the handful of people editing rosters.
+  The render mode is set app-wide in `App.razor` (`@rendermode="InteractiveServer"` on
+  `<Routes>` and `<HeadOutlet>`) — without it, components render statically and clicks
+  do nothing.
+- UI uses **MudBlazor**. Providers (`MudThemeProvider`, `MudPopoverProvider`,
+  `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, and
+  `AddMudServices()` is registered in `Program.cs`.
+
+## Roster editing & data model
+
+The editable roster (which days each player plays) is stored on **`CwlSignup`**, not a
+separate table — because the bot's existing "move between clans" feature already treats
+`CwlSignup.ClanTag` as the roster clan. Two members matter:
+
+- `RosterDays` (nullable `[Flags] RosterDays`) — the leader-edited lineup. **Null until
+  first edited.**
+- `EffectiveRosterDays` (computed, not stored) — `RosterDays` if set, otherwise the
+  player's availability (all days except `OptOutDays`). The grid and the bot should both
+  read this so un-edited signups still have a sensible default lineup.
+
+The `/roster/{clanTag}` page renders one row per active signup with a checkbox per day
+(autosaves on toggle). Archiving signups at season end resets the roster automatically,
+since the state rides along on the signup.
 
 ## Configuration
 
@@ -130,6 +152,9 @@ backed up too.
 
 ## Troubleshooting
 
+- **Checkboxes/buttons do nothing (page renders, but no interactivity).** The component
+  is being statically server-rendered. Ensure `@rendermode="InteractiveServer"` is set on
+  `<Routes>` and `<HeadOutlet>` in `App.razor`.
 - **Login does nothing / no redirect to Discord (silent).** A privacy/content-blocker
   browser extension (e.g. **Privacy Badger**, uBlock Origin) is cancelling the
   navigation to `discord.com`. Whitelist `discord.com` for the site. This can affect
