@@ -85,60 +85,16 @@ dotnet run --project ZenBotCS.Web              # local dev (http://localhost:507
 dotnet publish ZenBotCS.Web -c Release -o /opt/zenbot-web   # on the VPS
 ```
 
-## Deploy on the VPS (systemd + reverse proxy)
+## Deploy & updates
 
-The site is a second long-running process alongside the bot.
+Full runbook (first-time setup, the update routine, and troubleshooting):
+[`web-roster-deployment.md`](web-roster-deployment.md).
 
-### 1. systemd service
-
-`/etc/systemd/system/zenbot-web.service`:
-
-```ini
-[Unit]
-Description=ZenBot roster web site
-After=network.target mysql.service
-
-[Service]
-WorkingDirectory=/opt/zenbot-web
-ExecStart=/usr/bin/dotnet /opt/zenbot-web/ZenBotCS.Web.dll
-Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://127.0.0.1:5080
-Restart=always
-RestartSec=5
-User=YOURUSER
-
-[Install]
-WantedBy=multi-user.target
-```
+In short: the site runs as the `zenbot-web` **systemd** service on `127.0.0.1:5080`, behind
+**Caddy** (automatic HTTPS, WebSocket-ready for the Blazor circuit). Updating is:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now zenbot-web
-```
-
-The app listens only on `127.0.0.1:5080`; the reverse proxy terminates TLS in front
-of it.
-
-### 2. Reverse proxy (Caddy — automatic HTTPS)
-
-`/etc/caddy/Caddyfile`:
-
-```caddy
-rosters.YOUR_DOMAIN {
-    reverse_proxy 127.0.0.1:5080
-}
-```
-
-Caddy proxies WebSockets out of the box, which Blazor Server's circuit needs — no
-extra config. `sudo systemctl reload caddy` and you're done.
-
-> If you use nginx instead, you must add the `Upgrade`/`Connection` headers for the
-> WebSocket to work; Caddy needs none.
-
-### 3. Updates
-
-```bash
-git pull
+cd ~/ZenBotCS && git pull
 dotnet publish ZenBotCS.Web -c Release -o /opt/zenbot-web
 sudo systemctl restart zenbot-web
 ```
