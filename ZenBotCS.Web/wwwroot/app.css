@@ -28,6 +28,13 @@ h1:focus {
     border-color: #929292;
 }
 
+/* Set before first paint by the inline script in App.razor, so the page background matches the
+   OS/chosen theme immediately and doesn't flash light -> dark before MudBlazor's theme applies.
+   Must match MudBlazor's PaletteDark.Background (#1a1a27). */
+html[data-theme="dark"] body {
+    background-color: #1a1a27;
+}
+
 /* Pinned (sticky) Player column on the roster grid, so the name stays visible
    when scrolling sideways (e.g. on mobile). Opaque background (overriding the
    striped rows) so scrolling content doesn't show through; theme-aware via MudBlazor vars. */

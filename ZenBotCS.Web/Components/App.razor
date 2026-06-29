@@ -10,6 +10,14 @@
     <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="ZenBotCS.Web.styles.css" />
+    <script>
+        // Sets the page theme before first paint so it doesn't flash light -> dark.
+        // applyTheme is reused by the in-app toggle (MainLayout) to keep them in sync.
+        window.applyTheme = function (dark) {
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        };
+        try { window.applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { }
+    </script>
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
