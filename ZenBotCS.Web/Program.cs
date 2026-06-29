@@ -4,6 +4,7 @@ using System.Text.Json;
 using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using ZenBotCS.Entities;
@@ -96,6 +97,15 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Behind the Caddy reverse proxy (which terminates TLS on the same host), honor the
+// X-Forwarded-* headers so the app sees the real https scheme and external host. Without
+// this the OAuth callback URL would be built as http://<internal> and Discord would reject it.
+// Must run before HTTPS redirection and authentication. Loopback proxies are trusted by default.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
