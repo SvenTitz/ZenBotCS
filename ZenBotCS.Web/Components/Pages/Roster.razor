@@ -108,9 +108,10 @@
                 </MudTable>
             </div>
             <MudText Typo="Typo.caption" Class="mt-2 d-block mud-text-secondary">
-                <span style="@SwatchStyle("rgba(56,142,60,0.30)")"></span> playing &nbsp;
-                <span style="@SwatchStyle("rgba(211,47,47,0.16)")"></span> available but benched &nbsp;
-                <span style="@SwatchStyle("rgba(120,120,120,0.34)")"></span> opted out &nbsp;—&nbsp;
+                <span style="@SwatchStyle(ColPlaying)"></span> playing &nbsp;
+                <span style="@SwatchStyle(ColBenched)"></span> benched by leadership &nbsp;
+                <span style="@SwatchStyle(ColOptedOut)"></span> player opted out &nbsp;
+                <span style="@SwatchStyle(ColOverride)"></span> opted out but rostered &nbsp;—&nbsp;
                 the number under each day is how many are rostered (green = matches @_targetSize).
             </MudText>
         }
@@ -177,13 +178,20 @@
     private Color CountColor(int count) =>
         count == _targetSize ? Color.Success : count > _targetSize ? Color.Error : Color.Warning;
 
+    // Day-cell colours. Kept as constants so the table and the legend stay in sync.
+    private const string ColPlaying = "rgba(56,142,60,0.32)";   // green — rostered, player was available
+    private const string ColBenched = "rgba(251,192,45,0.25)";  // yellow — available, but benched by leadership
+    private const string ColOptedOut = "rgba(211,47,47,0.25)";  // red — the player opted out themselves
+    // green/red caution stripes — rostered despite the player opting out (leadership override).
+    // Stripe alphas match the solid green/red above (0.32 / 0.25).
+    private const string ColOverride =
+        "repeating-linear-gradient(45deg,rgba(56,142,60,0.32) 0,rgba(56,142,60,0.32) 7px,rgba(211,47,47,0.25) 7px,rgba(211,47,47,0.25) 14px)";
+
     private static string DayCellStyle(bool available, bool playing)
     {
-        var bg = playing
-            ? "rgba(56,142,60,0.30)"        // playing — green
-            : !available
-                ? "rgba(120,120,120,0.34)"  // opted out — grey
-                : "rgba(211,47,47,0.16)";   // available but benched — soft red
+        string bg = playing
+            ? (available ? ColPlaying : ColOverride)   // rostered; striped if the player had opted out
+            : (available ? ColBenched : ColOptedOut);  // not rostered; red if the player opted out
         return $"text-align:center;background:{bg}";
     }
 
