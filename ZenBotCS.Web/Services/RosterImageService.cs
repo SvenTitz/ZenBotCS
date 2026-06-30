@@ -59,7 +59,7 @@ public class RosterImageService
             }
             .Select(f => Path.Combine(fontsDir, f))
             .Where(File.Exists)
-            .Select(SKTypeface.FromFile)
+            .Select(p => SKTypeface.FromFile(p)) // lambda, not method group: avoids the indexed Select overload
             .Where(tf => tf is not null)
             .ToArray();
     }
