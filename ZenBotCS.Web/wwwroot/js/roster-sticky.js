@@ -25,3 +25,13 @@ window.initRosterStickyRight = (el) => {
 
     update();
 };
+
+// Save a base64 payload (e.g. the server-rendered roster PNG) as a file download.
+window.downloadFile = (filename, contentType, base64) => {
+    const link = document.createElement('a');
+    link.href = `data:${contentType};base64,${base64}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+};

@@ -24,6 +24,8 @@ builder.Services.AddScoped<ZenBotCS.Web.Services.RosterService>();
 // Clan name lookup from the CoC cache DB (cached in memory).
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
+// Server-side roster PNG rendering (singleton: loads the bundled font once).
+builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
 
 // Direct DB access: the website is a second consumer of the shared BotDataContext.
 // Use a DbContextFactory, not a scoped DbContext: in Blazor Server a scoped context lives for the

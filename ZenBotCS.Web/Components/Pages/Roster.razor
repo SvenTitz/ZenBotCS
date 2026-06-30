@@ -1,6 +1,7 @@
 @page "/roster/{ClanTag}"
 @inject RosterService Rosters
 @inject ClanNameService ClanNames
+@inject RosterImageService RosterImage
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -30,6 +31,11 @@
                 <MudText Typo="Typo.caption" Style="font-family:monospace;">@ClanTag</MudText>
             </div>
             <MudSpacer />
+            <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
+                       Variant="Variant.Outlined" Size="Size.Small" Class="mr-2"
+                       Disabled="@(_signups is null || _signups.Count == 0)">
+                Download image
+            </MudButton>
             <div>
                 <MudText Typo="Typo.caption" Class="d-block">War size</MudText>
                 <MudToggleGroup T="int" @bind-Value="_targetSize" Size="Size.Small" Color="Color.Primary">
@@ -177,6 +183,17 @@
 
     private Color CountColor(int count) =>
         count == _targetSize ? Color.Success : count > _targetSize ? Color.Error : Color.Warning;
+
+    private async Task DownloadImage()
+    {
+        if (_signups is null || _signups.Count == 0)
+            return;
+
+        var bytes = RosterImage.Generate(_clanName, _signups, dark: true);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{_clanName}-cwl-roster.png".Replace(' ', '_');
+        await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
+    }
 
     // Day-cell colours. Kept as constants so the table and the legend stay in sync.
     private const string ColPlaying = "rgba(56,142,60,0.32)";   // green — rostered, player was available
