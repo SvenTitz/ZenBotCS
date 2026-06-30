@@ -67,6 +67,25 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory)
         signup.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>Persist a whole set of lineups at once (used by the solver) in a single round-trip.</summary>
+    public async Task SetRosterDaysBulkAsync(IReadOnlyDictionary<int, RosterDays> values, CancellationToken ct = default)
+    {
+        if (values.Count == 0)
+            return;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var ids = values.Keys.ToList();
+        var signups = await db.CwlSignups.Where(s => ids.Contains(s.Id)).ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        foreach (var s in signups)
+            if (values.TryGetValue(s.Id, out var v))
+            {
+                s.RosterDays = v;
+                s.UpdatedAt = now;
+            }
+        await db.SaveChangesAsync(ct);
+    }
 }
 
 /// <summary>A clan offered for CWL signup. ClanName is not stored in the bot DB (it comes from CocApi);

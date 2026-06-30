@@ -3,6 +3,7 @@
 @inject ClanNameService ClanNames
 @inject RosterImageService RosterImage
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject IJSRuntime JS
 
 <PageTitle>Roster @_clanName</PageTitle>
@@ -31,6 +32,11 @@
                 <MudText Typo="Typo.caption" Style="font-family:monospace;">@ClanTag</MudText>
             </div>
             <MudSpacer />
+            <MudButton OnClick="SolveRoster" StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                       Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mr-2"
+                       Disabled="@(_signups is null || _signups.Count == 0 || _solving)">
+                Solve roster
+            </MudButton>
             <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
                        Variant="Variant.Outlined" Size="Size.Small" Class="mr-2"
                        Disabled="@(_signups is null || _signups.Count == 0)">
@@ -139,6 +145,7 @@
     private bool _champStyle;
     private string _clanName = string.Empty;
     private int _targetSize = 15;
+    private bool _solving;
     private ElementReference _scrollContainer;
     private bool _stickyRightInit;
 
@@ -183,6 +190,40 @@
 
     private Color CountColor(int count) =>
         count == _targetSize ? Color.Success : count > _targetSize ? Color.Error : Color.Warning;
+
+    // Reset to default availability and auto-solve over-capacity days, then persist the whole lineup.
+    private async Task SolveRoster()
+    {
+        if (_signups is null || _signups.Count == 0)
+            return;
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Solve roster",
+            $"This resets every player to their default availability and re-solves the {_targetSize}v{_targetSize} "
+            + "lineup from scratch — any manual day edits will be lost. Continue?",
+            yesText: "Solve", cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+
+        _solving = true;
+        try
+        {
+            RosterSolver.Solve(_signups, _targetSize);
+            var values = _signups.ToDictionary(s => s.Id, s => s.EffectiveRosterDays);
+            await Rosters.SetRosterDaysBulkAsync(values);
+            Snackbar.Add("Roster solved and saved.", Severity.Success);
+        }
+        catch
+        {
+            // Resync the grid to the DB so it doesn't show an unsaved solved state.
+            _signups = await Rosters.GetRosterAsync(ClanTag);
+            Snackbar.Add("Couldn't save the solved roster. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _solving = false;
+        }
+    }
 
     private async Task DownloadImage()
     {
