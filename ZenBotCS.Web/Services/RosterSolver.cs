@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.Enums;
 
@@ -24,20 +24,28 @@ public static class RosterSolver
     ];
 
     // Removal passes in priority order: (does this preference match?, the day-count floor we won't go below).
-    // Applied per over-capacity day, in order, escalating until the day is at target. Mirrors the
-    // hand-written priority list: alternate→5, 8star→5, alternate→4, 8star→4, always→5, alternate→3,
-    // always→5, alternate→0, always→4, then 8star+always→0 as the last resort.
+    // Each pass is applied across ALL over-capacity days before the next pass runs (see Solve), so the
+    // lowest-town-hall-first rule holds within a pass. Mirrors the hand-written priority list:
+    // alternate→5, 8star→5, alternate→4, 8star→4, always→5, alternate→3, always→4, alternate→0,
+    // then 8star+always→0 as the last resort.
     private static readonly (Func<WarPreference, bool> Match, int Floor)[] Passes =
     [
+        (p => p == WarPreference.Alternate, 6),
         (p => p == WarPreference.Alternate, 5),
+        (p => p == WarPreference.EightStars, 6),
         (p => p == WarPreference.EightStars, 5),
         (p => p == WarPreference.Alternate, 4),
         (p => p == WarPreference.EightStars, 4),
+        (p => p == WarPreference.Always, 6),
         (p => p == WarPreference.Always, 5),
         (p => p == WarPreference.Alternate, 3),
-        (p => p == WarPreference.Always, 5),
-        (p => p == WarPreference.Alternate, 0),
         (p => p == WarPreference.Always, 4),
+        (p => p == WarPreference.Alternate, 2),
+        (p => p == WarPreference.Alternate, 1),
+        (p => p == WarPreference.Alternate, 0),
+        (p => p is WarPreference.EightStars or WarPreference.Always, 3),
+        (p => p is WarPreference.EightStars or WarPreference.Always, 2),
+        (p => p is WarPreference.EightStars or WarPreference.Always, 1),
         (p => p is WarPreference.EightStars or WarPreference.Always, 0),
     ];
 
@@ -52,14 +60,11 @@ public static class RosterSolver
         foreach (var s in signups)
             s.RosterDays = (RosterDays)(~(int)s.OptOutDays & AllDaysMask);
 
-        // 2. Bring each over-capacity day down to target via the escalating passes.
-        foreach (var day in Days)
-        {
-            if (Count(signups, day) <= target)
-                continue;
-
-            foreach (var (match, floor) in Passes)
-            {
+        // 2. Apply each pass across ALL over-capacity days before escalating to the next pass. This
+        //    keeps "lowest town hall first" a per-pass rule: every day gets pass 1 before any day sees
+        //    pass 2, so a low-TH Always is never benched ahead of a higher-TH Alternate.
+        foreach (var (match, floor) in Passes)
+            foreach (var day in Days)
                 while (Count(signups, day) > target)
                 {
                     var victim = signups
@@ -72,15 +77,10 @@ public static class RosterSolver
                         .FirstOrDefault();
 
                     if (victim is null)
-                        break; // nobody left to bench in this pass — escalate
+                        break; // nobody left to bench for this pass on this day — move on
 
                     victim.RosterDays = victim.RosterDays!.Value & ~day; // bench this player this day
                 }
-
-                if (Count(signups, day) <= target)
-                    break; // day solved — don't reach for harsher passes
-            }
-        }
     }
 
     private static int Count(IReadOnlyList<CwlSignup> signups, RosterDays day) =>
