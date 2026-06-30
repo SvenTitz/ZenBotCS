@@ -1,3 +1,4 @@
+using System.Text;
 using SkiaSharp;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Entities.Models.Enums;
@@ -43,12 +44,86 @@ public class RosterImageService
 
     private readonly SKTypeface _regular;
     private readonly SKTypeface _bold;
+    // Fallback fonts for glyphs Roboto lacks (CJK, emoji, symbols), tried in order.
+    private readonly SKTypeface[] _fallbacks;
 
     public RosterImageService()
     {
         var fontsDir = Path.Combine(AppContext.BaseDirectory, "Fonts");
         _regular = SKTypeface.FromFile(Path.Combine(fontsDir, "Roboto-Regular.ttf"));
         _bold = SKTypeface.FromFile(Path.Combine(fontsDir, "Roboto-Bold.ttf"));
+        _fallbacks = new[]
+            {
+                "NotoSansJP-Regular.ttf", "NotoSansSC-Regular.ttf", "NotoSansKR-Regular.ttf",
+                "NotoEmoji-Regular.ttf", "NotoSansSymbols-Regular.ttf", "NotoSansSymbols2-Regular.ttf"
+            }
+            .Select(f => Path.Combine(fontsDir, f))
+            .Where(File.Exists)
+            .Select(SKTypeface.FromFile)
+            .Where(tf => tf is not null)
+            .ToArray();
+    }
+
+    private static bool HasGlyph(SKTypeface tf, int codepoint)
+    {
+        var glyphs = tf.GetGlyphs(char.ConvertFromUtf32(codepoint));
+        return glyphs.Length > 0 && glyphs[0] != 0;
+    }
+
+    // The font that can render this codepoint, or null if none can (e.g. emoji variation
+    // selectors / zero-width joiners) — those are skipped rather than drawn as tofu boxes.
+    private SKTypeface? PickFont(int codepoint, SKTypeface primary)
+    {
+        if (HasGlyph(primary, codepoint)) return primary;
+        foreach (var fb in _fallbacks)
+            if (HasGlyph(fb, codepoint)) return fb;
+        return null;
+    }
+
+    // Split text into runs of consecutive codepoints that share a font (primary or a fallback).
+    private IEnumerable<(SKTypeface Font, string Text)> Runs(string text, SKTypeface primary)
+    {
+        var sb = new StringBuilder();
+        SKTypeface? current = null;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var tf = PickFont(rune.Value, primary);
+            if (tf is null)
+                continue; // no font can render it (e.g. a variation selector) — drop it
+            if (current is not null && tf != current)
+            {
+                yield return (current, sb.ToString());
+                sb.Clear();
+            }
+            current = tf;
+            sb.Append(rune.ToString());
+        }
+        if (current is not null && sb.Length > 0)
+            yield return (current, sb.ToString());
+    }
+
+    // Draw left-aligned text with per-codepoint font fallback.
+    private void DrawRuns(SKCanvas canvas, SKPaint paint, SKTypeface primary, string text, float x, float baseline)
+    {
+        foreach (var (font, run) in Runs(text, primary))
+        {
+            paint.Typeface = font;
+            canvas.DrawText(run, x, baseline, paint);
+            x += paint.MeasureText(run);
+        }
+        paint.Typeface = primary;
+    }
+
+    private float MeasureRuns(SKPaint paint, SKTypeface primary, string text)
+    {
+        var w = 0f;
+        foreach (var (font, run) in Runs(text, primary))
+        {
+            paint.Typeface = font;
+            w += paint.MeasureText(run);
+        }
+        paint.Typeface = primary;
+        return w;
     }
 
     public byte[] Generate(string clanName, IReadOnlyList<CwlSignup> signups, bool dark = false)
@@ -76,7 +151,7 @@ public class RosterImageService
         using var fill = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill };
         using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2.3f, StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round };
 
-        var nameW = Math.Max(190, (int)rows.Select(r => regular.MeasureText(r.PlayerName)).DefaultIfEmpty(0f).Max() + 2 * pad);
+        var nameW = Math.Max(190, (int)rows.Select(r => MeasureRuns(regular, _regular, r.PlayerName)).DefaultIfEmpty(0f).Max() + 2 * pad);
         var prefW = Math.Max(96, (int)rows.Select(r => regular.MeasureText(r.WarPreference.ToString())).DefaultIfEmpty(0f).Max() + 2 * pad);
 
         var width = nameW + thW + 7 * dayW + prefW + countW;
@@ -88,7 +163,7 @@ public class RosterImageService
         var canvas = surface.Canvas;
         canvas.Clear(bg);
 
-        canvas.DrawText($"{clanName} — CWL Roster", pad, Baseline(titleFont, 0, titleH), titleFont);
+        DrawRuns(canvas, titleFont, _bold, $"{clanName} — CWL Roster", pad, Baseline(titleFont, 0, titleH));
 
         float y = titleH;
         fill.Color = headerBg;
@@ -120,7 +195,7 @@ public class RosterImageService
             }
 
             regular.Color = text;
-            DrawLeft(canvas, r.PlayerName, regular, xName + pad, rowY, rowH);
+            DrawRuns(canvas, regular, _regular, r.PlayerName, xName + pad, Baseline(regular, rowY, rowH));
             DrawCenter(canvas, r.PlayerThLevel.ToString(), regular, xTh, rowY, thW, rowH);
 
             for (var d = 0; d < 7; d++)
