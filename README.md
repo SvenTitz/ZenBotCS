@@ -108,6 +108,7 @@ Keys the bot reads:
 | `PathToGspreadToken` | Path where the OAuth2 token is cached |
 | `CwlRosterTemplateSpreadsheetId` | Google Sheet template for CWL rosters |
 | `CwlRosterChampStyleTemplateSpreadsheetId` | Template for "champ style" rosters |
+| `RosterSource` | _Optional._ Where CWL roster reads come from: `Database` (default — the web roster site) or `Spreadsheet` (fall back to the pinned Google Sheet). |
 | `FamilyLeadershipRoleId` / `WarGeneralRoleId` | Discord role IDs used for permission checks |
 | `LeadershipNotesChannelId` | Channel for gatekeep/leadership notes |
 | `HelpBotsLinking` / `HelpBotsGatekeeper` / `HelpCwlSignup` / `CwlSignupHelpButton` | Help text / button targets |

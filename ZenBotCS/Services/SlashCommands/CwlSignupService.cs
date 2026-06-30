@@ -19,6 +19,7 @@ namespace ZenBotCS.Services.SlashCommands
         BotDataContext _botDb,
         EmbedHelper _embedHelper,
         GspreadService _gspreadService,
+        CwlRosterSource _rosterSource,
         PlayersClient _playersClient,
         PlayerService _playerService,
         ClashKingApiClient _clashKingApiClient)
@@ -136,14 +137,12 @@ namespace ZenBotCS.Services.SlashCommands
 
         public async Task<Embed> SingupMissing(string clantag)
         {
-            var spreadsheetId = _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId;
-            if (spreadsheetId == null)
+            var rosterPlayerTags = await _rosterSource.GetRosterPlayerTagsAsync(clantag);
+            if (rosterPlayerTags is null)
             {
                 return _embedHelper.ErrorEmbed("Error", "No pinned roster url for that clan.");
             }
 
-            var spreadsheetUrl = _gspreadService.GetUrl(_botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)!);
-            var rosterPlayerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
             var clan = await _clansClient.GetOrFetchClanAsync(clantag);
             var clanPlayerTags = clan.Members.Select(m => m.Tag);
 

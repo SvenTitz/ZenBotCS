@@ -10,19 +10,24 @@ namespace ZenBotCS.Services.SlashCommands
     public class CwlRolesService(
         BotDataContext _botDb,
         GspreadService _gspreadService,
+        CwlRosterSource _rosterSource,
         ClashKingApiClient _clashKingApiClient,
         ILogger<CwlRolesService> _logger)
     {
         public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
         {
-            if (spreadsheetUrl is null && _botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)?.SpreadsheetId is null)
-            {
-                return "Please provide either a spreadsheet-url or select a clan with a pinned roster.";
-            }
+            // Explicit sheet url -> read that sheet. Otherwise use the clan's roster source (DB by default,
+            // pinned sheet as backup).
+            List<string>? playerTags;
+            if (spreadsheetUrl is not null)
+                playerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
+            else if (clantag is not null)
+                playerTags = await _rosterSource.GetRosterPlayerTagsAsync(clantag);
+            else
+                return "Please provide either a spreadsheet-url or select a clan with a roster.";
 
-            spreadsheetUrl ??= _gspreadService.GetUrl(_botDb.PinnedRosters.FirstOrDefault(x => x.ClanTag == clantag)!);
-
-            var playerTags = await _gspreadService.GetPlayerTags(spreadsheetUrl);
+            if (playerTags is null || playerTags.Count == 0)
+                return "No roster found. Provide a spreadsheet-url or select a clan with a roster.";
             var discordLinks = await _clashKingApiClient.PostDiscordLinksAsync(playerTags);
             var userIds = discordLinks.Values.OfType<ulong>().Distinct();
 

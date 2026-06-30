@@ -16,6 +16,7 @@ namespace ZenBotCS.Services.SlashCommands
         CustomClansClient _clansClient,
         BotDataContext _botDb,
         GspreadService _gspreadService,
+        CwlRosterSource _rosterSource,
         EmbedHelper _embedHelper,
         ClashKingApiService _clashKingApiService,
         ILogger<CwlRosterService> _logger)
@@ -339,17 +340,12 @@ namespace ZenBotCS.Services.SlashCommands
             var warClan = prepWar.Clan.Tag == clanTag ? prepWar.Clan : prepWar.Opponent;
             var opponent = prepWar.Clan.Tag == clanTag ? prepWar.Opponent : prepWar.Clan;
 
-            var pinned = _botDb.PinnedRosters.FirstOrDefault(p => p.ClanTag == clanTag);
-            if (pinned is null || string.IsNullOrEmpty(pinned.SpreadsheetId))
+            var entries = await _rosterSource.GetDayOptInsAsync(clanTag, prepIndex);
+            if (entries is null)
                 return (null, "No pinned roster url for that clan.");
 
-            var champStyle = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag)?.ChampStyleCwlRoster ?? false;
-            // Normal roster day columns are D-J (index 3-9); champ-style are I-O (index 8-14).
-            var dayColumnIndex = (champStyle ? 8 : 3) + prepIndex;
-
-            var sheetEntries = await _gspreadService.GetRosterDayOptIns(_gspreadService.GetUrl(pinned), dayColumnIndex);
             var lineup = warClan.Members.Select(m => (m.Tag, m.Name));
-            var (toOptIn, toOptOut) = ComputeDayRosterDiff(sheetEntries, lineup);
+            var (toOptIn, toOptOut) = ComputeDayRosterDiff(entries, lineup);
 
             return (new DayRosterStatus(opponent.Name, prepIndex + 1, toOptIn, toOptOut), null);
         }
