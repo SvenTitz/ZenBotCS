@@ -24,6 +24,8 @@ builder.Services.AddScoped<ZenBotCS.Web.Services.RosterService>();
 // Clan name lookup from the CoC cache DB (cached in memory).
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
+// "Add player" tag suggestions from the CoC cache DB (mirrors the bot's autocomplete).
+builder.Services.AddScoped<ZenBotCS.Web.Services.PlayerSuggestionService>();
 // Server-side roster PNG rendering (singleton: loads the bundled font once).
 builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
 // ClashKing lookups for "Add player" (player name/TH + Discord link). Typed HttpClient = pooled handler.

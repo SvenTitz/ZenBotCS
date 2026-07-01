@@ -1,6 +1,7 @@
 @page "/roster/{ClanTag}"
 @inject RosterService Rosters
 @inject ClanNameService ClanNames
+@inject PlayerSuggestionService PlayerSuggestions
 @inject RosterImageService RosterImage
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -168,8 +169,14 @@
         <MudDialog @bind-Visible="_addOpen" Options="_dialogOptions">
             <TitleContent>Add player</TitleContent>
             <DialogContent>
-                <MudTextField @bind-Value="_addTag" Label="Player tag" Placeholder="#ABC123"
-                              Immediate="true" Class="mb-3" />
+                <MudAutocomplete T="PlayerSuggestion" Label="Player" Placeholder="Start typing a name…"
+                                 SearchFunc="SearchPlayers" ToStringFunc="@(p => p?.Label)"
+                                 @bind-Value="_addPlayer" @bind-Text="_addTag"
+                                 Immediate="true" Clearable="true" ResetValueOnEmptyText="true"
+                                 MaxItems="25" Class="mb-3" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">
+                    Pick a player, or type an exact tag for someone not listed.
+                </MudText>
                 <MudSelect T="WarPreference" @bind-Value="_addPref" Label="War preference" Class="mb-3">
                     @foreach (var p in Enum.GetValues<WarPreference>())
                     {
@@ -236,7 +243,8 @@
     // Add-player dialog
     private bool _addOpen;
     private bool _adding;
-    private string _addTag = string.Empty;
+    private PlayerSuggestion? _addPlayer;   // picked from the suggestions
+    private string _addTag = string.Empty;  // raw typed text, used when nothing is picked
     private WarPreference _addPref = WarPreference.Alternate;
     private bool _addBonus;
     // Move dialog
@@ -326,18 +334,25 @@
 
     private void OpenAdd()
     {
+        _addPlayer = null;
         _addTag = string.Empty;
         _addPref = WarPreference.Alternate;
         _addBonus = false;
         _addOpen = true;
     }
 
+    // Suggest cached players by name substring, exactly like the bot's PlayerTagAutocompleteHandler.
+    private async Task<IEnumerable<PlayerSuggestion>> SearchPlayers(string value, CancellationToken ct)
+        => await PlayerSuggestions.SearchAsync(value, ct);
+
     private async Task SubmitAdd()
     {
+        // Prefer the picked suggestion's tag; fall back to whatever tag was typed for an unlisted player.
+        var tag = _addPlayer?.Tag ?? _addTag;
         _adding = true;
         try
         {
-            var result = await Rosters.AddSignupAsync(ClanTag, _addTag, _addPref, _addBonus);
+            var result = await Rosters.AddSignupAsync(ClanTag, tag, _addPref, _addBonus);
             if (!result.Ok)
             {
                 Snackbar.Add(result.Message, Severity.Error);
