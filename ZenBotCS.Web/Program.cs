@@ -26,6 +26,13 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
 // Server-side roster PNG rendering (singleton: loads the bundled font once).
 builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
+// ClashKing lookups for "Add player" (player name/TH + Discord link). Typed HttpClient = pooled handler.
+builder.Services.AddHttpClient<ZenBotCS.Web.Services.ClashKingClient>(c =>
+{
+    c.BaseAddress = new Uri("https://api.clashk.ing/");
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("ZenBot");
+    c.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
 
 // Direct DB access: the website is a second consumer of the shared BotDataContext.
 // Use a DbContextFactory, not a scoped DbContext: in Blazor Server a scoped context lives for the

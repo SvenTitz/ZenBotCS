@@ -32,6 +32,10 @@
                 <MudText Typo="Typo.caption" Style="font-family:monospace;">@ClanTag</MudText>
             </div>
             <MudSpacer />
+            <MudButton OnClick="OpenAdd" StartIcon="@Icons.Material.Filled.PersonAdd"
+                       Variant="Variant.Outlined" Size="Size.Small" Class="mr-2">
+                Add player
+            </MudButton>
             <MudButton OnClick="SolveRoster" StartIcon="@Icons.Material.Filled.AutoFixHigh"
                        Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mr-2"
                        Disabled="@(_signups is null || _signups.Count == 0 || _solving)">
@@ -42,6 +46,13 @@
                        Disabled="@(_signups is null || _signups.Count == 0)">
                 Download image
             </MudButton>
+            @if (_hidden is { Count: > 0 })
+            {
+                <MudButton OnClick="@(() => _showHidden = !_showHidden)" StartIcon="@Icons.Material.Filled.VisibilityOff"
+                           Variant="Variant.Text" Size="Size.Small" Class="mr-2">
+                    @(_showHidden ? "Hide hidden" : $"Show hidden ({_hidden.Count})")
+                </MudButton>
+            }
             <div>
                 <MudText Typo="Typo.caption" Class="d-block">War size</MudText>
                 <MudToggleGroup T="int" @bind-Value="_targetSize" Size="Size.Small" Color="Color.Primary">
@@ -92,7 +103,17 @@
                         <MudTh Class="sticky-col-days" Style="text-align:center" title="Days rostered">#</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="Player" Class="sticky-col">@context.PlayerName</MudTd>
+                        <MudTd DataLabel="Player" Class="sticky-col">
+                            <div style="display:flex;align-items:center;gap:2px;">
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
+                                         AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                                    <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" OnClick="@(() => OpenMove(context))">Move to clan…</MudMenuItem>
+                                    <MudMenuItem Icon="@Icons.Material.Filled.VisibilityOff" OnClick="@(() => HidePlayer(context))">Hide</MudMenuItem>
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => RemovePlayer(context))">Remove</MudMenuItem>
+                                </MudMenu>
+                                <span>@context.PlayerName</span>
+                            </div>
+                        </MudTd>
                         <MudTd DataLabel="Tag" Style="font-family:monospace;">@context.PlayerTag</MudTd>
                         <MudTd DataLabel="TH" Style="text-align:center">@context.PlayerThLevel</MudTd>
                         @if (_champStyle)
@@ -127,6 +148,67 @@
                 the number under each day is how many are rostered (green = matches @_targetSize).
             </MudText>
         }
+
+        @if (_showHidden && _hidden is { Count: > 0 })
+        {
+            <MudPaper Outlined="true" Class="pa-3 mt-4">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Hidden players</MudText>
+                @foreach (var h in _hidden)
+                {
+                    <div style="display:flex;align-items:center;gap:8px;" class="mb-1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                       Title="Unhide" OnClick="@(() => UnhidePlayer(h))" />
+                        <span>@h.PlayerName</span>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">TH@(h.PlayerThLevel) · @h.PlayerTag</MudText>
+                    </div>
+                }
+            </MudPaper>
+        }
+
+        <MudDialog @bind-Visible="_addOpen" Options="_dialogOptions">
+            <TitleContent>Add player</TitleContent>
+            <DialogContent>
+                <MudTextField @bind-Value="_addTag" Label="Player tag" Placeholder="#ABC123"
+                              Immediate="true" Class="mb-3" />
+                <MudSelect T="WarPreference" @bind-Value="_addPref" Label="War preference" Class="mb-3">
+                    @foreach (var p in Enum.GetValues<WarPreference>())
+                    {
+                        <MudSelectItem Value="p">@p</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudCheckBox T="bool" @bind-Value="_addBonus" Label="Bonus" Color="Color.Primary" />
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="@(() => _addOpen = false)" Disabled="_adding">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAdd" Disabled="_adding">
+                    @(_adding ? "Adding…" : "Add")
+                </MudButton>
+            </DialogActions>
+        </MudDialog>
+
+        <MudDialog @bind-Visible="_moveOpen" Options="_dialogOptions">
+            <TitleContent>Move @_moveTarget?.PlayerName</TitleContent>
+            <DialogContent>
+                @if (_moveClans.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">No other clans to move to.</MudText>
+                }
+                else
+                {
+                    <MudSelect T="string" @bind-Value="_moveClanTag" Label="Destination clan">
+                        @foreach (var c in _moveClans)
+                        {
+                            <MudSelectItem Value="c.Tag">@c.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="@(() => _moveOpen = false)" Disabled="_moving">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitMove"
+                           Disabled="@(_moving || string.IsNullOrEmpty(_moveClanTag))">Move</MudButton>
+            </DialogActions>
+        </MudDialog>
     </Authorized>
 </AuthorizeView>
 
@@ -149,6 +231,22 @@
     private ElementReference _scrollContainer;
     private bool _stickyRightInit;
 
+    private List<CwlSignup>? _hidden;
+    private bool _showHidden;
+    // Add-player dialog
+    private bool _addOpen;
+    private bool _adding;
+    private string _addTag = string.Empty;
+    private WarPreference _addPref = WarPreference.Alternate;
+    private bool _addBonus;
+    // Move dialog
+    private bool _moveOpen;
+    private bool _moving;
+    private CwlSignup? _moveTarget;
+    private string? _moveClanTag;
+    private List<(string Tag, string Name)> _moveClans = new();
+    private static readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true };
+
     // Wire up the pinned right-most column's scroll watcher once the table has rendered.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -168,6 +266,7 @@
         _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
         _champStyle = await Rosters.IsChampStyleAsync(ClanTag);
         _signups = await Rosters.GetRosterAsync(ClanTag);
+        _hidden = await Rosters.GetHiddenAsync(ClanTag);
         _targetSize = _signups.Count >= 30 ? 30 : 15; // 30v30 once a clan has 30+ signed up
     }
 
@@ -223,6 +322,118 @@
         {
             _solving = false;
         }
+    }
+
+    private void OpenAdd()
+    {
+        _addTag = string.Empty;
+        _addPref = WarPreference.Alternate;
+        _addBonus = false;
+        _addOpen = true;
+    }
+
+    private async Task SubmitAdd()
+    {
+        _adding = true;
+        try
+        {
+            var result = await Rosters.AddSignupAsync(ClanTag, _addTag, _addPref, _addBonus);
+            if (!result.Ok)
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+                return; // keep the dialog open so they can correct the tag
+            }
+            _addOpen = false;
+            Snackbar.Add(result.Message, Severity.Success);
+            await ReloadAsync();
+        }
+        finally
+        {
+            _adding = false;
+        }
+    }
+
+    private async Task OpenMove(CwlSignup signup)
+    {
+        _moveTarget = signup;
+        _moveClanTag = null;
+        var clans = await Rosters.GetSignupClansAsync();
+        var options = new List<(string Tag, string Name)>();
+        foreach (var c in clans.Where(c => c.ClanTag != ClanTag))
+            options.Add((c.ClanTag, await ClanNames.GetNameOrTagAsync(c.ClanTag)));
+        _moveClans = options;
+        _moveOpen = true;
+    }
+
+    private async Task SubmitMove()
+    {
+        if (_moveTarget is null || string.IsNullOrEmpty(_moveClanTag))
+            return;
+
+        _moving = true;
+        try
+        {
+            await Rosters.MoveSignupAsync(_moveTarget.Id, _moveClanTag);
+            _moveOpen = false;
+            Snackbar.Add($"Moved {_moveTarget.PlayerName}.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't move the player. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _moving = false;
+        }
+    }
+
+    private async Task HidePlayer(CwlSignup signup) => await SetHidden(signup, true);
+
+    private async Task UnhidePlayer(CwlSignup signup) => await SetHidden(signup, false);
+
+    private async Task SetHidden(CwlSignup signup, bool hidden)
+    {
+        try
+        {
+            await Rosters.SetHiddenAsync(signup.Id, hidden);
+            Snackbar.Add($"{(hidden ? "Hid" : "Unhid")} {signup.PlayerName}.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch
+        {
+            Snackbar.Add($"Couldn't {(hidden ? "hide" : "unhide")} the player. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task RemovePlayer(CwlSignup signup)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Remove signup",
+            $"Remove {signup.PlayerName} from the signups entirely? This can't be undone.",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+
+        try
+        {
+            await Rosters.DeleteSignupAsync(signup.Id);
+            Snackbar.Add($"Removed {signup.PlayerName}.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't remove the player. Please try again.", Severity.Error);
+        }
+    }
+
+    // Re-fetch both lists after any mutation so the grid, totals, and hidden section stay in sync.
+    private async Task ReloadAsync()
+    {
+        _signups = await Rosters.GetRosterAsync(ClanTag);
+        _hidden = await Rosters.GetHiddenAsync(ClanTag);
+        if (_hidden.Count == 0)
+            _showHidden = false;
     }
 
     private async Task DownloadImage()

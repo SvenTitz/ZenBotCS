@@ -40,6 +40,13 @@ public class CwlSignup
 
     public bool Archieved { get; set; }
 
+    /// <summary>
+    /// Leadership-hidden on the roster site: excluded from the web grid, day totals, and the generated
+    /// image, and treated as opted-out of every day by the bot's per-day features (pre-war reminder,
+    /// missing-day check). Role assignment still includes hidden players. The signup row is kept.
+    /// </summary>
+    public bool Hidden { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>

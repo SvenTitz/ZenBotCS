@@ -58,8 +58,11 @@ public class CwlRosterSource(
         }
 
         var dayFlag = (RosterDays)(1 << dayIndex);
+        // Hidden signups are treated as opted-out of every day here, so they drop out of the pre-war
+        // reminder and the missing-day check. (Role assignment uses GetRosterPlayerTagsAsync, which does
+        // not filter Hidden, so hidden players still get their CWL roles.)
         return _botDb.CwlSignups
-            .Where(s => s.ClanTag == clanTag && !s.Archieved)
+            .Where(s => s.ClanTag == clanTag && !s.Archieved && !s.Hidden)
             .AsEnumerable() // EffectiveRosterDays is a computed (not mapped) member — evaluate client-side
             .Select(s => (s.PlayerTag, s.PlayerName, s.EffectiveRosterDays.HasFlag(dayFlag)))
             .ToList();
