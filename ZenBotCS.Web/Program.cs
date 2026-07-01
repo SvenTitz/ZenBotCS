@@ -54,7 +54,12 @@ builder.Services.AddAuthentication(options =>
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = DiscordAuthenticationDefaults.AuthenticationScheme;
 })
-    .AddCookie()
+    .AddCookie(options =>
+    {
+        // Stay signed in for 30 days, sliding (renews when the user visits past the halfway point).
+        // Paired with IsPersistent on the login challenge below so the cookie survives a browser close.
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+    })
     .AddDiscord(options =>
     {
         options.ClientId = builder.Configuration["Discord:ClientId"]!;
@@ -127,7 +132,7 @@ app.UseAuthorization();
 // Minimal login/logout endpoints (Blazor components can't issue auth challenges directly).
 app.MapGet("/account/login", (string? returnUrl) =>
     Results.Challenge(
-        new AuthenticationProperties { RedirectUri = returnUrl ?? "/" },
+        new AuthenticationProperties { RedirectUri = returnUrl ?? "/", IsPersistent = true },
         [DiscordAuthenticationDefaults.AuthenticationScheme]));
 
 app.MapPost("/account/logout", async (HttpContext context, string? returnUrl) =>
