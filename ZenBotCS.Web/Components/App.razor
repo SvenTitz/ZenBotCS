@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="ZenBotCS.Web.styles.css" />
+    <script>
+        // Sets the page theme before first paint so it doesn't flash light -> dark.
+        // applyTheme is reused by the in-app toggle (MainLayout) to keep them in sync.
+        window.applyTheme = function (dark) {
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        };
+        try { window.applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { }
+    </script>
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="js/roster-sticky.js"></script>
+</body>
+
+</html>

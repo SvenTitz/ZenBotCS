@@ -98,6 +98,7 @@ public class Program
             .AddTransient<CwlDataService>()
             .AddTransient<CwlRolesService>()
             .AddTransient<CwlRosterService>()
+            .AddTransient<CwlRosterSource>()
             .AddTransient<CwlSignupService>()
             .AddTransient<HelpService>()
             .AddTransient<LinksService>()

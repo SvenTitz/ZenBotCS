@@ -1,0 +1,14 @@
+Fonts bundled for the server-side roster image (RosterImageService), so it
+renders with consistent coverage on any machine (the VPS has no system fonts to
+fall back to, unlike a browser on a user's device).
+
+Roboto (Roboto-Regular.ttf, Roboto-Bold.ttf)
+  Copyright 2011 The Roboto Project Authors (https://github.com/googlefonts/roboto)
+  Licensed under the Apache License, Version 2.0:
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Noto fonts (NotoSansJP, NotoSansSC, NotoSansKR, NotoEmoji, NotoSansSymbols,
+NotoSansSymbols2 — used as fallbacks for CJK, emoji and symbols)
+  Copyright The Noto Project Authors (https://github.com/notofonts)
+  Licensed under the SIL Open Font License, Version 1.1:
+      https://openfontlicense.org

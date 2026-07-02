@@ -135,6 +135,9 @@ namespace ZenBotCS.Migrations.BotDb
                     b.Property<ulong>("DiscordId")
                         .HasColumnType("bigint unsigned");
 
+                    b.Property<bool>("Hidden")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("MaxDefeneses")
                         .HasColumnType("tinyint(1)");
 
@@ -151,6 +154,9 @@ namespace ZenBotCS.Migrations.BotDb
                         .HasColumnType("varchar(12)");
 
                     b.Property<int>("PlayerThLevel")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RosterDays")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
