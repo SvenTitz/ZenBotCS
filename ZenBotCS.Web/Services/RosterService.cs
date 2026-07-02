@@ -136,7 +136,7 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, ClashKin
             Bonus = bonus,
         });
         await db.SaveChangesAsync(ct);
-        return AddResult.Success($"Added {player.Value.Name} (TH{player.Value.TownHall}).");
+        return AddResult.Success($"Added {player.Value.Name} (TH{player.Value.TownHall}).", player.Value.Name);
     }
 
     /// <summary>Hard-delete a signup (mirrors the bot's <c>/cwl signup delete</c>).</summary>
@@ -183,10 +183,11 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, ClashKin
     }
 }
 
-/// <summary>Outcome of <see cref="RosterService.AddSignupAsync"/>: whether it worked plus a message to show.</summary>
-public record AddResult(bool Ok, string Message)
+/// <summary>Outcome of <see cref="RosterService.AddSignupAsync"/>: whether it worked, a message to
+/// show, and (on success) the resolved player name for logging.</summary>
+public record AddResult(bool Ok, string Message, string? PlayerName = null)
 {
-    public static AddResult Success(string message) => new(true, message);
+    public static AddResult Success(string message, string? playerName = null) => new(true, message, playerName);
     public static AddResult Fail(string message) => new(false, message);
 }
 

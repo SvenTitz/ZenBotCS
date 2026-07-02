@@ -7,11 +7,16 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
+using Serilog;
 using ZenBotCS.Entities;
 using ZenBotCS.Web;
 using ZenBotCS.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog, configured from the "Serilog" section of appsettings (console + rolling file), mirroring
+// the bot. Replaces the default logging providers; the roster site logs each user action through it.
+builder.Host.UseSerilog((context, config) => config.ReadFrom.Configuration(context.Configuration));
 
 // Razor / Blazor Server (Interactive Server render mode).
 builder.Services.AddRazorComponents()
