@@ -34,7 +34,8 @@ public class Program
 
         builder.Configuration
             .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddUserSecrets<Program>();
 
         builder.Services.AddLogging(config =>
         {
@@ -61,9 +62,11 @@ public class Program
             config.Token = builder.Configuration["DiscordToken"]!;
         });
 
+        var cocApiToken = await CocApiKeyProvisioner.EnsureKeyAsync(builder.Configuration);
+
         builder.Services.AddCocApi(options =>
         {
-            options.AddTokens(new ApiKeyToken(builder.Configuration["CocApiToken"]!, ClientUtils.ApiKeyHeader.Authorization));
+            options.AddTokens(new ApiKeyToken(cocApiToken, ClientUtils.ApiKeyHeader.Authorization));
             options.AddCocApiHttpClients(
                 builder: builder => builder
                     .AddRetryPolicy(3)
