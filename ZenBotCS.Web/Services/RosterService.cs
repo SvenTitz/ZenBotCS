@@ -106,7 +106,7 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
     /// name/TH, require a linked Discord account, and reject a duplicate active signup. Returns a
     /// user-facing result — <see cref="AddResult.Ok"/> false carries the message to show.
     /// </summary>
-    public async Task<AddResult> AddSignupAsync(string clanTag, string rawTag, WarPreference warPreference,
+    public async Task<AddResult> AddSignupAsync(string clanTag, string? rawTag, WarPreference warPreference,
         bool bonus, CancellationToken ct = default)
     {
         var tag = NormalizeTag(rawTag);
@@ -176,12 +176,13 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
     }
 
     // Tidy a user-entered tag: trim, uppercase, ensure a single leading '#', and fix the common
-    // O/0 mix-up (Clash tags never contain the letter O).
-    private static string NormalizeTag(string raw)
+    // O/0 mix-up (Clash tags never contain the letter O). Null/blank input yields "" (the autocomplete
+    // binds its text to null when the field is empty), so the caller shows "enter a tag" not a crash.
+    private static string NormalizeTag(string? raw)
     {
-        var t = raw.Trim().ToUpperInvariant().Replace("O", "0");
-        if (t.Length == 0)
+        if (string.IsNullOrWhiteSpace(raw))
             return string.Empty;
+        var t = raw.Trim().ToUpperInvariant().Replace("O", "0");
         return t.StartsWith('#') ? t : "#" + t;
     }
 }

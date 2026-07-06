@@ -171,11 +171,13 @@
         <MudDialog @bind-Visible="_addOpen" Options="_dialogOptions">
             <TitleContent>Add player</TitleContent>
             <DialogContent>
+                @* CoerceText=false so a pasted/typed tag that matches no suggestion is kept (not wiped
+                   back to the null selection on blur) — that's how you add a player who isn't listed. *@
                 <MudAutocomplete T="PlayerSuggestion" Label="Player" Placeholder="Start typing a name…"
                                  SearchFunc="SearchPlayers" ToStringFunc="@(p => p?.Label)"
                                  @bind-Value="_addPlayer" @bind-Text="_addTag"
                                  Immediate="true" Clearable="true" ResetValueOnEmptyText="true"
-                                 MaxItems="25" Class="mb-3" />
+                                 CoerceText="false" MaxItems="25" Class="mb-3" />
                 <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">
                     Pick a player, or type an exact tag for someone not listed.
                 </MudText>
