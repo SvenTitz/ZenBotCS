@@ -1,9 +1,12 @@
 ﻿using System.Text;
 using CocApi.Cache;
+using CocApi.Rest.Apis;
+using CocApi.Rest.Client;
 using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
@@ -11,7 +14,14 @@ using ZenBotCS.Helper;
 
 namespace ZenBotCS.Services.SlashCommands;
 
-public class ReminderService(BotDataContext _botDb, ClansClient _clansClient, EmbedHelper _embedHelper, DiscordSocketClient _discordClient, ILogger<ReminderService> _logger)
+public class ReminderService(
+    BotDataContext _botDb,
+    ClansClient _clansClient,
+    EmbedHelper _embedHelper,
+    DiscordSocketClient _discordClient,
+    ILogger<ReminderService> _logger,
+    IClansApi _clansApi,
+    IServiceScopeFactory _scopeFactory)
 {
 
     public async Task<Embed> MissesAdd(string clantag, SocketTextChannel channel, SocketRole? role = null)
@@ -96,8 +106,77 @@ public class ReminderService(BotDataContext _botDb, ClansClient _clansClient, Em
 
     public async Task PostMissedAttacksReminderForWar(WarEventArgs e)
     {
-        await PostMissedAttackReminderForClan(e.War.Clan.Tag, e.War);
-        await PostMissedAttackReminderForClan(e.War.Opponent.Tag, e.War);
+        var war = e.War;
+
+        // CocApi.Cache raises ClanWarEnded purely because its cached EndTime has passed, without
+        // re-checking the live war state. Supercell can shift a CWL war's real end time later
+        // mid-round, so this can fire while the war is still going, flagging players who haven't
+        // missed anything yet. Re-verify against the live API before treating the war as over.
+        // The library never re-raises this event for the same war once it has fired once, so if
+        // the war really isn't over yet we schedule our own one-shot recheck instead of dropping it.
+        if (war.WarTag is not null)
+        {
+            var fresh = await FetchLiveCwlWarOrDefaultAsync(war.WarTag);
+            if (fresh is not null)
+            {
+                if (fresh.State != WarState.WarEnded)
+                {
+                    ScheduleDeferredMissesRecheck(war.WarTag, fresh.EndTime);
+                    return;
+                }
+                war = fresh;
+            }
+        }
+
+        await PostMissedAttackReminderForClan(war.Clan.Tag, war);
+        await PostMissedAttackReminderForClan(war.Opponent.Tag, war);
+    }
+
+    private async Task<ClanWar?> FetchLiveCwlWarOrDefaultAsync(string warTag)
+    {
+        try
+        {
+            var response = await _clansApi.FetchClanWarLeagueWarAsync(warTag);
+            return response.IsSuccessStatusCode && response.TryOk(out var war) ? war : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to re-fetch live state for CWL war {warTag}", warTag);
+            return null;
+        }
+    }
+
+    private void ScheduleDeferredMissesRecheck(string warTag, DateTime actualEndTime)
+    {
+        var delay = actualEndTime - DateTime.UtcNow + TimeSpan.FromMinutes(2);
+        if (delay < TimeSpan.FromMinutes(2))
+            delay = TimeSpan.FromMinutes(2);
+        else if (delay > TimeSpan.FromHours(6))
+            delay = TimeSpan.FromHours(6);
+
+        _logger.LogInformation("CWL war {warTag} end time shifted later than cached; deferring missed-attacks check by {delay}", warTag, delay);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay);
+                using var scope = _scopeFactory.CreateScope();
+                var clansApi = scope.ServiceProvider.GetRequiredService<IClansApi>();
+                var reminderService = scope.ServiceProvider.GetRequiredService<ReminderService>();
+
+                var response = await clansApi.FetchClanWarLeagueWarAsync(warTag);
+                if (response.IsSuccessStatusCode && response.TryOk(out var war))
+                {
+                    await reminderService.PostMissedAttackReminderForClan(war.Clan.Tag, war);
+                    await reminderService.PostMissedAttackReminderForClan(war.Opponent.Tag, war);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Deferred missed-attacks recheck failed for CWL war {warTag}", warTag);
+            }
+        });
     }
 
     private async Task PostMissedAttackReminderForClan(string clantag, ClanWar war)
