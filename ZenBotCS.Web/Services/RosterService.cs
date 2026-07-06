@@ -10,9 +10,10 @@ namespace ZenBotCS.Web.Services;
 /// Uses a short-lived context per call via <see cref="IDbContextFactory{TContext}"/> — see Program.cs
 /// for why a scoped context is unsafe in Blazor Server.
 /// </summary>
-public class RosterService(IDbContextFactory<BotDataContext> dbFactory, ClashKingClient clashKing)
+public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiClient cocApi, ClashKingClient clashKing)
 {
     private readonly IDbContextFactory<BotDataContext> _dbFactory = dbFactory;
+    private readonly CocApiClient _cocApi = cocApi;
     private readonly ClashKingClient _clashKing = clashKing;
 
     /// <summary>Clans that have CWL signup enabled, with their current active signup count.</summary>
@@ -112,7 +113,9 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, ClashKin
         if (string.IsNullOrEmpty(tag))
             return AddResult.Fail("Please enter a player tag.");
 
-        var player = await _clashKing.GetPlayerAsync(tag, ct);
+        // Player name/TH from the official CoC API (authoritative + current); the Discord link still
+        // comes from ClashKing since the official API doesn't have it.
+        var player = await _cocApi.GetPlayerAsync(tag, ct);
         if (player is null)
             return AddResult.Fail($"Couldn't find a player with tag {tag}.");
 

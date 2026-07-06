@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
 using AspNet.Security.OAuth.Discord;
+using CocApi.Rest.Client;
+using CocApi.Rest.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -33,7 +35,18 @@ builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
 builder.Services.AddScoped<ZenBotCS.Web.Services.PlayerSuggestionService>();
 // Server-side roster PNG rendering (singleton: loads the bundled font once).
 builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
-// ClashKing lookups for "Add player" (player name/TH + Discord link). Typed HttpClient = pooled handler.
+// Official CoC API via CocApi.Rest (the same wrapper the bot uses) for authoritative player data on
+// "Add player". REST client only — NOT CocApiCache — so there are no background download workers.
+// The token is IP-locked; set CocApiToken to a key whitelisted for the server IP.
+builder.Services.AddCocApi(options =>
+{
+    options.AddTokens(new ApiKeyToken(builder.Configuration["CocApiToken"] ?? "", ClientUtils.ApiKeyHeader.Authorization));
+    options.AddCocApiHttpClients(builder: b => b
+        .AddRetryPolicy(2)
+        .AddTimeoutPolicy(TimeSpan.FromSeconds(5)));
+});
+builder.Services.AddScoped<ZenBotCS.Web.Services.CocApiClient>();
+// ClashKing is kept only for the Discord-link lookup (the official API has no Discord links).
 builder.Services.AddHttpClient<ZenBotCS.Web.Services.ClashKingClient>(c =>
 {
     c.BaseAddress = new Uri("https://api.clashk.ing/");

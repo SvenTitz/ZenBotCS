@@ -6,6 +6,10 @@
 
   <ItemGroup>
     <PackageReference Include="AspNet.Security.OAuth.Discord" Version="8.2.0" />
+    <!-- CoC official API via the same wrapper the bot uses. REST client only (no CocApi.Cache), so
+         there are no background download workers or a second writer to the cache DB. -->
+    <PackageReference Include="CocApi" Version="2.14.2-net8" />
+    <PackageReference Include="CocApi.Rest" Version="2.14.2-net8" />
     <PackageReference Include="MudBlazor" Version="9.6.0" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
