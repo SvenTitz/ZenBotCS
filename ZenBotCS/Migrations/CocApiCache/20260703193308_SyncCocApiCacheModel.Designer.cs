@@ -4,6 +4,7 @@ using CocApi.Cache;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ZenBotCS.Migrations.CocApiCache
 {
     [DbContext(typeof(CacheDbContext))]
-    partial class CacheDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260703193308_SyncCocApiCacheModel")]
+    partial class SyncCocApiCacheModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
