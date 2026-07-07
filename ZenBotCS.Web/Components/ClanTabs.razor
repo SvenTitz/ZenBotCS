@@ -1,0 +1,42 @@
+@inject ClanNameService ClanNames
+
+@* Shared header + tab strip for a clan hub. Each clan-scoped page renders this at the top with the
+   active tab key, so Roster / CWL history / Stats / Settings all share one consistent navigation. *@
+
+<div class="d-flex align-center flex-wrap gap-2 mb-1">
+    <MudIconButton Href="/clans" Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" aria-label="All clans" />
+    <MudText Typo="Typo.h5">@_name</MudText>
+    <MudText Typo="Typo.caption" Style="font-family:monospace;color:var(--mud-palette-text-secondary)">@ClanTag</MudText>
+</div>
+
+<div class="d-flex flex-wrap gap-1 mb-4" style="border-bottom:1px solid var(--mud-palette-lines-default)">
+    @Tab("roster", "Roster", Icons.Material.Filled.Groups)
+    @Tab("cwl", "CWL history", Icons.Material.Filled.EmojiEvents)
+    @Tab("stats", "Stats", Icons.Material.Filled.BarChart)
+    <AuthorizeView Roles="@AuthRoles.Gatekeeper">
+        <Authorized>
+            @Tab("settings", "Settings", Icons.Material.Filled.Settings)
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ClanTag { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Active { get; set; } = string.Empty;
+
+    private string _name = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _name = await ClanNames.GetNameOrTagAsync(ClanTag);
+    }
+
+    private RenderFragment Tab(string key, string label, string icon) =>
+        @<MudButton Href="@($"/clans/{Uri.EscapeDataString(ClanTag)}/{key}")"
+                    StartIcon="@icon"
+                    Variant="Variant.Text"
+                    Color="@(key == Active ? Color.Primary : Color.Inherit)"
+                    Style="@(key == Active ? "border-bottom:2px solid var(--mud-palette-primary);border-radius:0" : "border-radius:0")">
+            @label
+        </MudButton>;
+}

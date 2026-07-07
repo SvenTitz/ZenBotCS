@@ -1,23 +1,16 @@
-@page "/"
+@page "/clans"
 @inject RosterService Roster
 @inject ClanNameService ClanNames
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Clans</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Clans</MudText>
 
 <AuthorizeView Roles="@AuthRoles.RosterAccess">
     <NotAuthorized>
-        <AccessDenied What="the dashboard" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+        <AccessDenied What="the clans" Authenticated="context.User.Identity?.IsAuthenticated == true" />
     </NotAuthorized>
     <Authorized>
-        <div class="d-flex align-center mb-2">
-            <MudText Typo="Typo.subtitle1">Clans</MudText>
-            <MudSpacer />
-            <MudButton Href="/clans" Variant="Variant.Text" Color="Color.Primary"
-                       EndIcon="@Icons.Material.Filled.ArrowForward">All clans</MudButton>
-        </div>
-
         @if (_clans is null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -30,11 +23,6 @@
         {
             <ClanGroups Clans="_clans" Names="_names" />
         }
-
-        <MudDivider Class="my-6" />
-        <ComingSoon Feature="Family CWL summary"
-                    Icon="@Icons.Material.Filled.Insights"
-                    Note="Current-season CWL standings across all clans will land here." />
     </Authorized>
 </AuthorizeView>
 

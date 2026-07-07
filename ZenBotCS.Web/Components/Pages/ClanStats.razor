@@ -1,0 +1,19 @@
+@page "/clans/{ClanTag}/stats"
+
+<PageTitle>Clan stats</PageTitle>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        <AccessDenied What="clan stats" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+    </NotAuthorized>
+    <Authorized>
+        <ClanTabs ClanTag="@ClanTag" Active="stats" />
+        <ComingSoon Feature="Clan stats"
+                    Icon="@Icons.Material.Filled.BarChart"
+                    Note="A filterable attacks table for this clan, like /clan stats attacks." />
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string ClanTag { get; set; } = string.Empty;
+}

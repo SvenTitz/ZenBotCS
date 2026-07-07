@@ -38,6 +38,31 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
             .ToList();
     }
 
+    /// <summary>
+    /// All managed clans worth listing — War, FWA and Event types only (Partner/Other excluded) — in
+    /// the DB-defined <see cref="ClanSettings.Order"/>, each tagged with its type and current signup count.
+    /// </summary>
+    public async Task<List<ClanListItem>> GetClansByTypeAsync(CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var clans = await db.ClanSettings
+            .Where(cs => cs.ClanType == ClanType.War || cs.ClanType == ClanType.FWA || cs.ClanType == ClanType.Event)
+            .OrderBy(cs => cs.Order)
+            .Select(cs => new { cs.ClanTag, cs.ClanType, cs.ChampStyleCwlRoster })
+            .ToListAsync(ct);
+
+        var counts = await db.CwlSignups
+            .Where(s => !s.Archieved)
+            .GroupBy(s => s.ClanTag)
+            .Select(g => new { ClanTag = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ClanTag, x => x.Count, ct);
+
+        return clans
+            .Select(c => new ClanListItem(c.ClanTag, c.ClanType, c.ChampStyleCwlRoster, counts.GetValueOrDefault(c.ClanTag)))
+            .ToList();
+    }
+
     /// <summary>Active (non-archived, non-hidden) signups for a clan, ordered like the sheet (TH, then name).</summary>
     public async Task<List<CwlSignup>> GetRosterAsync(string clanTag, CancellationToken ct = default)
     {
@@ -198,3 +223,5 @@ public record AddResult(bool Ok, string Message, string? PlayerName = null)
 /// <summary>A clan offered for CWL signup. ClanName is not stored in the bot DB (it comes from CocApi);
 /// Phase 1 shows the tag. Enriching with the cached clan name is a follow-up.</summary>
 public record ClanSummary(string ClanTag, bool ChampStyle, int SignupCount);
+
+public record ClanListItem(string ClanTag, ClanType ClanType, bool ChampStyle, int SignupCount);

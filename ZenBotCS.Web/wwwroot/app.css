@@ -120,3 +120,37 @@ th.sticky-col-days {
 td.sticky-col-days {
     z-index: 2;
 }
+
+/* Clickable clan cards (dashboard + clans list): whole card is a link, with a lift on hover. */
+.clan-card {
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.clan-card:hover {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.clan-card:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.clan-card .clan-card-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Nudge the chevron toward the primary colour as the card is hovered. */
+.clan-card .clan-card-go {
+    color: var(--mud-palette-text-secondary);
+    transition: transform .15s ease, color .15s ease;
+}
+
+.clan-card:hover .clan-card-go {
+    color: var(--mud-palette-primary);
+    transform: translateX(3px);
+}

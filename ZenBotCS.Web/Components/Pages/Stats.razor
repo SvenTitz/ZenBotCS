@@ -1,0 +1,16 @@
+@page "/stats"
+
+<PageTitle>Stats</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Stats</MudText>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        <AccessDenied What="stats" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+    </NotAuthorized>
+    <Authorized>
+        <ComingSoon Feature="Family stats"
+                    Icon="@Icons.Material.Filled.BarChart"
+                    Note="A filterable attacks table across the whole family, like /player stats attacks with custom filters." />
+    </Authorized>
+</AuthorizeView>

@@ -1,3 +1,5 @@
+@page "/clans/{ClanTag}"
+@page "/clans/{ClanTag}/roster"
 @page "/roster/{ClanTag}"
 @using System.Security.Claims
 @inject RosterService Rosters
@@ -11,7 +13,7 @@
 
 <PageTitle>Roster @_clanName</PageTitle>
 
-<MudButton Href="/" StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text" Class="mb-3">All clans</MudButton>
+<ClanTabs ClanTag="@ClanTag" Active="roster" />
 
 <AuthorizeView Roles="@AuthRoles.RosterAccess" Context="auth">
     <NotAuthorized>

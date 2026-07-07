@@ -1,0 +1,61 @@
+@inject NavigationManager Nav
+
+@* A clan card whose whole surface links to the clan hub (keyboard-accessible). *@
+<MudPaper Outlined="true" Class="clan-card pa-3" @onclick="Go" @onkeydown="OnKeyDown"
+          tabindex="0" role="link" aria-label="@($"Open {Name}")">
+    <div class="d-flex align-center" style="gap:12px; min-width:0;">
+        <MudAvatar Color="Color.Primary" Variant="Variant.Filled">@Initials</MudAvatar>
+        <div style="flex:1; min-width:0;">
+            <MudText Typo="Typo.h6" Class="clan-card-name">@Name</MudText>
+            <MudText Typo="Typo.caption" Style="font-family:monospace;color:var(--mud-palette-text-secondary)">@ClanTag</MudText>
+            @if (SignupCount is not null || ChampStyle)
+            {
+                <div class="mt-1 d-flex flex-wrap" style="gap:4px;">
+                    @if (SignupCount is int count)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@count signed up</MudChip>
+                    }
+                    @if (ChampStyle)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">champ style</MudChip>
+                    }
+                </div>
+            }
+        </div>
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="clan-card-go" />
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string ClanTag { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+    [Parameter] public int? SignupCount { get; set; }
+    [Parameter] public bool ChampStyle { get; set; }
+
+    /// <summary>Where the card navigates; defaults to the clan hub (roster tab).</summary>
+    [Parameter] public string? Href { get; set; }
+
+    private string Target => Href ?? $"/clans/{Uri.EscapeDataString(ClanTag)}/roster";
+
+    private string Initials
+    {
+        get
+        {
+            var letters = Name
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => char.IsLetterOrDigit(p[0]))
+                .Select(p => char.ToUpperInvariant(p[0]))
+                .Take(2)
+                .ToArray();
+            return letters.Length > 0 ? new string(letters) : "#";
+        }
+    }
+
+    private void Go() => Nav.NavigateTo(Target);
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+            Nav.NavigateTo(Target);
+    }
+}

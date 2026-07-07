@@ -1,0 +1,18 @@
+@* Shared NotAuthorized message: prompt sign-in, or explain the account lacks the needed access. *@
+@if (Authenticated)
+{
+    <MudAlert Severity="Severity.Warning">
+        You're signed in, but your account doesn't have access to @What.
+    </MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">
+        Please <MudLink Href="/account/login">sign in with Discord</MudLink> to view @What.
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public string What { get; set; } = "this page";
+    [Parameter] public bool Authenticated { get; set; }
+}

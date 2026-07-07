@@ -1,0 +1,16 @@
+@page "/settings/bot"
+
+<PageTitle>Bot settings</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Bot settings</MudText>
+
+<AuthorizeView Roles="@AuthRoles.Admin">
+    <NotAuthorized>
+        <AccessDenied What="bot settings (admins only)" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+    </NotAuthorized>
+    <Authorized>
+        <ComingSoon Feature="Bot settings"
+                    Icon="@Icons.Material.Filled.SettingsSuggest"
+                    Note="Runtime bot configuration (currently in appsettings.json) will be editable here." />
+    </Authorized>
+</AuthorizeView>

@@ -1,0 +1,16 @@
+@page "/players"
+
+<PageTitle>Players</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Players</MudText>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        <AccessDenied What="player profiles" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+    </NotAuthorized>
+    <Authorized>
+        <ComingSoon Feature="Player profiles"
+                    Icon="@Icons.Material.Filled.Person"
+                    Note="Search a player to see their profile, performance, and a downloadable player card." />
+    </Authorized>
+</AuthorizeView>

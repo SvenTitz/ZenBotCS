@@ -1,0 +1,20 @@
+@page "/clans/{ClanTag}/settings"
+
+<PageTitle>Clan settings</PageTitle>
+
+<AuthorizeView Roles="@AuthRoles.Gatekeeper">
+    <NotAuthorized>
+        <ClanTabs ClanTag="@ClanTag" Active="settings" />
+        <AccessDenied What="clan settings (gatekeepers only)" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+    </NotAuthorized>
+    <Authorized>
+        <ClanTabs ClanTag="@ClanTag" Active="settings" />
+        <ComingSoon Feature="Clan settings"
+                    Icon="@Icons.Material.Filled.Settings"
+                    Note="Edit this clan's configuration (roles, CWL options, reminders)." />
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string ClanTag { get; set; } = string.Empty;
+}

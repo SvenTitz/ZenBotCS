@@ -1,7 +1,6 @@
-@page "/cwl-history"
+@page "/clans/{ClanTag}/cwl"
 @page "/cwl-history/{ClanTag}"
 @using ZenBotCS.Entities.Models.Cwl
-@inject RosterService Rosters
 @inject ClanNameService ClanNames
 @inject CwlHistoryService History
 @inject CwlHistoryImageService HistoryImage
@@ -67,47 +66,7 @@
         }
     </NotAuthorized>
     <Authorized>
-        @if (ClanTag is null)
-        {
-            <MudText Typo="Typo.h4" Class="mb-4">CWL History</MudText>
-            @if (_clans is null)
-            {
-                <MudProgressCircular Indeterminate="true" />
-            }
-            else if (_clans.Count == 0)
-            {
-                <MudText>No clans available.</MudText>
-            }
-            else
-            {
-                <MudGrid>
-                    @foreach (var clan in _clans)
-                    {
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudCard Outlined="true">
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6">@ClanName(clan.ClanTag)</MudText>
-                                    <MudText Typo="Typo.caption" Style="font-family:monospace;">@clan.ClanTag</MudText>
-                                </MudCardContent>
-                                <MudCardActions>
-                                    <MudButton Href="@($"/cwl-history/{Uri.EscapeDataString(clan.ClanTag)}")"
-                                               Variant="Variant.Text" Color="Color.Primary">View history</MudButton>
-                                </MudCardActions>
-                            </MudCard>
-                        </MudItem>
-                    }
-                </MudGrid>
-            }
-        }
-        else
-        {
-            <div class="d-flex align-center mb-4 flex-wrap gap-2">
-                <MudIconButton Href="/cwl-history" Icon="@Icons.Material.Filled.ArrowBack" />
-                <MudText Typo="Typo.h4">@_clanName — CWL History</MudText>
-                <MudSpacer />
-                <MudButton Href="@($"/roster/{Uri.EscapeDataString(ClanTag)}")"
-                           Variant="Variant.Text" Color="Color.Primary">Roster</MudButton>
-            </div>
+            <ClanTabs ClanTag="@ClanTag" Active="cwl" />
 
             @if (_instances is null)
             {
@@ -244,16 +203,12 @@
                     </MudGrid>
                 }
             }
-        }
     </Authorized>
 </AuthorizeView>
 
 @code {
-    [Parameter] public string? ClanTag { get; set; }
+    [Parameter] public string ClanTag { get; set; } = string.Empty;
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
-
-    private List<ClanSummary>? _clans;
-    private IReadOnlyDictionary<string, string> _names = new Dictionary<string, string>();
 
     private string _clanName = string.Empty;
     private List<CwlHistoryService.CwlInstanceInfo>? _instances;
@@ -267,13 +222,6 @@
     {
         if (AuthState is null || !(await AuthState).User.IsInRole(AuthRoles.RosterAccess))
             return;
-
-        if (ClanTag is null)
-        {
-            _clans = await Rosters.GetSignupClansAsync();
-            _names = await ClanNames.GetAllAsync();
-            return;
-        }
 
         _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
         _instances = await History.GetInstancesAsync(ClanTag);
@@ -324,8 +272,6 @@
         var fileName = $"{_clanName}-cwl-{_perf.Season}.png".Replace(' ', '_');
         await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
     }
-
-    private string ClanName(string clanTag) => _names.GetValueOrDefault(clanTag, clanTag);
 
     // Month label, disambiguated by start date when a month holds more than one CWL.
     private string InstanceLabel(int index)

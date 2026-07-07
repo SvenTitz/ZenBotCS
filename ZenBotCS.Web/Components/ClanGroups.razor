@@ -1,0 +1,37 @@
+@* Renders clans grouped as War / FWA / Event (Partner and Other are excluded upstream), preserving
+   the DB order within each group. Signup count + champ-style chips are shown for war clans only. *@
+
+@foreach (var group in Groups)
+{
+    var items = Clans.Where(c => c.ClanType == group.Type).ToList();
+    if (items.Count == 0)
+    {
+        continue;
+    }
+
+    <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2">@group.Title</MudText>
+    <MudGrid Class="mb-2">
+        @foreach (var clan in items)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <ClanCard ClanTag="@clan.ClanTag" Name="@ClanName(clan.ClanTag)"
+                          SignupCount="@(clan.ClanType is ClanType.War or ClanType.FWA ? clan.SignupCount : (int?)null)"
+                          ChampStyle="@(clan.ClanType == ClanType.War && clan.ChampStyle)" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<ClanListItem> Clans { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<string, string> Names { get; set; } = new Dictionary<string, string>();
+
+    private static readonly (string Title, ClanType Type)[] Groups =
+    [
+        ("War clans", ClanType.War),
+        ("FWA clan", ClanType.FWA),
+        ("Event clans", ClanType.Event),
+    ];
+
+    private string ClanName(string clanTag) => Names.GetValueOrDefault(clanTag, clanTag);
+}

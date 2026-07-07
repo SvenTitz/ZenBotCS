@@ -1,0 +1,8 @@
+@page "/cwl-history"
+@inject NavigationManager Nav
+
+@* The standalone CWL-history index was folded into the clan hub; send old links to the clan list. *@
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/clans", replace: true);
+}

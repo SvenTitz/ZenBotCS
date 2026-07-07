@@ -80,6 +80,11 @@ builder.Services.AddDbContextFactory<BotDataContext>(options =>
 var discordGuildId = builder.Configuration["Discord:GuildId"];
 var discordBotToken = builder.Configuration["Discord:BotToken"];
 var requiredRoleId = builder.Configuration["Discord:RequiredRoleId"];
+// Higher tiers: a gatekeeper Discord role (clan settings) and an admin user-id allowlist (bot settings).
+var gatekeeperRoleId = builder.Configuration["Discord:GatekeeperRoleId"];
+var adminUserIds = (builder.Configuration["Discord:AdminUserIds"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToHashSet();
 
 // Authentication: cookie session, challenged via Discord OAuth.
 builder.Services.AddAuthentication(options =>
@@ -126,11 +131,21 @@ builder.Services.AddAuthentication(options =>
 
             using var json = JsonDocument.Parse(
                 await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
-            var hasRole = json.RootElement.TryGetProperty("roles", out var roles)
-                && roles.EnumerateArray().Any(r => r.GetString() == requiredRoleId);
+            var roleIds = json.RootElement.TryGetProperty("roles", out var roles)
+                ? roles.EnumerateArray().Select(r => r.GetString()).ToHashSet()
+                : [];
 
-            if (hasRole)
+            var isAdmin = adminUserIds.Contains(userId);
+            var isGatekeeper = isAdmin || (!string.IsNullOrWhiteSpace(gatekeeperRoleId) && roleIds.Contains(gatekeeperRoleId));
+            var isLeader = isGatekeeper || (!string.IsNullOrWhiteSpace(requiredRoleId) && roleIds.Contains(requiredRoleId));
+
+            // Grant tiers cumulatively (admin ⊃ gatekeeper ⊃ leader).
+            if (isLeader)
                 context.Identity?.AddClaim(new Claim(ClaimTypes.Role, AuthRoles.RosterAccess));
+            if (isGatekeeper)
+                context.Identity?.AddClaim(new Claim(ClaimTypes.Role, AuthRoles.Gatekeeper));
+            if (isAdmin)
+                context.Identity?.AddClaim(new Claim(ClaimTypes.Role, AuthRoles.Admin));
         };
     });
 
