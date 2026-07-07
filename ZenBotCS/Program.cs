@@ -90,6 +90,7 @@ public class Program
             //.AddHostedService<ComponentHandler>()
             .AddHostedService<DiscordLinkUpdateService>()
             .AddHostedService<WarHistoryUpdateService>()
+            .AddHostedService<CwlHistoryUpdateService>()
             .AddHostedService<PlayerStatsUpdateService>()
             .AddHostedService<LeadershipLogBackfillService>()
             .AddHostedService<CwlRosterReminderService>()

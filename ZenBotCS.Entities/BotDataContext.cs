@@ -11,6 +11,7 @@ namespace ZenBotCS.Entities
         public DbSet<PinnedRoster> PinnedRosters { get; set; }
         public DbSet<ReminderMisses> ReminderMisses { get; set; }
         public DbSet<PlayerStats> PlayerStats { get; set; }
+        public DbSet<CwlHistory> CwlHistories { get; set; }
         public DbSet<ClanSettings> ClanSettings { get; set; }
         public DbSet<LeadershipLogMessage> LeadershipLogMessages { get; set; }
         public DbSet<LeadershipLogUser> LeadershipLogUsers { get; set; }
@@ -37,6 +38,8 @@ namespace ZenBotCS.Entities
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());
 
             modelBuilder.ApplyConfiguration(new PlayerStatsConfiguration());
+
+            modelBuilder.ApplyConfiguration(new CwlHistoryConfiguration());
 
         }
 

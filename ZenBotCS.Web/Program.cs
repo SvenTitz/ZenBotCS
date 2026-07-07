@@ -33,8 +33,14 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
 // "Add player" tag suggestions from the CoC cache DB (mirrors the bot's autocomplete).
 builder.Services.AddScoped<ZenBotCS.Web.Services.PlayerSuggestionService>();
+// CWL performance history: reads/lazily-fills the CwlHistory cache from ClashKing war history.
+builder.Services.AddScoped<ZenBotCS.Web.Services.CwlHistoryService>();
+// Reads the current (live) CWL for a clan from the CoC cache DB — /war/previous is unreliable for it.
+builder.Services.AddScoped<ZenBotCS.Web.Services.CocCacheCwlService>();
 // Server-side roster PNG rendering (singleton: loads the bundled font once).
 builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
+// Server-side CWL summary PNG rendering (singleton: loads the bundled font once).
+builder.Services.AddSingleton<ZenBotCS.Web.Services.CwlHistoryImageService>();
 // Official CoC API via CocApi.Rest (the same wrapper the bot uses) for authoritative player data on
 // "Add player". REST client only — NOT CocApiCache — so there are no background download workers.
 // The token is IP-locked; set CocApiToken to a key whitelisted for the server IP.

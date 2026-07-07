@@ -1,0 +1,375 @@
+@page "/cwl-history"
+@page "/cwl-history/{ClanTag}"
+@using ZenBotCS.Entities.Models.Cwl
+@inject RosterService Rosters
+@inject ClanNameService ClanNames
+@inject CwlHistoryService History
+@inject CwlHistoryImageService HistoryImage
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject ILogger<CwlHistory> Logger
+
+<PageTitle>CWL History</PageTitle>
+
+<style>
+    .cwl-table-wrap { overflow-x: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 6px; }
+    .cwl-table { border-collapse: collapse; font-size: .8rem; white-space: nowrap; width: 100%; }
+    /* Let the player-name column absorb any slack so the table always fills the width (numeric
+       columns stay tight); when the 7-day layout is wider than the container it still scrolls. */
+    .cwl-table td.name, .cwl-table th.sticky-col { width: 100%; }
+    .cwl-table th, .cwl-table td { padding: 3px 8px; text-align: center; border-bottom: 1px solid var(--mud-palette-lines-default); }
+    .cwl-table thead th { background: var(--mud-palette-background-grey); position: sticky; top: 0; }
+    .cwl-table .sub { font-weight: 400; opacity: .7; }
+    .cwl-table td.name, .cwl-table td.sticky-col { text-align: left; font-weight: 500; }
+    .cwl-table .sticky-col { position: sticky; left: 0; z-index: 1; }
+    .cwl-table thead .sticky-col { z-index: 2; }
+    /* Alternating row shading — solid backgrounds so the sticky column hides content scrolled under it. */
+    .cwl-table tbody td { background: var(--mud-palette-surface); }
+    .cwl-table tbody tr:nth-of-type(even) td { background: var(--mud-palette-background-grey); }
+    /* Vertical separators between days (and a heavier one before the aggregate block). */
+    .cwl-table .day-group, .cwl-table .day-start { border-left: 1px solid var(--mud-palette-lines-default); }
+    .cwl-table .agg-start { border-left: 2px solid var(--mud-palette-lines-default); }
+    .cwl-table .miss { color: var(--mud-palette-error); }
+    .cwl-table .rushed { border-bottom: 1px dotted var(--mud-palette-text-secondary); cursor: help; }
+    .cwl-table .score { font-weight: 600; }
+    .cwl-table .pos { color: var(--mud-palette-success); }
+    .cwl-table .neg { color: var(--mud-palette-error); }
+    .cwl-table tbody tr.totals td { font-weight: 600; border-top: 2px solid var(--mud-palette-lines-default); background: var(--mud-palette-background-grey); }
+    .cwl-lb { border-radius: 10px; overflow: hidden; height: 100%; }
+    .cwl-lb-head { display: flex; align-items: center; gap: .4rem; padding: .5rem .75rem; font-weight: 600;
+        background: var(--mud-palette-background-grey); border-bottom: 1px solid var(--mud-palette-lines-default); }
+    .cwl-lb-row { display: flex; align-items: center; gap: .6rem; padding: .3rem .75rem; font-size: .82rem; }
+    .cwl-lb-row:nth-child(even) { background: var(--mud-palette-background-grey); }
+    .cwl-lb-row:hover { background: var(--mud-palette-action-default-hover); }
+    .cwl-lb-rank { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: inline-flex;
+        align-items: center; justify-content: center; font-size: .72rem; font-weight: 700;
+        background: var(--mud-palette-action-disabled-background); color: var(--mud-palette-text-secondary); }
+    .cwl-lb-rank.gold { background: #F2C14E; color: #3a2c00; }
+    .cwl-lb-rank.silver { background: #C7CDD1; color: #22272a; }
+    .cwl-lb-rank.bronze { background: #CE8E5C; color: #3a2000; }
+    .cwl-lb-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cwl-lb-val { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+</style>
+
+<AuthorizeView Roles="@AuthRoles.RosterAccess">
+    <NotAuthorized>
+        @if (context.User.Identity?.IsAuthenticated == true)
+        {
+            <MudAlert Severity="Severity.Warning">
+                Signed in as <b>@context.User.Identity.Name</b>, but your account doesn't have roster access.
+            </MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">
+                Please <MudLink Href="/account/login">sign in with Discord</MudLink> to view CWL history.
+            </MudAlert>
+        }
+    </NotAuthorized>
+    <Authorized>
+        @if (ClanTag is null)
+        {
+            <MudText Typo="Typo.h4" Class="mb-4">CWL History</MudText>
+            @if (_clans is null)
+            {
+                <MudProgressCircular Indeterminate="true" />
+            }
+            else if (_clans.Count == 0)
+            {
+                <MudText>No clans available.</MudText>
+            }
+            else
+            {
+                <MudGrid>
+                    @foreach (var clan in _clans)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">@ClanName(clan.ClanTag)</MudText>
+                                    <MudText Typo="Typo.caption" Style="font-family:monospace;">@clan.ClanTag</MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Href="@($"/cwl-history/{Uri.EscapeDataString(clan.ClanTag)}")"
+                                               Variant="Variant.Text" Color="Color.Primary">View history</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+        else
+        {
+            <div class="d-flex align-center mb-4 flex-wrap gap-2">
+                <MudIconButton Href="/cwl-history" Icon="@Icons.Material.Filled.ArrowBack" />
+                <MudText Typo="Typo.h4">@_clanName — CWL History</MudText>
+                <MudSpacer />
+                <MudButton Href="@($"/roster/{Uri.EscapeDataString(ClanTag)}")"
+                           Variant="Variant.Text" Color="Color.Primary">Roster</MudButton>
+            </div>
+
+            @if (_instances is null)
+            {
+                <MudProgressCircular Indeterminate="true" />
+            }
+            else if (_instances.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info">No CWL history found for this clan yet.</MudAlert>
+            }
+            else
+            {
+                <div class="d-flex align-center mb-4 flex-wrap gap-4">
+                    <MudSelect T="int" Label="CWL" Value="_selectedIndex" ValueChanged="OnInstanceChanged"
+                               Dense="true" Style="max-width:280px;">
+                        @for (var i = 0; i < _instances.Count; i++)
+                        {
+                            var idx = i;
+                            <MudSelectItem T="int" Value="idx">@InstanceLabel(idx)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
+                               Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_perf is null)">
+                        Download image
+                    </MudButton>
+                </div>
+
+                @if (_loading)
+                {
+                    <MudProgressCircular Indeterminate="true" />
+                }
+                else if (_perf is null)
+                {
+                    <MudAlert Severity="Severity.Warning">Couldn't load this CWL.</MudAlert>
+                }
+                else
+                {
+                    <div class="cwl-table-wrap">
+                        <table class="cwl-table">
+                            <thead>
+                                <tr>
+                                    <th class="sticky-col" rowspan="2">Player</th>
+                                    <th rowspan="2">TH</th>
+                                    <th rowspan="2">Bonus</th>
+                                    @foreach (var d in Days)
+                                    {
+                                        <th colspan="3" class="day-group">Day @(d + 1)</th>
+                                    }
+                                    <th rowspan="2" class="agg-start">Hits</th>
+                                    <th rowspan="2">Reach</th>
+                                    <th rowspan="2">Avg★</th>
+                                    <th rowspan="2">Avg%</th>
+                                    <th rowspan="2">Score</th>
+                                </tr>
+                                <tr>
+                                    @foreach (var d in Days)
+                                    {
+                                        <th class="sub day-start">★</th>
+                                        <th class="sub">%</th>
+                                        <th class="sub">TH</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in _perf.Players)
+                                {
+                                    <tr>
+                                        <td class="sticky-col name">@p.PlayerName</td>
+                                        <td>@p.TownHallLevel</td>
+                                        <td>@(p.Bonus ? "✓" : "")</td>
+                                        @foreach (var d in Days)
+                                        {
+                                            var cell = p.Days[d];
+                                            @if (cell is null)
+                                            {
+                                                <td class="day-start"></td><td></td><td></td>
+                                            }
+                                            else if (cell.IsMissed)
+                                            {
+                                                <td class="miss day-start">0</td><td class="miss">0</td><td class="miss"></td>
+                                            }
+                                            else
+                                            {
+                                                <td class="day-start">@cell.Stars</td>
+                                                <td>@cell.DestructionPercentage</td>
+                                                <td>
+                                                    @if (cell.IsRushedDefender)
+                                                    {
+                                                        <MudTooltip Text="@($"Actual TH {cell.DefenderTownHall}")">
+                                                            <span class="rushed">@cell.EffectiveDefenderTownHall</span>
+                                                        </MudTooltip>
+                                                    }
+                                                    else
+                                                    {
+                                                        @cell.EffectiveDefenderTownHall
+                                                    }
+                                                </td>
+                                            }
+                                        }
+                                        <td class="agg-start">@p.Hits</td>
+                                        <td class="@ReachClass(p.ReachPlusMinus)">@Signed(p.ReachPlusMinus)</td>
+                                        <td>@p.AverageStars.ToString("0.00")</td>
+                                        <td>@Math.Round(p.AverageDestruction)</td>
+                                        <td class="score">@p.Score.ToString("0.00")</td>
+                                    </tr>
+                                }
+                                <tr class="totals">
+                                    <td class="sticky-col">Totals</td>
+                                    <td></td><td></td>
+                                    @foreach (var d in Days)
+                                    {
+                                        <td class="day-start">@_perf.DailyTotalStars[d]</td>
+                                        <td>@_perf.DailyTotalDestruction[d]</td>
+                                        <td></td>
+                                    }
+                                    <td class="agg-start" colspan="5"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <MudGrid Class="mt-4">
+                        <MudItem xs="12" md="4">
+                            @LeaderboardTable("Leaders by Score", Icons.Material.Filled.EmojiEvents, Color.Primary,
+                                _perf.Players.OrderByDescending(p => p.Score), p => p.Score.ToString("0.00"))
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            @LeaderboardTable("Leaders by Reach", Icons.Material.Filled.TrendingUp, Color.Info,
+                                _perf.Players.OrderByDescending(p => p.ReachPlusMinus), p => Signed(p.ReachPlusMinus))
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            @LeaderboardTable("Leaders by Avg★", Icons.Material.Filled.Star, Color.Warning,
+                                _perf.Players.OrderByDescending(p => p.AverageStars), p => p.AverageStars.ToString("0.00"))
+                        </MudItem>
+                    </MudGrid>
+                }
+            }
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string? ClanTag { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<ClanSummary>? _clans;
+    private IReadOnlyDictionary<string, string> _names = new Dictionary<string, string>();
+
+    private string _clanName = string.Empty;
+    private List<CwlHistoryService.CwlInstanceInfo>? _instances;
+    private int _selectedIndex;
+    private CwlSeasonPerformance? _perf;
+    private bool _loading;
+
+    private static readonly int[] Days = [0, 1, 2, 3, 4, 5, 6];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthState is null || !(await AuthState).User.IsInRole(AuthRoles.RosterAccess))
+            return;
+
+        if (ClanTag is null)
+        {
+            _clans = await Rosters.GetSignupClansAsync();
+            _names = await ClanNames.GetAllAsync();
+            return;
+        }
+
+        _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
+        _instances = await History.GetInstancesAsync(ClanTag);
+        _selectedIndex = 0;
+        await LoadSelectedAsync();
+    }
+
+    private async Task OnInstanceChanged(int index)
+    {
+        _selectedIndex = index;
+        await LoadSelectedAsync();
+    }
+
+    private async Task LoadSelectedAsync()
+    {
+        if (_instances is null || _instances.Count == 0 || ClanTag is null)
+        {
+            _perf = null;
+            return;
+        }
+
+        _loading = true;
+        _perf = null;
+        StateHasChanged();
+
+        try
+        {
+            var inst = _instances[_selectedIndex];
+            _perf = await History.GetPerformanceAsync(ClanTag, inst.Season, inst.StartTime);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load CWL performance for {tag}", ClanTag);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DownloadImage()
+    {
+        if (_perf is null)
+            return;
+
+        var bytes = HistoryImage.Generate(_perf, _clanName, dark: true);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{_clanName}-cwl-{_perf.Season}.png".Replace(' ', '_');
+        await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
+    }
+
+    private string ClanName(string clanTag) => _names.GetValueOrDefault(clanTag, clanTag);
+
+    // Month label, disambiguated by start date when a month holds more than one CWL.
+    private string InstanceLabel(int index)
+    {
+        var inst = _instances![index];
+        var month = DateTime.TryParseExact(inst.Season, "yyyy-MM",
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d)
+            ? d.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : inst.Season;
+
+        var sameMonth = _instances!.Count(i => i.Season == inst.Season);
+        return sameMonth > 1 ? $"{month} (from {inst.StartTime:dd MMM})" : month;
+    }
+
+    private static string Signed(int v) => v > 0 ? $"+{v}" : v.ToString();
+
+    private static string ReachClass(int v) => v > 0 ? "pos" : v < 0 ? "neg" : "";
+
+    private RenderFragment LeaderboardTable(string title, string icon, Color color,
+        IEnumerable<CwlPlayerPerformance> ordered, Func<CwlPlayerPerformance, string> value) =>
+        @<MudPaper Outlined="true" Class="cwl-lb">
+            <div class="cwl-lb-head">
+                <MudIcon Icon="@icon" Size="Size.Small" Color="@color" />
+                <span>@title</span>
+            </div>
+            @{
+                var rank = 0;
+            }
+            @foreach (var p in ordered.Take(10))
+            {
+                rank++;
+                <div class="cwl-lb-row">
+                    <span class="cwl-lb-rank @RankClass(rank)">@rank</span>
+                    <span class="cwl-lb-name">@p.PlayerName</span>
+                    <span class="cwl-lb-val">@value(p)</span>
+                </div>
+            }
+        </MudPaper>;
+
+    private static string RankClass(int rank) => rank switch
+    {
+        1 => "gold",
+        2 => "silver",
+        3 => "bronze",
+        _ => string.Empty,
+    };
+}

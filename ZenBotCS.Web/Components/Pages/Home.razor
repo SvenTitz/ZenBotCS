@@ -51,6 +51,8 @@
                             <MudCardActions>
                                 <MudButton Href="@($"/roster/{Uri.EscapeDataString(clan.ClanTag)}")"
                                            Variant="Variant.Text" Color="Color.Primary">View roster</MudButton>
+                                <MudButton Href="@($"/cwl-history/{Uri.EscapeDataString(clan.ClanTag)}")"
+                                           Variant="Variant.Text" Color="Color.Secondary">CWL history</MudButton>
                             </MudCardActions>
                         </MudCard>
                     </MudItem>

@@ -11,6 +11,12 @@
         <MudLink Href="/" Color="Color.Inherit" Underline="Underline.None">
             <MudText Typo="Typo.h6">ZenBot Rosters</MudText>
         </MudLink>
+        <AuthorizeView Roles="@AuthRoles.RosterAccess">
+            <Authorized>
+                <MudButton Href="/" Variant="Variant.Text" Color="Color.Inherit" Class="ml-4 d-none d-sm-flex">Rosters</MudButton>
+                <MudButton Href="/cwl-history" Variant="Variant.Text" Color="Color.Inherit" Class="d-none d-sm-flex">CWL History</MudButton>
+            </Authorized>
+        </AuthorizeView>
         <MudSpacer />
         <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
             <MudIconButton Color="Color.Inherit" OnClick="@ToggleDarkMode"

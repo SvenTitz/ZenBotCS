@@ -76,9 +76,12 @@ public class ClashKingApiClient
         return result?.Where(kvp => kvp.Value != null).Select(kvp => kvp.Key).ToList() ?? [];
     }
 
-    public async Task<List<Entities.Models.ClashKingApi.WarData>?> GetClanWarHistory(string clanTag, int limit = 50)
+    public async Task<List<Entities.Models.ClashKingApi.WarData>?> GetClanWarHistory(
+        string clanTag, int limit = 50, long timestampStart = 0, long timestampEnd = 9999999999)
     {
-        var request = CreateRequest($"/war/{Uri.EscapeDataString(clanTag)}/previous?limit={limit}", Method.Get);
+        var request = CreateRequest(
+            $"/war/{Uri.EscapeDataString(clanTag)}/previous?timestamp_start={timestampStart}&timestamp_end={timestampEnd}&limit={limit}",
+            Method.Get);
         var result = await ExecuteRequestAsync<WarDataResponse>(request);
         return result?.Items;
     }

@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Newtonsoft.Json;
+using ZenBotCS.Entities.Models.ClashKingApi;
 
 namespace ZenBotCS.Web.Services;
 
@@ -35,6 +37,33 @@ public class ClashKingClient(HttpClient http, ILogger<ClashKingClient> logger)
         catch (Exception ex)
         {
             logger.LogWarning(ex, "ClashKing discord-link lookup failed for {tag}", playerTag);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A clan's ended-war history from <c>/war/{tag}/previous</c> (CWL wars carry a <c>tag</c>;
+    /// regular wars don't). Paged by the unix-second <paramref name="timestampStart"/>/<paramref name="timestampEnd"/>
+    /// window. Deserialised with Newtonsoft so the <see cref="WarData"/> <c>[JsonProperty]</c> maps apply.
+    /// Returns null on error.
+    /// </summary>
+    public async Task<List<WarData>?> GetClanWarHistoryAsync(
+        string clanTag, int limit = 200, long timestampStart = 0, long timestampEnd = 9999999999,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"war/{Uri.EscapeDataString(clanTag)}/previous?timestamp_start={timestampStart}&timestamp_end={timestampEnd}&limit={limit}";
+            using var resp = await http.GetAsync(url, ct);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            return JsonConvert.DeserializeObject<WarDataResponse>(json)?.Items;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "ClashKing war-history lookup failed for {tag}", clanTag);
             return null;
         }
     }

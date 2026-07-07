@@ -1,4 +1,6 @@
-﻿namespace ZenBotCS.Entities.Models.ClashKingApi;
+﻿using Newtonsoft.Json;
+
+namespace ZenBotCS.Entities.Models.ClashKingApi;
 
 public class WarData
 {
@@ -13,4 +15,16 @@ public class WarData
     public int StatusCode { get; set; }
     public double Timestamp { get; set; }
     public int ResponseRetry { get; set; }
+
+    /// <summary>
+    /// The CWL round war tag. Present only for Clan War League wars — regular wars leave this null,
+    /// so it's the discriminator used to pick out CWL wars from a <c>/war/{tag}/previous</c> history
+    /// (where the field is named <c>tag</c>; the live-CWL endpoint calls the same thing <c>war_tag</c>).
+    /// </summary>
+    [JsonProperty("tag")]
+    public string? WarTag { get; set; }
+
+    /// <summary>The season this war belongs to (<c>yyyy-MM</c>), as reported by <c>/war/{tag}/previous</c>.</summary>
+    [JsonProperty("season")]
+    public string? Season { get; set; }
 }
