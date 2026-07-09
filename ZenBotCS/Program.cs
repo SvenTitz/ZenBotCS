@@ -147,6 +147,8 @@ public class Program
 
         using (var scope = host.Services.CreateScope())
         {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
             try
             {
                 var botDb = scope.ServiceProvider.GetRequiredService<BotDataContext>();
@@ -157,7 +159,7 @@ public class Program
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"[Startup] Database migration failed: {ex}");
+                logger.LogCritical(ex, "Database migration failed during startup.");
                 throw;
             }
         }

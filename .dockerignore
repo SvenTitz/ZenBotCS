@@ -3,5 +3,15 @@
 **/logs/
 .git/
 .gitignore
+
+# Prevent accidental secret/config inclusion in build context and published outputs
+.env
+**/.env
+ZenBotCS/appsettings.json
+ZenBotCS.Web/appsettings.json
+ZenBotCS/gspread.json
+ZenBotCS/gspreadOAuth2.json
+
+# Exclude markdown by default (keep docs/)
 *.md
-!docs/
+!docs/**
