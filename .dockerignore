@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+**/logs/
+.git/
+.gitignore
+*.md
+!docs/

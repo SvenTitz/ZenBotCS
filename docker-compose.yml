@@ -1,0 +1,63 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  zenbot:
+    build:
+      context: .
+      target: bot
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      # Bot config + Google credentials (git-ignored, live on the host)
+      - ./ZenBotCS/appsettings.json:/app/appsettings.json:ro
+      - ./ZenBotCS/gspread.json:/app/gspread.json:ro
+      - ./ZenBotCS/gspreadOAuth2.json:/app/gspreadOAuth2.json:ro
+      - zenbot_logs:/app/logs
+    restart: unless-stopped
+
+  zenbot-web:
+    build:
+      context: .
+      target: web
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://0.0.0.0:5080
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+    volumes:
+      - ./ZenBotCS.Web/appsettings.json:/app/appsettings.json:ro
+      - zenbot_web_logs:/app/logs
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - zenbot-web
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  zenbot_logs:
+  zenbot_web_logs:
+  caddy_data:
+  caddy_config:

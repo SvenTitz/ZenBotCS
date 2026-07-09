@@ -148,6 +148,44 @@ dotnet ef migrations add <Name> --project ZenBotCS \
 
 ---
 
+## Running with Docker
+
+A `Dockerfile` and `docker-compose.yml` are provided for containerized deployment.
+
+### Prerequisites
+
+- Docker and Docker Compose
+- The same config files as above (`appsettings.json`, `gspread.json`,`gspreadOAuth2.json`).
+
+### Quick start
+
+```bash
+# Set the MySQL root password (used by init.sql and the compose file)
+export MYSQL_ROOT_PASSWORD=your-secure-password
+
+docker compose up -d
+```
+
+### What runs
+
+| Service      | Purpose |
+|-------------|---------|
+| `mysql`      | MySQL 8.0 — `init.sql` auto-creates the `BotDb` and `CocApiCache` databases on first start. Persists data in a named volume. |
+| `zenbot`     | The Discord bot (`.NET 8` runtime). EF migrations run at startup — no manual `dotnet ef` step needed. Logs written to a named volume. |
+| `zenbot-web` | ASP.NET 8 web companion (roster rendering, etc.). Requires `libfontconfig1` for SkiaSharp font support. |
+| `caddy`      | Caddy 2 reverse proxy in front of `zenbot-web` with automatic TLS via Let's Encrypt. Configured via `Caddyfile`. |
+
+### Important notes
+
+- **Connection strings** in your container-bound `appsettings.json` files must use
+  `Server=mysql` (the compose service name), not `localhost`.
+- Config files are **volume-mounted read-only** into the containers — edit them on
+  the host and restart affected containers to pick up changes.
+- The `mysql` service has a health check; both app containers wait for it to be
+  healthy before starting.
+
+---
+
 ## Known issues / improvement backlog
 
 **Recently addressed:** per-interaction `DbContext` scoping (each interaction now

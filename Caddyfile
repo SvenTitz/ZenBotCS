@@ -1,0 +1,3 @@
+bot.zenclash.ing {
+    reverse_proxy zenbot-web:5080
+}

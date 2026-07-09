@@ -145,6 +145,23 @@ public class Program
 
         var host = builder.Build();
 
+        using (var scope = host.Services.CreateScope())
+        {
+            try
+            {
+                var botDb = scope.ServiceProvider.GetRequiredService<BotDataContext>();
+                await botDb.Database.MigrateAsync();
+
+                var cacheDb = scope.ServiceProvider.GetRequiredService<CacheDbContext>();
+                await cacheDb.Database.MigrateAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Startup] Database migration failed: {ex}");
+                throw;
+            }
+        }
+
         await host.RunAsync();
     }
 }
