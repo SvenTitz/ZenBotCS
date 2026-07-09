@@ -179,8 +179,10 @@ docker compose up -d
 
 - **Connection strings** in your container-bound `appsettings.json` files must use
   `Server=mysql` (the compose service name), not `localhost`.
-- Config files are **volume-mounted read-only** into the containers — edit them on
-  the host and restart affected containers to pick up changes.
+- Config files are **volume-mounted read-only** into the containers — they're
+  excluded from the build context by `.dockerignore` so they are never baked into
+  the image. Edit them on the host and restart affected containers to pick up
+  changes.
 - The `mysql` service has a health check; both app containers wait for it to be
   healthy before starting.
 

@@ -58,8 +58,10 @@ docker compose up -d
 ### Config in Docker
 
 The config files (`appsettings.json`, `gspread.json`, `gspreadOAuth2.json`) are
-git-ignored and volume-mounted into the containers. Connection strings in
-`appsettings.json` should point to `Server=mysql` (the compose service name).
+git-ignored, volume-mounted into the containers, and **excluded from the Docker
+build context by `.dockerignore`** — they are never baked into the image.
+Connection strings in `appsettings.json` should point to `Server=mysql` (the
+compose service name).
 
 ### Database init
 
