@@ -37,6 +37,10 @@ builder.Services.AddScoped<ZenBotCS.Web.Services.PlayerSuggestionService>();
 builder.Services.AddScoped<ZenBotCS.Web.Services.CwlHistoryService>();
 // Reads the current (live) CWL for a clan from the CoC cache DB — /war/previous is unreliable for it.
 builder.Services.AddScoped<ZenBotCS.Web.Services.CocCacheCwlService>();
+// Per-clan settings editing (bot config) + Discord role/channel suggestions for the settings page.
+builder.Services.AddScoped<ZenBotCS.Web.Services.ClanSettingsService>();
+builder.Services.AddHttpClient(); // IHttpClientFactory for the Discord REST lookups below
+builder.Services.AddScoped<ZenBotCS.Web.Services.DiscordGuildService>();
 // Server-side roster PNG rendering (singleton: loads the bundled font once).
 builder.Services.AddSingleton<ZenBotCS.Web.Services.RosterImageService>();
 // Server-side CWL summary PNG rendering (singleton: loads the bundled font once).

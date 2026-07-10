@@ -1,20 +1,312 @@
 @page "/clans/{ClanTag}/settings"
+@using System.Security.Claims
+@using ClanSettingsEntity = ZenBotCS.Entities.Models.ClanSettings
+@inject ClanSettingsService Settings
+@inject DiscordGuildService Guild
+@inject ClanNameService ClanNames
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<ClanSettings> Logger
 
 <PageTitle>Clan settings</PageTitle>
 
-<AuthorizeView Roles="@AuthRoles.Gatekeeper">
+<AuthorizeView Roles="@AuthRoles.Gatekeeper" Context="auth">
     <NotAuthorized>
         <ClanTabs ClanTag="@ClanTag" Active="settings" />
-        <AccessDenied What="clan settings (gatekeepers only)" Authenticated="context.User.Identity?.IsAuthenticated == true" />
+        <AccessDenied What="clan settings (gatekeepers only)" Authenticated="auth.User.Identity?.IsAuthenticated == true" />
     </NotAuthorized>
     <Authorized>
         <ClanTabs ClanTag="@ClanTag" Active="settings" />
-        <ComingSoon Feature="Clan settings"
-                    Icon="@Icons.Material.Filled.Settings"
-                    Note="Edit this clan's configuration (roles, CWL options, reminders)." />
+
+        @if (_settings is null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">Settings</MudText>
+                <MudSpacer />
+                <MudTooltip Text="Re-fetch roles &amp; channels from Discord">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                                   OnClick="RefreshGuild" Disabled="_refreshing" aria-label="Refresh roles and channels" />
+                </MudTooltip>
+            </MudStack>
+
+            @if (!_guildLoaded)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
+                    Couldn't load roles/channels from Discord — check the bot token and guild id in config.
+                    You can still edit everything else; role/channel pickers will be empty.
+                </MudAlert>
+            }
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">General</MudText>
+
+                        <MudSelect T="ClanType" @bind-Value="_settings.ClanType" Label="Clan type"
+                                   Dense="true" Class="mb-3">
+                            @foreach (var t in Enum.GetValues<ClanType>())
+                            {
+                                <MudSelectItem Value="t">@t</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudNumericField T="int" @bind-Value="_settings.Order" Label="Sort order"
+                                         HelperText="Position within its type in the clan list (lower first)."
+                                         Min="0" Class="mb-3" />
+
+                        <MudTextField T="string" @bind-Value="_settings.ColorHex" Label="Embed colour (hex)"
+                                      Placeholder="#RRGGBB or #RRGGBBAA" Immediate="true"
+                                      Error="@(!ClanSettingsService.IsValidColorHex(_settings.ColorHex))"
+                                      ErrorText="Use #RRGGBB or #RRGGBBAA."
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Palette"
+                                      Class="mb-1" />
+                        @if (ClanSettingsService.IsValidColorHex(_settings.ColorHex) && !string.IsNullOrWhiteSpace(_settings.ColorHex))
+                        {
+                            <div class="d-flex align-center gap-2 mb-2">
+                                <span style="@Swatch(_settings.ColorHex)"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Preview</MudText>
+                            </div>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">Roles</MudText>
+                        @RoleSelect("Member role", _settings.MemberRoleId, v => _settings.MemberRoleId = v)
+                        @RoleSelect("Elder role", _settings.ElderRoleId, v => _settings.ElderRoleId = v)
+                        @RoleSelect("Leader role", _settings.LeaderRoleId, v => _settings.LeaderRoleId = v)
+                        @RoleSelect("CWL role", _settings.CwlRoleId, v => _settings.CwlRoleId = v)
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">CWL &amp; features</MudText>
+                        <MudSwitch T="bool" @bind-Value="_settings.EnableCwlSignup" Color="Color.Primary"
+                                   Label="Enable CWL signup" Class="d-block" />
+                        <MudSwitch T="bool" @bind-Value="_settings.ChampStyleCwlRoster" Color="Color.Primary"
+                                   Label="Champ-style CWL roster" Class="d-block" />
+                        <MudSwitch T="bool" @bind-Value="_settings.CcGoldDump" Color="Color.Primary"
+                                   Label="Clan Capital gold dump clan" Class="d-block" />
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">CWL roster reminder</MudText>
+                        <MudSwitch T="bool" @bind-Value="_settings.CwlRosterReminderEnabled" Color="Color.Primary"
+                                   Label="Send roster reminder" Class="d-block mb-2" />
+                        @ChannelSelect("Reminder channel", _settings.CwlRosterReminderChannelId,
+                            v => _settings.CwlRosterReminderChannelId = v)
+                        @RoleSelect("Ping role", _settings.CwlRosterReminderPingRoleId,
+                            v => _settings.CwlRosterReminderPingRoleId = v)
+                        <MudNumericField T="int" @bind-Value="_settings.CwlRosterReminderLeadHours"
+                                         Label="Lead time (hours before war day)" Min="0" Max="168" Class="mt-3" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="SaveAsync" Disabled="@(_saving || !ClanSettingsService.IsValidColorHex(_settings.ColorHex))">
+                    @(_saving ? "Saving…" : "Save settings")
+                </MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.RestartAlt"
+                           OnClick="ResetAsync" Disabled="@(_saving || !_exists)">
+                    Reset to defaults
+                </MudButton>
+            </MudStack>
+        }
     </Authorized>
 </AuthorizeView>
 
 @code {
     [Parameter] public string ClanTag { get; set; } = string.Empty;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private ClanSettingsEntity? _settings;
+    private bool _exists;
+    private string _clanName = string.Empty;
+    private string _actor = "unknown"; // "username (discordId)" of the signed-in gatekeeper, for the audit log
+    private bool _saving;
+    private bool _refreshing;
+
+    private IReadOnlyList<DiscordRole> _roles = [];
+    private IReadOnlyList<DiscordChannel> _channels = [];
+    private Dictionary<ulong, string> _roleNames = new();
+    private Dictionary<ulong, string> _channelNames = new();
+    private bool _guildLoaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null)
+            return;
+
+        var user = (await AuthState).User;
+        if (!user.IsInRole(AuthRoles.Gatekeeper))
+            return; // <AuthorizeView> already blocks the UI; just don't load data.
+
+        _actor = $"{user.Identity?.Name ?? "unknown"} ({user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "?"})";
+        _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
+
+        await LoadGuildAsync();
+        await LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        _settings = await Settings.GetAsync(ClanTag);
+        _exists = await Settings.ExistsAsync(ClanTag);
+    }
+
+    private async Task LoadGuildAsync(bool forceRefresh = false)
+    {
+        _roles = await Guild.GetRolesAsync(forceRefresh);
+        _channels = await Guild.GetTextChannelsAsync(forceRefresh);
+        _roleNames = _roles.ToDictionary(r => r.Id, r => r.Name);
+        _channelNames = _channels.ToDictionary(c => c.Id, c => c.Display);
+        _guildLoaded = _roles.Count > 0 || _channels.Count > 0;
+    }
+
+    private async Task RefreshGuild()
+    {
+        _refreshing = true;
+        try
+        {
+            await LoadGuildAsync(forceRefresh: true);
+            Snackbar.Add(_guildLoaded ? "Refreshed roles & channels." : "Still couldn't reach Discord.",
+                _guildLoaded ? Severity.Success : Severity.Warning);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_settings is null)
+            return;
+
+        if (!ClanSettingsService.IsValidColorHex(_settings.ColorHex))
+        {
+            Snackbar.Add("Fix the colour before saving.", Severity.Error);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            await Settings.SaveAsync(_settings);
+            _exists = true;
+            Logger.LogInformation("{Actor} saved settings for {Clan} ({Tag}): {Summary}",
+                _actor, _clanName, ClanTag, Summarize(_settings));
+            Snackbar.Add("Settings saved.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "{Actor} failed to save settings for {Clan} ({Tag})", _actor, _clanName, ClanTag);
+            Snackbar.Add($"Couldn't save: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Reset clan settings",
+            $"Delete all saved settings for {_clanName}? The clan will fall back to bot defaults. This can't be undone.",
+            yesText: "Reset", cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+
+        _saving = true;
+        try
+        {
+            var removed = await Settings.ResetAsync(ClanTag);
+            if (removed)
+            {
+                Logger.LogInformation("{Actor} reset (deleted) settings for {Clan} ({Tag})", _actor, _clanName, ClanTag);
+                Snackbar.Add("Settings reset to defaults.", Severity.Success);
+            }
+            await LoadSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "{Actor} failed to reset settings for {Clan} ({Tag})", _actor, _clanName, ClanTag);
+            Snackbar.Add($"Couldn't reset: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // Concise, log-friendly one-liner of the persisted values (ids resolved to names where known).
+    private string Summarize(ClanSettingsEntity s) =>
+        $"type={s.ClanType}, order={s.Order}, color={s.ColorHex ?? "-"}, "
+        + $"member={RoleName(s.MemberRoleId)}, elder={RoleName(s.ElderRoleId)}, leader={RoleName(s.LeaderRoleId)}, cwl={RoleName(s.CwlRoleId)}, "
+        + $"signup={s.EnableCwlSignup}, champStyle={s.ChampStyleCwlRoster}, ccGoldDump={s.CcGoldDump}, "
+        + $"reminder={s.CwlRosterReminderEnabled} (channel={ChannelName(s.CwlRosterReminderChannelId)}, "
+        + $"ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h)";
+
+    private string RoleName(ulong? id) =>
+        id is null ? "-" : _roleNames.TryGetValue(id.Value, out var n) ? $"@{n}" : id.Value.ToString();
+
+    private string ChannelName(ulong? id) =>
+        id is null ? "-" : _channelNames.TryGetValue(id.Value, out var n) ? n : id.Value.ToString();
+
+    private static string Swatch(string? colorHex) =>
+        $"display:inline-block;width:1.1em;height:1.1em;border-radius:3px;border:1px solid var(--mud-palette-lines-default);"
+        + $"background:{(string.IsNullOrWhiteSpace(colorHex) ? "transparent" : colorHex)};";
+
+    // Searchable role picker. Bound to the id, but the autocomplete works over DiscordRole so it can
+    // filter by name and show a colour swatch per item.
+    private RenderFragment RoleSelect(string label, ulong? value, Action<ulong?> setter) =>
+        @<MudAutocomplete T="DiscordRole" Label="@label" Value="RoleFor(value)" ValueChanged="r => setter(r?.Id)"
+                          SearchFunc="SearchRoles" ToStringFunc="@(r => r?.Name ?? string.Empty)"
+                          Clearable="true" ResetValueOnEmptyText="true" CoerceText="true"
+                          Dense="true" Class="mb-2" MaxItems="null">
+            <ItemTemplate Context="r">
+                <div class="d-flex align-center"><span style="@Swatch(r.ColorHex)"></span>&nbsp;@r.Name</div>
+            </ItemTemplate>
+        </MudAutocomplete>;
+
+    // Searchable text-channel picker, filtering by the "Category / #channel" display string.
+    private RenderFragment ChannelSelect(string label, ulong? value, Action<ulong?> setter) =>
+        @<MudAutocomplete T="DiscordChannel" Label="@label" Value="ChannelFor(value)" ValueChanged="c => setter(c?.Id)"
+                          SearchFunc="SearchChannels" ToStringFunc="@(c => c?.Display ?? string.Empty)"
+                          Clearable="true" ResetValueOnEmptyText="true" CoerceText="true"
+                          Dense="true" Class="mb-2" MaxItems="null" />;
+
+    // Resolve an id back to its item for the autocomplete's Value. A saved-but-now-unknown id (e.g. the
+    // role/channel was deleted, or Discord failed to load) still shows as a synthetic "unknown" entry
+    // rather than a misleading blank field.
+    private DiscordRole? RoleFor(ulong? id) => id is null
+        ? null
+        : _roles.FirstOrDefault(r => r.Id == id.Value) ?? new DiscordRole(id.Value, $"Unknown role ({id})", 0, 0);
+
+    private DiscordChannel? ChannelFor(ulong? id) => id is null
+        ? null
+        : _channels.FirstOrDefault(c => c.Id == id.Value) ?? new DiscordChannel(id.Value, $"unknown ({id})", null, 0);
+
+    private Task<IEnumerable<DiscordRole>> SearchRoles(string? text, CancellationToken ct) =>
+        Task.FromResult(string.IsNullOrWhiteSpace(text)
+            ? _roles.AsEnumerable()
+            : _roles.Where(r => r.Name.Contains(text, StringComparison.OrdinalIgnoreCase)));
+
+    private Task<IEnumerable<DiscordChannel>> SearchChannels(string? text, CancellationToken ct) =>
+        Task.FromResult(string.IsNullOrWhiteSpace(text)
+            ? _channels.AsEnumerable()
+            : _channels.Where(c => c.Display.Contains(text, StringComparison.OrdinalIgnoreCase)));
 }
