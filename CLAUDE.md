@@ -31,6 +31,44 @@ dotnet ef migrations add <Name> --project ZenBotCS --context BotDataContext --ou
 There is **no test project** and no CI. Verify changes by building; there is no
 automated suite to run.
 
+## Docker
+
+The repo includes a `Dockerfile` (multi-stage) and `docker-compose.yml` for
+production-like local runs and deployment.
+
+```bash
+docker compose up -d
+```
+
+### Services in compose
+
+| Service      | Image / target            | Notes |
+|-------------|---------------------------|-------|
+| `mysql`     | `mysql:8.0`               | Root password via `MYSQL_ROOT_PASSWORD` env var. Runs `init.sql` on first start to create both databases. |
+| `zenbot`    | `Dockerfile` target `bot` | The Discord bot host (`.NET 8 runtime`). Mounts `appsettings.json`, `gspread.json`, `gspreadOAuth2.json` read-only from the host. |
+| `zenbot-web`| `Dockerfile` target `web` | ASP.NET 8 web app. Needs `libfontconfig1` (SkiaSharp). Mounts its own `appsettings.json`. |
+| `caddy`     | `caddy:2`                 | Reverse proxy for `zenbot-web`, configured via `Caddyfile`. Auto-TLS on ports 80/443. |
+
+### Dockerfile stages
+
+- **`build`** — SDK image, restores and publishes both `ZenBotCS` and `ZenBotCS.Web`.
+- **`bot`** — runtime image for the bot, entrypoint `dotnet ZenBotCS.dll`.
+- **`web`** — ASP.NET image, installs `libfontconfig1`, entrypoint `dotnet ZenBotCS.Web.dll`.
+
+### Config in Docker
+
+The config files (`appsettings.json`, `gspread.json`, `gspreadOAuth2.json`) are
+git-ignored, volume-mounted into the containers, and **excluded from the Docker
+build context by `.dockerignore`** — they are never baked into the image.
+Connection strings in `appsettings.json` should point to `Server=mysql` (the
+compose service name).
+
+### Database init
+
+`init.sql` creates the two MySQL databases (`BotDb` + `CocApiCache`) on first
+container start. EF migrations are applied at startup by `Program.cs`
+(`MigrateAsync()`), so no manual `dotnet ef database update` is needed.
+
 ## Layering (respect it)
 
 ```
