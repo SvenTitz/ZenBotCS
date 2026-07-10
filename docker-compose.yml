@@ -25,6 +25,15 @@ services:
       - ./ZenBotCS/gspread.json:/app/gspread.json:ro
       - ./ZenBotCS/gspreadOAuth2.json:/app/gspreadOAuth2.json:ro
       - zenbot_logs:/app/logs
+    # The bot is the migrator for the whole stack: it applies EF migrations before
+    # it starts and then writes /app/migrations.ready. The web service waits on this
+    # healthcheck so it never queries un-migrated tables on a cold boot.
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /app/migrations.ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     restart: unless-stopped
 
   zenbot-web:
@@ -33,6 +42,8 @@ services:
       target: web
     depends_on:
       mysql:
+        condition: service_healthy
+      zenbot:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://0.0.0.0:5080

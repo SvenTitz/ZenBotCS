@@ -145,17 +145,29 @@ public class Program
 
         var host = builder.Build();
 
+        // Readiness marker: the bot is the migrator for the whole stack, so the web
+        // container waits on this file (via its Docker healthcheck) before starting,
+        // to avoid querying tables that haven't been migrated yet on a cold boot.
+        var readyMarker = Path.Combine(AppContext.BaseDirectory, "migrations.ready");
+
         using (var scope = host.Services.CreateScope())
         {
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
             try
             {
+                // Clear any stale marker from a previous run so the marker always
+                // reflects this process's migration state (important on restarts).
+                if (File.Exists(readyMarker))
+                    File.Delete(readyMarker);
+
                 var botDb = scope.ServiceProvider.GetRequiredService<BotDataContext>();
                 await botDb.Database.MigrateAsync();
 
                 var cacheDb = scope.ServiceProvider.GetRequiredService<CacheDbContext>();
                 await cacheDb.Database.MigrateAsync();
+
+                await File.WriteAllTextAsync(readyMarker, DateTimeOffset.UtcNow.ToString("o"));
             }
             catch (Exception ex)
             {
