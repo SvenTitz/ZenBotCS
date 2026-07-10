@@ -268,7 +268,12 @@
         if (_signups is { Count: > 0 } && !_stickyRightInit)
         {
             _stickyRightInit = true;
-            await JS.InvokeVoidAsync("initRosterStickyRight", _scrollContainer);
+            try
+            {
+                await JS.InvokeVoidAsync("initRosterStickyRight", _scrollContainer);
+            }
+            catch (JSDisconnectedException) { /* circuit torn down mid-navigation — nothing to wire up */ }
+            catch (JSException) { /* element already detached (fast tab switch) — safe to ignore */ }
         }
     }
 

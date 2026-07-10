@@ -5,7 +5,9 @@
 // scrollWidth would oscillate (expand -> wider -> "not at end" -> collapse -> ...). So we
 // capture the COLLAPSED width once as a fixed reference and compare against that.
 window.initRosterStickyRight = (el) => {
-    if (!el || el._stickyRightInit) return;
+    // el can be a detached/placeholder node during fast navigation (component tearing down);
+    // bail unless it's a real element with the DOM API we need.
+    if (!el || typeof el.addEventListener !== 'function' || el._stickyRightInit) return;
     el._stickyRightInit = true;
 
     let baseWidth = el.scrollWidth; // collapsed reference width
