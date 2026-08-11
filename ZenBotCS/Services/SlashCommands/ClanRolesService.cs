@@ -30,6 +30,15 @@ public class ClanRolesService(CustomClansClient _clansClient, BotDataContext _bo
         if (clan is null)
             return [_embedHelper.ErrorEmbed("Error", $"Could not fetch clan {clanTag}.")];
 
+        // Guild.Users and Guild.GetUser only ever read the local cache. If the member list has
+        // not been downloaded yet every lookup silently returns null, which would report the
+        // whole clan as "not in server", so make sure the cache is filled first.
+        if (!context.Guild.HasAllMembers)
+            await context.Guild.DownloadUsersAsync();
+
+        if (context.Guild.Users.Count <= 1)
+            return [_embedHelper.ErrorEmbed("Error", "Could not load the server member list, so role state cannot be checked. Make sure the Server Members Intent is enabled for the bot in the Discord Developer Portal.")];
+
         var memberTags = clan.Members.Select(m => m.Tag).ToHashSet();
 
         var links = _botDb.DiscordLinks.AsNoTracking().ToList();
@@ -93,7 +102,7 @@ public class ClanRolesService(CustomClansClient _clansClient, BotDataContext _bo
         var baseEmbed = new EmbedBuilder()
             .WithTitle($"{clan.Name} Role Audit")
             .WithColor(Color.DarkPurple)
-            .WithFooter($"Checked roles: {string.Join(", ", roles.Select(r => r.Label))}");
+            .WithFooter($"Checked roles: {string.Join(", ", roles.Select(r => r.Label))} | {context.Guild.Name}: {context.Guild.Users.Count} cached members, all downloaded: {context.Guild.HasAllMembers}");
 
         return _embedHelper.BuildEmbedsFromLongDescription(stringBuilder, baseEmbed);
     }
