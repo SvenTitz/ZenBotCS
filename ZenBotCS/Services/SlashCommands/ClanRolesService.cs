@@ -40,55 +40,55 @@ public class ClanRolesService(CustomClansClient _clansClient, BotDataContext _bo
         var stringBuilder = new StringBuilder();
 
         // Direction 1: holds one of the clan roles, but no linked account in the clan.
-        var extraRoleUsers = context.Guild.Users
+        var extraRoles = context.Guild.Users
             .Where(u => u.Roles.Any(r => roleIds.Contains(r.Id)) && !userIdsInClan.Contains(u.Id))
             .OrderBy(u => u.DisplayName)
+            // Mentions inside embeds only render if the viewer's client already has the user
+            // cached, so add the username as a fallback identifier next to the mention.
+            .Select(u => $"`{string.Join('/', roles.Where(r => u.Roles.Any(ur => ur.Id == r.Id)).Select(r => r.Label))}` <@{u.Id}> **{Format.Sanitize(u.Username)}**")
             .ToList();
-
-        stringBuilder.AppendLine("### Extra Roles:");
-        stringBuilder.AppendLine("*Has a clan role, but no linked account in the clan.*");
-        foreach (var user in extraRoleUsers)
-        {
-            var heldRoles = roles.Where(r => user.Roles.Any(ur => ur.Id == r.Id)).Select(r => r.Label);
-            stringBuilder.AppendLine($"`{string.Join('/', heldRoles)}` <@{user.Id}>");
-        }
-        stringBuilder.AppendLine($"Count: **{extraRoleUsers.Count}**");
-        stringBuilder.AppendLine();
 
         // Direction 2: in the clan, but the linked user holds none of the clan roles.
         var missingRole = new List<string>();
-        var unlinked = 0;
-        var notInServer = 0;
+        var unlinked = new List<string>();
+        var notInServer = new List<string>();
 
         foreach (var member in clan.Members.OrderBy(m => m.Name))
         {
             if (!userIdByPlayerTag.TryGetValue(member.Tag, out var userId))
             {
-                unlinked++;
+                unlinked.Add($"`{member.Tag}` **{Format.Sanitize(member.Name)}**");
                 continue;
             }
 
             var user = context.Guild.GetUser(userId);
             if (user is null)
             {
-                notInServer++;
+                // Not in the guild, so there is no username to resolve - print the raw id.
+                notInServer.Add($"`{member.Tag}` **{Format.Sanitize(member.Name)}** (`{userId}`)");
                 continue;
             }
 
             if (!user.Roles.Any(r => roleIds.Contains(r.Id)))
-                missingRole.Add($"`{member.Tag}` **{member.Name}** <@{user.Id}>");
+                missingRole.Add($"`{member.Tag}` **{Format.Sanitize(member.Name)}** <@{user.Id}> ({Format.Sanitize(user.Username)})");
         }
 
-        stringBuilder.AppendLine("### Missing Roles:");
-        stringBuilder.AppendLine("*In the clan, but has none of the clan roles.*");
-        foreach (var line in missingRole)
+        void AppendSection(string heading, string subtitle, List<string> lines)
         {
-            stringBuilder.AppendLine(line);
+            stringBuilder.AppendLine(heading);
+            stringBuilder.AppendLine(subtitle);
+            foreach (var line in lines)
+            {
+                stringBuilder.AppendLine(line);
+            }
+            stringBuilder.AppendLine($"Count: **{lines.Count}**");
+            stringBuilder.AppendLine();
         }
-        stringBuilder.AppendLine($"Count: **{missingRole.Count}**");
 
-        if (unlinked > 0 || notInServer > 0)
-            stringBuilder.AppendLine($"-# Skipped: **{unlinked}** without a Discord link, **{notInServer}** not in this server.");
+        AppendSection("### Extra Roles:", "*Has a clan role, but no linked account in the clan.*", extraRoles);
+        AppendSection("### Missing Roles:", "*In the clan, but has none of the clan roles.*", missingRole);
+        AppendSection("### No Discord Link:", "*In the clan, but no linked Discord account - role state unknown.*", unlinked);
+        AppendSection("### Not In Server:", "*In the clan and linked, but the Discord account is not in this server.*", notInServer);
 
         var baseEmbed = new EmbedBuilder()
             .WithTitle($"{clan.Name} Role Audit")
