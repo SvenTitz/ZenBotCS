@@ -98,6 +98,7 @@ public class Program
             .AddTransient<GspreadService>()
             .AddTransient<PlayerService>()
             .AddTransient<ClanService>()
+            .AddTransient<ClanRolesService>()
             .AddTransient<CwlSignupWizardService>()
             .AddTransient<CwlDataService>()
             .AddTransient<CwlRolesService>()

@@ -1,6 +1,7 @@
 ﻿using CocApi.Cache.Services;
 using Discord.Interactions;
 using Discord.WebSocket;
+using ZenBotCS.Attributes;
 using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;
@@ -93,6 +94,22 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
             await DeferAsync();
             var embed = await ClanService.StatsActivity(clanTag, minAttacks, minActivity, maxDaysOffline);
             await FollowupAsync(embed: embed);
+        }
+    }
+
+    [Group("roles", "Commands related to clan discord roles")]
+    public class ClanRolesModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        public required ClanRolesService ClanRolesService { get; set; }
+
+        [RequireOwner(Group = "Permission")]
+        [RequireLeadershipRole(Group = "Permission")]
+        [SlashCommand("audit", "Compare the clan's discord roles against who is actually in the clan")]
+        public async Task Audit([Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))] string clanTag)
+        {
+            await DeferAsync();
+            var embeds = await ClanRolesService.Audit(Context, clanTag);
+            await FollowupAsync(embeds: embeds);
         }
     }
 
