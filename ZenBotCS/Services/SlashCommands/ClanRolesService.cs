@@ -54,7 +54,7 @@ public class ClanRolesService(CustomClansClient _clansClient, BotDataContext _bo
             .OrderBy(u => u.DisplayName)
             // Mentions inside embeds only render if the viewer's client already has the user
             // cached, so add the username as a fallback identifier next to the mention.
-            .Select(u => $"`{string.Join('/', roles.Where(r => u.Roles.Any(ur => ur.Id == r.Id)).Select(r => r.Label))}` <@{u.Id}> **{Format.Sanitize(u.Username)}**")
+            .Select(u => $"`{string.Join('/', roles.Where(r => u.Roles.Any(ur => ur.Id == r.Id)).Select(r => r.Label))}` <@{u.Id}> **{Format.Sanitize(u.DisplayName)}**")
             .ToList();
 
         // Direction 2: in the clan, but the linked user holds none of the clan roles.
@@ -79,7 +79,7 @@ public class ClanRolesService(CustomClansClient _clansClient, BotDataContext _bo
             }
 
             if (!user.Roles.Any(r => roleIds.Contains(r.Id)))
-                missingRole.Add($"`{member.Tag}` **{Format.Sanitize(member.Name)}** <@{user.Id}> ({Format.Sanitize(user.Username)})");
+                missingRole.Add($"`{member.Tag}` **{Format.Sanitize(member.Name)}** <@{user.Id}> ({Format.Sanitize(user.DisplayName)})");
         }
 
         void AppendSection(string heading, string subtitle, List<string> lines)
