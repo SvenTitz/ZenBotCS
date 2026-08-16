@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ZenBotCS.Entities;
+using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Services.Background;
@@ -11,13 +12,10 @@ namespace ZenBotCS.Services.Background;
 /// <summary>
 /// Periodically checks each clan that has CWL roster reminders enabled and, once per upcoming war,
 /// posts a reminder if the in-game lineup still doesn't match the pinned roster within the configured
-/// lead window. Dedup is in-memory only, so a duplicate is possible if the bot restarts mid-window.
+/// lead window. Dedup is persisted in ReminderStates, so a restart mid-window can't repost.
 /// </summary>
 public class CwlRosterReminderService(IServiceScopeFactory _serviceScopeFactory, ILogger<CwlRosterReminderService> _logger) : BackgroundService
 {
-    // ClanTag -> StartTime of the war we last reminded for. Reset on restart.
-    private readonly Dictionary<string, string> _lastReminded = [];
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -46,8 +44,7 @@ public class CwlRosterReminderService(IServiceScopeFactory _serviceScopeFactory,
                             continue;
 
                         // One reminder per war (keyed by its start time); skip if we already posted.
-                        var warKey = prepWar.StartTime.ToString("o");
-                        if (_lastReminded.TryGetValue(settings.ClanTag, out var last) && last == warKey)
+                        if (botDb.WasReminderSent(settings.ClanTag, ReminderKind.CwlRoster, prepWar.StartTime))
                             continue;
 
                         var embed = await rosterService.TryBuildRosterReminder(settings.ClanTag);
@@ -63,7 +60,7 @@ public class CwlRosterReminderService(IServiceScopeFactory _serviceScopeFactory,
                         // Mentions only notify when placed in the message text, not inside an embed.
                         var ping = settings.CwlRosterReminderPingRoleId is null ? null : $"<@&{settings.CwlRosterReminderPingRoleId}>";
                         await channel.SendMessageAsync(text: ping, embed: embed);
-                        _lastReminded[settings.ClanTag] = warKey;
+                        botDb.MarkReminderSent(settings.ClanTag, ReminderKind.CwlRoster, prepWar.StartTime);
                     }
                     catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                     {
