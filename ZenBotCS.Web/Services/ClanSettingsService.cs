@@ -62,8 +62,8 @@ public partial class ClanSettingsService(IDbContextFactory<BotDataContext> dbFac
         row.EnableCwlSignup = edited.EnableCwlSignup;
         row.ChampStyleCwlRoster = edited.ChampStyleCwlRoster;
         row.CcGoldDump = edited.CcGoldDump;
+        row.LeadershipChannelId = edited.LeadershipChannelId;
         row.CwlRosterReminderEnabled = edited.CwlRosterReminderEnabled;
-        row.CwlRosterReminderChannelId = edited.CwlRosterReminderChannelId;
         row.CwlRosterReminderPingRoleId = edited.CwlRosterReminderPingRoleId;
         row.CwlRosterReminderLeadHours = edited.CwlRosterReminderLeadHours;
 

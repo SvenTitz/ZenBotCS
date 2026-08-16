@@ -98,12 +98,12 @@
 
                 <MudItem xs="12" md="6">
                     <MudPaper Outlined="true" Class="pa-4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-3">CWL roster reminder</MudText>
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">Leadership reminders</MudText>
+                        @ChannelSelect("Leadership channel", _settings.LeadershipChannelId,
+                            v => _settings.LeadershipChannelId = v)
                         <MudSwitch T="bool" @bind-Value="_settings.CwlRosterReminderEnabled" Color="Color.Primary"
-                                   Label="Send roster reminder" Class="d-block mb-2" />
-                        @ChannelSelect("Reminder channel", _settings.CwlRosterReminderChannelId,
-                            v => _settings.CwlRosterReminderChannelId = v)
-                        @RoleSelect("Ping role", _settings.CwlRosterReminderPingRoleId,
+                                   Label="Send CWL roster reminder" Class="d-block mb-2" />
+                        @RoleSelect("CWL roster ping role", _settings.CwlRosterReminderPingRoleId,
                             v => _settings.CwlRosterReminderPingRoleId = v)
                         <MudNumericField T="int" @bind-Value="_settings.CwlRosterReminderLeadHours"
                                          Label="Lead time (hours before war day)" Min="0" Max="168" Class="mt-3" />
@@ -257,8 +257,9 @@
         $"type={s.ClanType}, order={s.Order}, color={s.ColorHex ?? "-"}, "
         + $"member={RoleName(s.MemberRoleId)}, elder={RoleName(s.ElderRoleId)}, leader={RoleName(s.LeaderRoleId)}, cwl={RoleName(s.CwlRoleId)}, "
         + $"signup={s.EnableCwlSignup}, champStyle={s.ChampStyleCwlRoster}, ccGoldDump={s.CcGoldDump}, "
-        + $"reminder={s.CwlRosterReminderEnabled} (channel={ChannelName(s.CwlRosterReminderChannelId)}, "
-        + $"ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h)";
+        + $"leadershipChannel={ChannelName(s.LeadershipChannelId)}, "
+        + $"cwlRosterReminder={s.CwlRosterReminderEnabled} "
+        + $"(ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h)";
 
     private string RoleName(ulong? id) =>
         id is null ? "-" : _roleNames.TryGetValue(id.Value, out var n) ? $"@{n}" : id.Value.ToString();

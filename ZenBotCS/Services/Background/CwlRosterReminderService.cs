@@ -29,7 +29,7 @@ public class CwlRosterReminderService(IServiceScopeFactory _serviceScopeFactory,
 
                 var enabledClans = botDb.ClanSettings
                     .AsNoTracking()
-                    .Where(cs => cs.CwlRosterReminderEnabled && cs.CwlRosterReminderChannelId != null)
+                    .Where(cs => cs.CwlRosterReminderEnabled && cs.LeadershipChannelId != null)
                     .ToList();
 
                 foreach (var settings in enabledClans)
@@ -51,9 +51,9 @@ public class CwlRosterReminderService(IServiceScopeFactory _serviceScopeFactory,
                         if (embed is null)
                             continue; // lineup matches the roster — nothing to remind about
 
-                        if (await discordClient.GetChannelAsync(settings.CwlRosterReminderChannelId!.Value) is not SocketTextChannel channel)
+                        if (await discordClient.GetChannelAsync(settings.LeadershipChannelId!.Value) is not SocketTextChannel channel)
                         {
-                            _logger.LogWarning("CWL roster reminder channel {channelId} not found for clan {clan}", settings.CwlRosterReminderChannelId, settings.ClanTag);
+                            _logger.LogWarning("Leadership channel {channelId} not found for clan {clan}", settings.LeadershipChannelId, settings.ClanTag);
                             continue;
                         }
 

@@ -434,8 +434,8 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         bool? enableCwlSignup,
         bool? enableChampStyleSignup,
         bool? isCcGoldDumpClan,
+        SocketTextChannel? leadershipChannel,
         bool? cwlRosterReminderEnabled,
-        SocketTextChannel? cwlRosterReminderChannel,
         SocketRole? cwlRosterReminderPingRole,
         int? cwlRosterReminderLeadHours)
     {
@@ -502,14 +502,14 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             clanSettings.CcGoldDump = isCcGoldDumpClan.Value;
         }
 
+        if (leadershipChannel is not null)
+        {
+            clanSettings.LeadershipChannelId = leadershipChannel.Id;
+        }
+
         if (cwlRosterReminderEnabled is not null)
         {
             clanSettings.CwlRosterReminderEnabled = cwlRosterReminderEnabled.Value;
-        }
-
-        if (cwlRosterReminderChannel is not null)
-        {
-            clanSettings.CwlRosterReminderChannelId = cwlRosterReminderChannel.Id;
         }
 
         if (cwlRosterReminderPingRole is not null)

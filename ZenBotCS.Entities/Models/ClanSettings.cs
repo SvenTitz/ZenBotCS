@@ -35,9 +35,10 @@ public class ClanSettings
 
     public bool CcGoldDump { get; set; }
 
-    public bool CwlRosterReminderEnabled { get; set; }
+    /// <summary>Where leadership-facing reminders are posted (CWL roster, war spin).</summary>
+    public ulong? LeadershipChannelId { get; set; }
 
-    public ulong? CwlRosterReminderChannelId { get; set; }
+    public bool CwlRosterReminderEnabled { get; set; }
 
     public ulong? CwlRosterReminderPingRoleId { get; set; }
 
