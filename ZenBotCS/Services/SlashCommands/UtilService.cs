@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
 using Discord;
+using ZenBotCS.Helper;
 using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands
@@ -65,15 +66,18 @@ namespace ZenBotCS.Services.SlashCommands
 
         public Embed SpinTimes()
         {
-            List<long> spinTimestamps =
-            [
-                GetNextTimestamp(DayOfWeek.Sunday, 19, 0, 9),
-                GetNextTimestamp(DayOfWeek.Tuesday, 21, 0, 9),
-                GetNextTimestamp(DayOfWeek.Thursday, 23, 0, 9)
-            ];
-            spinTimestamps.Sort();
+            var utcNow = DateTime.UtcNow;
 
-            List<long> mandoTimes = GetNextMandos();
+            var spinTimestamps = WarSpinSchedule.Upcoming(utcNow)
+                .Take(3)
+                .Select(s => ((DateTimeOffset)s.StartUtc).ToUnixTimeSeconds())
+                .ToList();
+
+            var mandoTimes = WarSpinSchedule.Upcoming(utcNow)
+                .Where(s => s.IsMandatory)
+                .Take(2)
+                .Select(s => ((DateTimeOffset)s.StartUtc).ToUnixTimeSeconds())
+                .ToList();
 
             var stringBuilder = new StringBuilder();
 
@@ -100,52 +104,5 @@ namespace ZenBotCS.Services.SlashCommands
             return embedBuilder.Build();
         }
 
-        private static long GetNextTimestamp(DayOfWeek targetDay, int hour, int minute, int daysSkippedAtBeginningOfMonth)
-        {
-            DateTime utcNow = DateTime.UtcNow;
-
-            for (int i = 0; i < 21; i++) // Look up to 3 weeks ahead
-            {
-                DateTime candidate = utcNow.Date.AddDays(i);
-
-                if (candidate.Day <= daysSkippedAtBeginningOfMonth)
-                    continue;
-                if (candidate.DayOfWeek != targetDay)
-                    continue;
-
-                var targetDateTimeUtc = new DateTime(candidate.Year, candidate.Month, candidate.Day, hour, minute, 0, DateTimeKind.Utc);
-                if (targetDateTimeUtc > utcNow)
-                {
-                    return new DateTimeOffset(targetDateTimeUtc).ToUnixTimeSeconds();
-                }
-            }
-
-            throw new Exception("No valid UTC timestamp found");
-        }
-
-        private List<long> GetNextMandos()
-        {
-            List<long> validThursdays = [];
-            DateTime current = DateTime.UtcNow;
-            int year = current.Year;
-            int month = current.Month;
-
-            while (validThursdays.Count < 2)
-            {
-                if (current.DayOfWeek == DayOfWeek.Thursday
-                    && (InDayRange(current, 10, 16) || InDayRange(current, 24, 30)))
-                {
-                    validThursdays.Add(new DateTimeOffset(current).ToUnixTimeSeconds());
-                }
-                current = current.AddDays(1);
-            }
-
-            return validThursdays;
-        }
-
-        private bool InDayRange(DateTime dateTime, int minDay, int maxDay)
-        {
-            return dateTime.Day >= minDay && dateTime.Day <= maxDay;
-        }
     }
 }
