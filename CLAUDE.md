@@ -26,10 +26,13 @@ dotnet run --project ZenBotCS
 dotnet ef database update --project ZenBotCS --context BotDataContext
 dotnet ef database update --project ZenBotCS --context CacheDbContext
 dotnet ef migrations add <Name> --project ZenBotCS --context BotDataContext --output-dir Migrations/BotDb
+dotnet test
 ```
 
-There is **no test project** and no CI. Verify changes by building; there is no
-automated suite to run.
+There is **no CI**. `ZenBotCS.Tests` (xUnit) covers the pure, decision-making
+helpers — schedules, windows, parsing, diffing — not the Discord or CocApi
+surface. Verify changes by building and running `dotnet test`; anything that
+talks to Discord or the CoC API still has to be checked by hand.
 
 ## Docker
 
