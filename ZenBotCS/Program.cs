@@ -94,6 +94,7 @@ public class Program
             .AddHostedService<PlayerStatsUpdateService>()
             .AddHostedService<LeadershipLogBackfillService>()
             .AddHostedService<CwlRosterReminderService>()
+            .AddHostedService<WarSpinReminderService>()
             .AddTransient<TestService>()
             .AddTransient<GspreadService>()
             .AddTransient<PlayerService>()

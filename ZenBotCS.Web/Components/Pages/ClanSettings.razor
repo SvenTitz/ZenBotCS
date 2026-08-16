@@ -107,6 +107,8 @@
                             v => _settings.CwlRosterReminderPingRoleId = v)
                         <MudNumericField T="int" @bind-Value="_settings.CwlRosterReminderLeadHours"
                                          Label="Lead time (hours before war day)" Min="0" Max="168" Class="mt-3" />
+                        <MudSwitch T="bool" @bind-Value="_settings.WarSpinReminderEnabled" Color="Color.Primary"
+                                   Label="Send war spin reminder" Class="d-block mt-3" />
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -259,7 +261,8 @@
         + $"signup={s.EnableCwlSignup}, champStyle={s.ChampStyleCwlRoster}, ccGoldDump={s.CcGoldDump}, "
         + $"leadershipChannel={ChannelName(s.LeadershipChannelId)}, "
         + $"cwlRosterReminder={s.CwlRosterReminderEnabled} "
-        + $"(ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h)";
+        + $"(ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h), "
+        + $"warSpinReminder={s.WarSpinReminderEnabled}";
 
     private string RoleName(ulong? id) =>
         id is null ? "-" : _roleNames.TryGetValue(id.Value, out var n) ? $"@{n}" : id.Value.ToString();

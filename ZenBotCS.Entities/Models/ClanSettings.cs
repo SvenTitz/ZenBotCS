@@ -43,4 +43,6 @@ public class ClanSettings
     public ulong? CwlRosterReminderPingRoleId { get; set; }
 
     public int CwlRosterReminderLeadHours { get; set; } = 4;
+
+    public bool WarSpinReminderEnabled { get; set; }
 }

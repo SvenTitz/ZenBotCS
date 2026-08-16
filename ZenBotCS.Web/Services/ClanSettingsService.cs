@@ -66,6 +66,7 @@ public partial class ClanSettingsService(IDbContextFactory<BotDataContext> dbFac
         row.CwlRosterReminderEnabled = edited.CwlRosterReminderEnabled;
         row.CwlRosterReminderPingRoleId = edited.CwlRosterReminderPingRoleId;
         row.CwlRosterReminderLeadHours = edited.CwlRosterReminderLeadHours;
+        row.WarSpinReminderEnabled = edited.WarSpinReminderEnabled;
 
         await db.SaveChangesAsync(ct);
     }

@@ -437,7 +437,8 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         SocketTextChannel? leadershipChannel,
         bool? cwlRosterReminderEnabled,
         SocketRole? cwlRosterReminderPingRole,
-        int? cwlRosterReminderLeadHours)
+        int? cwlRosterReminderLeadHours,
+        bool? warSpinReminderEnabled)
     {
         var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
         var clanSettings = _botDb.ClanSettings.FirstOrDefault(cs => cs.ClanTag == clanTag);
@@ -520,6 +521,11 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
         if (cwlRosterReminderLeadHours is not null)
         {
             clanSettings.CwlRosterReminderLeadHours = cwlRosterReminderLeadHours.Value;
+        }
+
+        if (warSpinReminderEnabled is not null)
+        {
+            clanSettings.WarSpinReminderEnabled = warSpinReminderEnabled.Value;
         }
 
         _botDb.SaveChanges();
