@@ -15,6 +15,7 @@ namespace ZenBotCS.Entities
         public DbSet<PlayerStats> PlayerStats { get; set; }
         public DbSet<CwlHistory> CwlHistories { get; set; }
         public DbSet<ClanSettings> ClanSettings { get; set; }
+        public DbSet<SubRoster> SubRosters { get; set; }
         public DbSet<LeadershipLogMessage> LeadershipLogMessages { get; set; }
         public DbSet<LeadershipLogUser> LeadershipLogUsers { get; set; }
         public DbSet<LeadershipLogPlayerTag> LeadershipLogPlayerTags { get; set; }
@@ -40,6 +41,23 @@ namespace ZenBotCS.Entities
             modelBuilder.Entity<ReminderState>()
                 .HasIndex(x => new { x.ClanTag, x.Kind })
                 .IsUnique();
+
+            // A game clan hosts at most one subroster, so any game clan tag resolves to exactly one
+            // roster (see CwlRosterSource.RosterFor). Everything else about subrosters leans on this.
+            modelBuilder.Entity<SubRoster>()
+                .HasIndex(x => x.GameClanTag)
+                .IsUnique();
+
+            modelBuilder.Entity<SubRoster>()
+                .HasIndex(x => x.ClanTag);
+
+            // SetNull, not Cascade: deleting a subroster (or resetting the season) must return its
+            // players to the clan's main roster, never delete their signups.
+            modelBuilder.Entity<CwlSignup>()
+                .HasOne<SubRoster>()
+                .WithMany()
+                .HasForeignKey(s => s.SubRosterId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());
 

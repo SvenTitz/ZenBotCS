@@ -181,6 +181,9 @@ namespace ZenBotCS.Services.SlashCommands
         {
             await _botDb.CwlSignups.Where(s => !s.Archieved).ForEachAsync(s => s.Archieved = true);
             _botDb.PinnedRosters.RemoveRange(_botDb.PinnedRosters);
+            // Subrosters are a per-season arrangement; the FK is SetNull, so the signups just archived
+            // keep their rows and fall back to their clan's main roster.
+            _botDb.SubRosters.RemoveRange(_botDb.SubRosters);
             await _botDb.SaveChangesAsync();
         }
 

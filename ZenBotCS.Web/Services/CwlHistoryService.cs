@@ -135,8 +135,18 @@ public class CwlHistoryService(
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
+        // clanTag is the clan the wars were played in, which for a subroster's host clan is not the
+        // clan its players signed up for — resolve the roster first or the bonus flags come back empty.
+        var subRosterId = await db.SubRosters
+            .Where(sr => sr.GameClanTag == clanTag)
+            .Select(sr => (int?)sr.Id)
+            .FirstOrDefaultAsync(ct);
+
         var bonusTags = await db.CwlSignups
-            .Where(s => s.ClanTag == clanTag && s.Bonus && !s.Archieved)
+            .Where(s => s.Bonus && !s.Archieved)
+            .Where(s => subRosterId == null
+                ? s.ClanTag == clanTag && s.SubRosterId == null
+                : s.SubRosterId == subRosterId)
             .Select(s => s.PlayerTag)
             .ToHashSetAsync(ct);
 

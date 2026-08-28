@@ -41,6 +41,14 @@ public class CwlSignup
     public bool Archieved { get; set; }
 
     /// <summary>
+    /// Which roster this signup sits in. Null means the clan's main roster — the one that plays in
+    /// <see cref="ClanTag"/> itself. Nullable so existing signups and every bot write path
+    /// (<c>/cwl signup add</c>, the wizard, <c>/cwl signup move</c>) keep working untouched.
+    /// Cleared whenever <see cref="ClanTag"/> changes, since a subroster belongs to one owner clan.
+    /// </summary>
+    public int? SubRosterId { get; set; }
+
+    /// <summary>
     /// Leadership-hidden on the roster site: excluded from the web grid, day totals, and the generated
     /// image, and treated as opted-out of every day by the bot's per-day features (pre-war reminder,
     /// missing-day check). Role assignment still includes hidden players. The signup row is kept.

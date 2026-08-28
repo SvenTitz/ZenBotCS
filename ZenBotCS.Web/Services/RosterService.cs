@@ -185,6 +185,9 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
         var signup = await db.CwlSignups.FirstOrDefaultAsync(s => s.Id == signupId, ct)
             ?? throw new InvalidOperationException($"Signup {signupId} not found.");
         signup.ClanTag = newClanTag;
+        // A subroster belongs to one owner clan, so a signup leaving that clan can't stay in it —
+        // drop the player into the destination clan's main roster.
+        signup.SubRosterId = null;
         signup.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }

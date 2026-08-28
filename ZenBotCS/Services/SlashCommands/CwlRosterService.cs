@@ -281,14 +281,19 @@ namespace ZenBotCS.Services.SlashCommands
         /// Used by the automated reminder background service: returns a ready-to-post embed when the
         /// clan's upcoming CWL day lineup does NOT match the pinned roster, otherwise null.
         /// </summary>
-        public async Task<Embed?> TryBuildRosterReminder(string clanTag)
+        /// <param name="rosterName">
+        /// Names the roster in the title when the clan hosts a subroster, so two reminders landing in
+        /// the same leadership channel are told apart. Null for a clan's own main roster.
+        /// </param>
+        public async Task<Embed?> TryBuildRosterReminder(string clanTag, string? rosterName = null)
         {
             var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
             var (status, _) = await TryGetDayRosterStatus(clanTag);
             if (status is null || !status.HasMismatch)
                 return null;
 
-            return BuildDayRosterEmbed(clan.Name, status);
+            var title = rosterName is null ? clan.Name : $"{clan.Name} · {rosterName}";
+            return BuildDayRosterEmbed(title, status);
         }
 
         /// <summary>The CWL war currently in preparation (the upcoming day) for the clan, or null.</summary>

@@ -457,7 +457,12 @@ namespace ZenBotCS.Services.SlashCommands
             {
                 var signup = _botDb.CwlSignups.FirstOrDefault(s => s.PlayerTag == player.Tag && !s.Archieved);
                 if (signup is not null)
+                {
                     signup.ClanTag = signupMoveContext.ClanTo.Tag;
+                    // A subroster belongs to one owner clan, so a signup leaving that clan can't stay in
+                    // it — drop the player into the destination clan's main roster.
+                    signup.SubRosterId = null;
+                }
             }
             _botDb.SaveChanges();
 
