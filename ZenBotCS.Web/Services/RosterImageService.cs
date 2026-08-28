@@ -126,7 +126,13 @@ public class RosterImageService
         return w;
     }
 
-    public byte[] Generate(string clanName, IReadOnlyList<CwlSignup> signups, bool dark = false)
+    /// <param name="rosterName">Names the roster in the title when the clan has split its signups.</param>
+    /// <param name="hostClanName">
+    /// The clan this roster plays its wars in, when that isn't the clan itself. Drawn as a full line
+    /// under the title rather than a caption — the image is how players find out where to move.
+    /// </param>
+    public byte[] Generate(string clanName, IReadOnlyList<CwlSignup> signups, bool dark = false,
+        string? rosterName = null, string? hostClanName = null)
     {
         var rows = signups.OrderBy(s => s.PlayerThLevel).ThenBy(s => s.PlayerName).ToList();
 
@@ -140,6 +146,8 @@ public class RosterImageService
         const int rowH = 38;
         const int headerH = 50;
         const int titleH = 58;
+        // Room for the "play your wars in X" line only when there is one.
+        int subtitleH = hostClanName is null ? 0 : 38;
         const int dayW = 46;
         const int thW = 56;
         const int countW = 48;
@@ -155,7 +163,7 @@ public class RosterImageService
         var prefW = Math.Max(96, (int)rows.Select(r => regular.MeasureText(r.WarPreference.ToString())).DefaultIfEmpty(0f).Max() + 2 * pad);
 
         var width = nameW + thW + 7 * dayW + prefW + countW;
-        var height = titleH + headerH + rows.Count * rowH + legendH;
+        var height = titleH + subtitleH + headerH + rows.Count * rowH + legendH;
 
         float xName = 0, xTh = nameW, xDay0 = nameW + thW, xPref = nameW + thW + 7 * dayW, xCount = xPref + prefW;
 
@@ -163,9 +171,17 @@ public class RosterImageService
         var canvas = surface.Canvas;
         canvas.Clear(bg);
 
-        DrawRuns(canvas, titleFont, _bold, $"{clanName} — CWL Roster", pad, Baseline(titleFont, 0, titleH));
+        var heading = rosterName is null ? clanName : $"{clanName} · {rosterName}";
+        DrawRuns(canvas, titleFont, _bold, $"{heading} — CWL Roster", pad, Baseline(titleFont, 0, titleH));
 
-        float y = titleH;
+        if (hostClanName is not null)
+        {
+            using var subtitleFont = new SKPaint { Typeface = _bold, TextSize = 22, IsAntialias = true, Color = text };
+            DrawRuns(canvas, subtitleFont, _bold, $"Play your CWL wars in {hostClanName}", pad,
+                Baseline(subtitleFont, titleH, subtitleH));
+        }
+
+        float y = titleH + subtitleH;
         fill.Color = headerBg;
         canvas.DrawRect(SKRect.Create(0, y, width, headerH), fill);
 

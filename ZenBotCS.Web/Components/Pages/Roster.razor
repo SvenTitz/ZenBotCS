@@ -90,11 +90,24 @@
                        Disabled="@(_signups is null || _signups.Count == 0 || _solving)">
                 Solve roster
             </MudButton>
-            <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
-                       Variant="Variant.Outlined" Size="Size.Small" Class="mr-2"
-                       Disabled="@(_signups is null || _signups.Count == 0)">
-                Download image
-            </MudButton>
+            @if (_subRosters.Count == 0)
+            {
+                <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
+                           Variant="Variant.Outlined" Size="Size.Small" Class="mr-2"
+                           Disabled="@(_signups is null || _signups.Count == 0)">
+                    Download image
+                </MudButton>
+            }
+            else
+            {
+                <MudMenu Label="Download image" StartIcon="@Icons.Material.Filled.Download"
+                         EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                         Variant="Variant.Outlined" Size="Size.Small" Class="mr-2" Dense="true"
+                         Disabled="@(_downloading || _signups is null || _signups.Count == 0)">
+                    <MudMenuItem OnClick="DownloadImage">This roster</MudMenuItem>
+                    <MudMenuItem OnClick="DownloadAllImages">All rosters (one image each)</MudMenuItem>
+                </MudMenu>
+            }
             @if (_hidden is { Count: > 0 })
             {
                 <MudButton OnClick="@(() => _showHidden = !_showHidden)" StartIcon="@Icons.Material.Filled.VisibilityOff"
@@ -427,6 +440,7 @@
     private bool _selectMode;
     private readonly HashSet<int> _selected = new();
     private bool _movingBulk;
+    private bool _downloading;
     // Single-row "move to roster" reuses the bulk path with one id.
     private bool _rowMoveOpen;
     private CwlSignup? _rowMoveTarget;
@@ -934,9 +948,41 @@
         if (_signups is null || _signups.Count == 0)
             return;
 
-        var bytes = RosterImage.Generate(_clanName, _signups, dark: true);
+        var current = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId);
+        await EmitImageAsync(_signups, current);
+    }
+
+    // One image per roster: each names its own host clan, which is how players learn where to move.
+    private async Task DownloadAllImages()
+    {
+        _downloading = true;
+        try
+        {
+            var main = await Rosters.GetRosterAsync(ClanTag, null);
+            if (main.Count > 0)
+                await EmitImageAsync(main, null);
+
+            foreach (var sr in _subRosters)
+            {
+                var signups = await Rosters.GetRosterAsync(ClanTag, sr.Id);
+                if (signups.Count > 0)
+                    await EmitImageAsync(signups, sr);
+            }
+            Logger.LogInformation("{Actor} downloaded images for every roster of {Clan}", _actor, _clanName);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
+    private async Task EmitImageAsync(IReadOnlyList<CwlSignup> signups, SubRoster? subRoster)
+    {
+        var hostName = subRoster is null ? null : await ClanNames.GetNameOrTagAsync(subRoster.GameClanTag);
+        var bytes = RosterImage.Generate(_clanName, signups, dark: true, subRoster?.Name, hostName);
         var base64 = Convert.ToBase64String(bytes);
-        var fileName = $"{_clanName}-cwl-roster.png".Replace(' ', '_');
+        var suffix = subRoster is null ? string.Empty : $"-{subRoster.Name}";
+        var fileName = $"{_clanName}{suffix}-cwl-roster.png".Replace(' ', '_');
         await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
     }
 
