@@ -61,6 +61,7 @@ public partial class ClanSettingsService(IDbContextFactory<BotDataContext> dbFac
         row.ColorHex = string.IsNullOrWhiteSpace(edited.ColorHex) ? null : edited.ColorHex;
         row.EnableCwlSignup = edited.EnableCwlSignup;
         row.ChampStyleCwlRoster = edited.ChampStyleCwlRoster;
+        row.CwlRosterTargetSize = edited.CwlRosterTargetSize;
         row.CcGoldDump = edited.CcGoldDump;
         row.LeadershipChannelId = edited.LeadershipChannelId;
         row.CwlRosterReminderEnabled = edited.CwlRosterReminderEnabled;
