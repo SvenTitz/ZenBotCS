@@ -75,6 +75,16 @@
                        Variant="Variant.Outlined" Size="Size.Small" Class="mr-2">
                 Add player
             </MudButton>
+            @if (_subRosters.Count > 0)
+            {
+                <MudButton OnClick="ToggleSelectMode" StartIcon="@Icons.Material.Filled.Checklist"
+                           Variant="@(_selectMode ? Variant.Filled : Variant.Outlined)"
+                           Color="@(_selectMode ? Color.Primary : Color.Default)"
+                           Size="Size.Small" Class="mr-2"
+                           Disabled="@(_signups is null || _signups.Count == 0)">
+                    @(_selectMode ? "Done" : "Select")
+                </MudButton>
+            }
             <MudButton OnClick="SolveRoster" StartIcon="@Icons.Material.Filled.AutoFixHigh"
                        Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mr-2"
                        Disabled="@(_signups is null || _signups.Count == 0 || _solving)">
@@ -115,6 +125,32 @@
         }
         else
         {
+            @if (_selectMode)
+            {
+                <MudPaper Outlined="true" Class="pa-2 mb-2 d-flex flex-wrap align-center gap-2">
+                    <MudCheckBox T="bool?" Dense="true" Color="Color.Primary"
+                                 Value="AllSelectedState" ValueChanged="OnSelectAllChanged" />
+                    <MudText Typo="Typo.body2">
+                        @(_selected.Count == 0 ? "Select players to move" : $"{_selected.Count} selected")
+                    </MudText>
+                    <MudSpacer />
+                    <MudMenu Label="Move to…" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                             EndIcon="@Icons.Material.Filled.ArrowDropDown" Dense="true"
+                             Disabled="@(_selected.Count == 0 || _movingBulk)"
+                             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        @if (_rosterId is not null)
+                        {
+                            <MudMenuItem OnClick="@(() => MoveSelectedTo(null, "Main roster"))">Main roster</MudMenuItem>
+                        }
+                        @foreach (var sr in _subRosters.Where(sr => sr.Id != _rosterId))
+                        {
+                            var target = sr;
+                            <MudMenuItem OnClick="@(() => MoveSelectedTo(target.Id, target.Name))">@target.Name</MudMenuItem>
+                        }
+                    </MudMenu>
+                </MudPaper>
+            }
+
             <div class="roster-scroll" @ref="_scrollContainer">
                 <MudTable Items="_signups" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.None">
                     <HeaderContent>
@@ -143,13 +179,28 @@
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Player" Class="sticky-col">
+            @* In selection mode the checkbox takes the row menu's place rather than adding a column,
+               so the pinned Player column keeps its width and mobile is unaffected. *@
                             <div style="display:flex;align-items:center;gap:2px;">
-                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
-                                         AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
-                                    <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" OnClick="@(() => OpenMove(context))">Move to clan…</MudMenuItem>
-                                    <MudMenuItem Icon="@Icons.Material.Filled.VisibilityOff" OnClick="@(() => HidePlayer(context))">Hide</MudMenuItem>
-                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => RemovePlayer(context))">Remove</MudMenuItem>
-                                </MudMenu>
+                                @if (_selectMode)
+                                {
+                                    <MudCheckBox T="bool" Dense="true" Color="Color.Primary"
+                                                 Value="@_selected.Contains(context.Id)"
+                                                 ValueChanged="@(v => OnRowSelected(context, v))" />
+                                }
+                                else
+                                {
+                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
+                                             AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                                        @if (_subRosters.Count > 0)
+                                        {
+                                            <MudMenuItem Icon="@Icons.Material.Filled.SwapVert" OnClick="@(() => OpenRowMove(context))">Move to roster…</MudMenuItem>
+                                        }
+                                        <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" OnClick="@(() => OpenMove(context))">Move to clan…</MudMenuItem>
+                                        <MudMenuItem Icon="@Icons.Material.Filled.VisibilityOff" OnClick="@(() => HidePlayer(context))">Hide</MudMenuItem>
+                                        <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => RemovePlayer(context))">Remove</MudMenuItem>
+                                    </MudMenu>
+                                }
                                 <span>@context.PlayerName</span>
                             </div>
                         </MudTd>
@@ -295,6 +346,26 @@
             </DialogActions>
         </MudDialog>
 
+        <MudDialog @bind-Visible="_rowMoveOpen" Options="_dialogOptions">
+            <TitleContent>Move @_rowMoveTarget?.PlayerName</TitleContent>
+            <DialogContent>
+                <MudSelect T="int?" @bind-Value="_rowMoveTargetRoster" Label="Destination roster">
+                    @if (_rosterId is not null)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)null)">Main roster</MudSelectItem>
+                    }
+                    @foreach (var sr in _subRosters.Where(sr => sr.Id != _rosterId))
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)sr.Id)">@sr.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="@(() => _rowMoveOpen = false)">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitRowMove">Move</MudButton>
+            </DialogActions>
+        </MudDialog>
+
         <MudDialog @bind-Visible="_renameOpen" Options="_dialogOptions">
             <TitleContent>Rename roster</TitleContent>
             <DialogContent>
@@ -352,6 +423,14 @@
     private List<(string Tag, string Name)> _hostClans = new();
     private bool _renameOpen;
     private string _renameName = string.Empty;
+    // Bulk selection
+    private bool _selectMode;
+    private readonly HashSet<int> _selected = new();
+    private bool _movingBulk;
+    // Single-row "move to roster" reuses the bulk path with one id.
+    private bool _rowMoveOpen;
+    private CwlSignup? _rowMoveTarget;
+    private int? _rowMoveTargetRoster;
     // Add-player dialog
     private bool _addOpen;
     private bool _adding;
@@ -627,6 +706,8 @@
         _signups = await Rosters.GetRosterAsync(ClanTag, _rosterId);
         _hidden = await Rosters.GetHiddenAsync(ClanTag, _rosterId);
         _counts = await SubRosters.GetCountsAsync(ClanTag);
+        // Ids that just left this roster must not stay selected and get moved again.
+        _selected.RemoveWhere(id => _signups.All(s => s.Id != id));
         if (_hidden.Count == 0)
             _showHidden = false;
     }
@@ -645,6 +726,102 @@
         {
             _targetSize = previous;
             Snackbar.Add("Couldn't save the war size. Please try again.", Severity.Error);
+        }
+    }
+
+    private void ToggleSelectMode()
+    {
+        _selectMode = !_selectMode;
+        _selected.Clear(); // leaving selection mode discards the selection rather than hiding it
+    }
+
+    private void OnRowSelected(CwlSignup signup, bool selected)
+    {
+        if (selected)
+            _selected.Add(signup.Id);
+        else
+            _selected.Remove(signup.Id);
+    }
+
+    // Tri-state header checkbox: null renders as indeterminate for a partial selection.
+    private bool? AllSelectedState
+    {
+        get
+        {
+            if (_signups is null || _signups.Count == 0 || _selected.Count == 0)
+                return false;
+            return _selected.Count == _signups.Count ? true : null;
+        }
+    }
+
+    private void OnSelectAllChanged(bool? value)
+    {
+        _selected.Clear();
+        if (value == true && _signups is not null)
+            foreach (var s in _signups)
+                _selected.Add(s.Id);
+    }
+
+    private async Task MoveSelectedTo(int? subRosterId, string targetName)
+    {
+        if (_selected.Count == 0)
+            return;
+
+        var ids = _selected.ToList();
+        var names = _signups?.Where(s => ids.Contains(s.Id)).Select(s => s.PlayerName).ToList() ?? [];
+
+        _movingBulk = true;
+        try
+        {
+            await Rosters.MoveToSubRosterAsync(ids, subRosterId);
+            Logger.LogInformation("{Actor} moved {Count} player(s) from {FromRoster} to {ToRoster} in {Clan}: {Players}",
+                _actor, ids.Count, _rosterTitle, targetName, _clanName, string.Join(", ", names));
+            _selected.Clear();
+            Snackbar.Add($"Moved {ids.Count} player(s) to {targetName}.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't move the players. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _movingBulk = false;
+        }
+    }
+
+    private void OpenRowMove(CwlSignup signup)
+    {
+        _rowMoveTarget = signup;
+        // Preselect the likeliest destination: back to the main roster from a subroster, or the first
+        // other roster when we're already on the main one.
+        _rowMoveTargetRoster = _rosterId is null
+            ? _subRosters.FirstOrDefault()?.Id
+            : null;
+        _rowMoveOpen = true;
+    }
+
+    private async Task SubmitRowMove()
+    {
+        if (_rowMoveTarget is null)
+            return;
+
+        var targetName = _rowMoveTargetRoster is null
+            ? "Main roster"
+            : _subRosters.FirstOrDefault(sr => sr.Id == _rowMoveTargetRoster)?.Name ?? "another roster";
+
+        try
+        {
+            await Rosters.MoveToSubRosterAsync([_rowMoveTarget.Id], _rowMoveTargetRoster);
+            Logger.LogInformation("{Actor} moved {Player} ({Tag}) from {FromRoster} to {ToRoster} in {Clan}",
+                _actor, _rowMoveTarget.PlayerName, _rowMoveTarget.PlayerTag, _rosterTitle, targetName, _clanName);
+            _rowMoveOpen = false;
+            Snackbar.Add($"Moved {_rowMoveTarget.PlayerName} to {targetName}.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't move the player. Please try again.", Severity.Error);
         }
     }
 
