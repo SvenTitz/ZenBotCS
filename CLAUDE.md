@@ -118,5 +118,12 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
 - **Commands are registered globally only** (`RegisterCommandsGloballyAsync` in
   `InteractionHandler`). Don't re-add `RegisterCommandsToGuildAsync` — registering
   both bulk-writes the same set twice and duplicates every command in that guild.
+- **A roster is not a clan.** A clan can split its CWL signups into sub-rosters that
+  play in *other* clans (event/partner only, one host clan per sub-roster). A signup's
+  `ClanTag` is where it belongs; `SubRosterId` (null = the clan's main roster) decides
+  where it plays. Anything asking "who plays in clan X" must go through
+  `CwlRosterSource.RosterFor` — a bare `Where(s => s.ClanTag == tag)` silently returns the
+  wrong players for a host clan. Changing a signup's `ClanTag` must clear `SubRosterId`.
+
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.
