@@ -63,28 +63,52 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
             .ToList();
     }
 
-    /// <summary>Active (non-archived, non-hidden) signups for a clan, ordered like the sheet (TH, then name).</summary>
-    public async Task<List<CwlSignup>> GetRosterAsync(string clanTag, CancellationToken ct = default)
+    /// <summary>
+    /// Active (non-archived, non-hidden) signups in one of the clan's rosters, ordered like the sheet
+    /// (TH, then name). <paramref name="subRosterId"/> null means the clan's main roster.
+    /// </summary>
+    public async Task<List<CwlSignup>> GetRosterAsync(string clanTag, int? subRosterId = null, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         return await db.CwlSignups
-            .Where(s => s.ClanTag == clanTag && !s.Archieved && !s.Hidden)
+            .Where(s => s.ClanTag == clanTag && s.SubRosterId == subRosterId && !s.Archieved && !s.Hidden)
             .OrderBy(s => s.PlayerThLevel)
             .ThenBy(s => s.PlayerName)
             .ToListAsync(ct);
     }
 
-    /// <summary>Hidden (but not archived) signups for a clan, for the "show hidden" restore section.</summary>
-    public async Task<List<CwlSignup>> GetHiddenAsync(string clanTag, CancellationToken ct = default)
+    /// <summary>Hidden (but not archived) signups in one roster, for the "show hidden" restore section.</summary>
+    public async Task<List<CwlSignup>> GetHiddenAsync(string clanTag, int? subRosterId = null, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         return await db.CwlSignups
-            .Where(s => s.ClanTag == clanTag && !s.Archieved && s.Hidden)
+            .Where(s => s.ClanTag == clanTag && s.SubRosterId == subRosterId && !s.Archieved && s.Hidden)
             .OrderBy(s => s.PlayerThLevel)
             .ThenBy(s => s.PlayerName)
             .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Move signups into one of their clan's rosters (null = the main roster) in a single round-trip.
+    /// Only moves within the clan, so <see cref="CwlSignup.ClanTag"/> is untouched — a cross-clan move
+    /// is <see cref="MoveSignupAsync"/>, which clears the roster instead.
+    /// </summary>
+    public async Task MoveToSubRosterAsync(IReadOnlyCollection<int> signupIds, int? subRosterId, CancellationToken ct = default)
+    {
+        if (signupIds.Count == 0)
+            return;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var signups = await db.CwlSignups.Where(s => signupIds.Contains(s.Id)).ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        foreach (var signup in signups)
+        {
+            signup.SubRosterId = subRosterId;
+            signup.UpdatedAt = now;
+        }
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<bool> IsChampStyleAsync(string clanTag, CancellationToken ct = default)
@@ -132,7 +156,7 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
     /// user-facing result — <see cref="AddResult.Ok"/> false carries the message to show.
     /// </summary>
     public async Task<AddResult> AddSignupAsync(string clanTag, string? rawTag, WarPreference warPreference,
-        bool bonus, CancellationToken ct = default)
+        bool bonus, int? subRosterId = null, CancellationToken ct = default)
     {
         var tag = NormalizeTag(rawTag);
         if (string.IsNullOrEmpty(tag))
@@ -162,6 +186,7 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
             OptOutDays = OptOutDays.None,
             WarPreference = warPreference,
             Bonus = bonus,
+            SubRosterId = subRosterId, // lands in whichever roster the leader had open
         });
         await db.SaveChangesAsync(ct);
         return AddResult.Success($"Added {player.Value.Name} (TH{player.Value.TownHall}).", player.Value.Name);

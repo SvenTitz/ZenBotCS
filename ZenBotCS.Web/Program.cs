@@ -28,6 +28,8 @@ builder.Services.AddMudServices();
 
 // Thin query service over the bot DB (keeps components free of EF plumbing).
 builder.Services.AddScoped<ZenBotCS.Web.Services.RosterService>();
+// The rosters a clan splits its signups into, and the rules for creating them.
+builder.Services.AddScoped<ZenBotCS.Web.Services.SubRosterService>();
 // Clan name lookup from the CoC cache DB (cached in memory).
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();

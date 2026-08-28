@@ -33,6 +33,12 @@ public class ClanSettings
 
     public bool ChampStyleCwlRoster { get; set; }
 
+    /// <summary>
+    /// War size the clan's main roster is built for (15 or 30). Subrosters carry their own
+    /// <see cref="SubRoster.TargetSize"/>; this is the equivalent for the roster with no row.
+    /// </summary>
+    public int CwlRosterTargetSize { get; set; } = 15;
+
     public bool CcGoldDump { get; set; }
 
     /// <summary>Where leadership-facing reminders are posted (CWL roster, war spin).</summary>
