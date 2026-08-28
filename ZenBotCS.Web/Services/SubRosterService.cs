@@ -137,17 +137,29 @@ public class SubRosterService(IDbContextFactory<BotDataContext> dbFactory)
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>How many active signups sit in each of the clan's rosters, keyed by sub-roster id
-    /// (null = the main roster). Drives the counts on the tab strip.</summary>
-    public async Task<Dictionary<int?, int>> GetCountsAsync(string clanTag, CancellationToken ct = default)
+    /// <summary>How many active signups sit in each of the clan's rosters. Drives the tab counts.</summary>
+    public async Task<RosterCounts> GetCountsAsync(string clanTag, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        return await db.CwlSignups
+
+        var grouped = await db.CwlSignups
             .Where(s => s.ClanTag == clanTag && !s.Archieved && !s.Hidden)
             .GroupBy(s => s.SubRosterId)
             .Select(g => new { g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+            .ToListAsync(ct);
+
+        return new RosterCounts(
+            grouped.FirstOrDefault(x => x.Key == null)?.Count ?? 0,
+            grouped.Where(x => x.Key != null).ToDictionary(x => x.Key!.Value, x => x.Count));
     }
+}
+
+/// <summary>Active signup counts per roster. Split rather than keyed on a nullable id so the main
+/// roster stays a named thing rather than a null key.</summary>
+public record RosterCounts(int MainRoster, IReadOnlyDictionary<int, int> SubRosters)
+{
+    public int For(int? subRosterId) =>
+        subRosterId is null ? MainRoster : SubRosters.GetValueOrDefault(subRosterId.Value);
 }
 
 /// <summary>Outcome of creating a roster: the new row, or the reason it was rejected.</summary>

@@ -1,8 +1,11 @@
 @page "/clans/{ClanTag}"
 @page "/clans/{ClanTag}/roster"
+@page "/clans/{ClanTag}/roster/{SubRosterId:int}"
 @page "/roster/{ClanTag}"
 @using System.Security.Claims
 @inject RosterService Rosters
+@inject SubRosterService SubRosters
+@inject NavigationManager Nav
 @inject ClanNameService ClanNames
 @inject PlayerSuggestionService PlayerSuggestions
 @inject RosterImageService RosterImage
@@ -31,12 +34,43 @@
         }
     </NotAuthorized>
     <Authorized>
+        @* Roster switcher. Only shown once the clan actually has a second roster, so a clan that
+           never splits its signups sees the page exactly as before. *@
+        @if (_subRosters.Count > 0)
+        {
+            <div class="d-flex flex-wrap align-center gap-1 mb-3" style="border-bottom:1px solid var(--mud-palette-lines-default)">
+                @RosterTab(null, "Main roster", ClanTag)
+                @foreach (var sr in _subRosters)
+                {
+                    @RosterTab(sr.Id, sr.Name, sr.GameClanTag)
+                }
+                <MudTooltip Text="New roster">
+                    <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="OpenCreate" aria-label="New roster" />
+                </MudTooltip>
+            </div>
+        }
+
         <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Class="mb-4">
             <div>
-                <MudText Typo="Typo.h5">@_clanName</MudText>
-                <MudText Typo="Typo.caption" Style="font-family:monospace;">@ClanTag</MudText>
+                <MudText Typo="Typo.h5">@_rosterTitle</MudText>
+                <MudText Typo="Typo.caption" Style="font-family:monospace;">@_rosterSubtitle</MudText>
             </div>
             <MudSpacer />
+            @if (_subRosters.Count == 0)
+            {
+                <MudButton OnClick="OpenCreate" StartIcon="@Icons.Material.Filled.CallSplit"
+                           Variant="Variant.Text" Size="Size.Small" Class="mr-2">
+                    Split roster
+                </MudButton>
+            }
+            else if (_rosterId is not null)
+            {
+                <MudMenu Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Dense="true"
+                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Class="mr-2">
+                    <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="OpenRename">Rename roster…</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.DeleteOutline" OnClick="DeleteRoster">Delete roster…</MudMenuItem>
+                </MudMenu>
+            }
             <MudButton OnClick="OpenAdd" StartIcon="@Icons.Material.Filled.PersonAdd"
                        Variant="Variant.Outlined" Size="Size.Small" Class="mr-2">
                 Add player
@@ -60,7 +94,7 @@
             }
             <div>
                 <MudText Typo="Typo.caption" Class="d-block">War size</MudText>
-                <MudToggleGroup T="int" @bind-Value="_targetSize" Size="Size.Small" Color="Color.Primary">
+                <MudToggleGroup T="int" Value="_targetSize" ValueChanged="OnTargetSizeChanged" Size="Size.Small" Color="Color.Primary">
                     <MudToggleItem Value="15">15v15</MudToggleItem>
                     <MudToggleItem Value="30">30v30</MudToggleItem>
                 </MudToggleGroup>
@@ -222,6 +256,56 @@
                            Disabled="@(_moving || string.IsNullOrEmpty(_moveClanTag))">Move</MudButton>
             </DialogActions>
         </MudDialog>
+        <MudDialog @bind-Visible="_createOpen" Options="_dialogOptions">
+            <TitleContent>New roster</TitleContent>
+            <DialogContent>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Splits this clan's signups. The new roster plays its CWL in another clan, so pick
+                    where it plays — players will need to move to that clan before the spin.
+                </MudText>
+                <MudTextField T="string" @bind-Value="_createName" Label="Roster name" Placeholder="B Roster" Class="mb-3" />
+                @if (_hostClans.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                        No clan is free to host a roster. Add an event or partner clan in the bot first —
+                        a clan can only host one roster, and war clans run their own CWL.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudSelect T="string" @bind-Value="_createHostTag" Label="Plays in" Class="mb-3">
+                        @foreach (var c in _hostClans)
+                        {
+                            <MudSelectItem Value="c.Tag">@c.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                <MudText Typo="Typo.caption" Class="d-block mb-1">War size</MudText>
+                <MudToggleGroup T="int" @bind-Value="_createSize" Size="Size.Small" Color="Color.Primary">
+                    <MudToggleItem Value="15">15v15</MudToggleItem>
+                    <MudToggleItem Value="30">30v30</MudToggleItem>
+                </MudToggleGroup>
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="@(() => _createOpen = false)" Disabled="_creating">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitCreate"
+                           Disabled="@(_creating || string.IsNullOrEmpty(_createHostTag))">
+                    @(_creating ? "Creating…" : "Create")
+                </MudButton>
+            </DialogActions>
+        </MudDialog>
+
+        <MudDialog @bind-Visible="_renameOpen" Options="_dialogOptions">
+            <TitleContent>Rename roster</TitleContent>
+            <DialogContent>
+                <MudTextField T="string" @bind-Value="_renameName" Label="Roster name" />
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="@(() => _renameOpen = false)">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitRename"
+                           Disabled="@(string.IsNullOrWhiteSpace(_renameName))">Rename</MudButton>
+            </DialogActions>
+        </MudDialog>
     </Authorized>
 </AuthorizeView>
 
@@ -233,6 +317,14 @@
     ];
 
     [Parameter] public string ClanTag { get; set; } = string.Empty;
+
+    /// <summary>Which of the clan's rosters is open. Null (no route segment) is the main roster.
+    /// It lives in the route so a refresh or a shared link lands on the same roster.</summary>
+    [Parameter] public int? SubRosterId { get; set; }
+
+    /// <summary>The open roster after checking it still exists. Blazor owns <see cref="SubRosterId"/>
+    /// and may write it back from the route, so everything else reads this instead.</summary>
+    private int? _rosterId;
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -247,6 +339,19 @@
 
     private List<CwlSignup>? _hidden;
     private bool _showHidden;
+    // Rosters
+    private List<SubRoster> _subRosters = new();
+    private RosterCounts _counts = new(0, new Dictionary<int, int>());
+    private string _rosterTitle = string.Empty;
+    private string _rosterSubtitle = string.Empty;
+    private bool _createOpen;
+    private bool _creating;
+    private string _createName = string.Empty;
+    private string? _createHostTag;
+    private int _createSize = 15;
+    private List<(string Tag, string Name)> _hostClans = new();
+    private bool _renameOpen;
+    private string _renameName = string.Empty;
     // Add-player dialog
     private bool _addOpen;
     private bool _adding;
@@ -277,7 +382,9 @@
         }
     }
 
-    protected override async Task OnInitializedAsync()
+    // Runs on every navigation, not just the first, so switching rosters via the tab strip reloads
+    // the grid rather than leaving the previous roster's players on screen.
+    protected override async Task OnParametersSetAsync()
     {
         _clanName = ClanTag;
         if (AuthState is null)
@@ -292,10 +399,52 @@
 
         _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
         _champStyle = await Rosters.IsChampStyleAsync(ClanTag);
-        _signups = await Rosters.GetRosterAsync(ClanTag);
-        _hidden = await Rosters.GetHiddenAsync(ClanTag);
-        _targetSize = _signups.Count >= 30 ? 30 : 15; // 30v30 once a clan has 30+ signed up
+        _subRosters = await SubRosters.GetForClanAsync(ClanTag);
+        _counts = await SubRosters.GetCountsAsync(ClanTag);
+
+        // A stale id in the URL (roster deleted in another tab) falls back to the main roster rather
+        // than rendering an empty grid with no way back.
+        _rosterId = _subRosters.Any(sr => sr.Id == SubRosterId) ? SubRosterId : null;
+
+        await ApplyRosterIdentityAsync();
+        _targetSize = await SubRosters.GetTargetSizeAsync(ClanTag, _rosterId);
+        await ReloadAsync();
     }
+
+    // Heading and subtitle: the main roster is the clan itself, a subroster is named and shows the
+    // clan it plays in — that clan is what players have to move to, so it's never hidden away.
+    private async Task ApplyRosterIdentityAsync()
+    {
+        var current = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId);
+        if (current is null)
+        {
+            _rosterTitle = _clanName;
+            _rosterSubtitle = ClanTag;
+            return;
+        }
+
+        var hostName = await ClanNames.GetNameOrTagAsync(current.GameClanTag);
+        _rosterTitle = $"{_clanName} · {current.Name}";
+        _rosterSubtitle = $"plays in {hostName} ({current.GameClanTag})";
+    }
+
+    private string RosterHref(int? subRosterId) =>
+        subRosterId is null
+            ? $"/clans/{Uri.EscapeDataString(ClanTag)}/roster"
+            : $"/clans/{Uri.EscapeDataString(ClanTag)}/roster/{subRosterId}";
+
+    private RenderFragment RosterTab(int? id, string label, string tagForTitle) =>
+        @<MudButton Href="@RosterHref(id)"
+                    Variant="Variant.Text"
+                    Size="Size.Small"
+                    title="@tagForTitle"
+                    Color="@(id == _rosterId ? Color.Primary : Color.Inherit)"
+                    Style="@(id == _rosterId
+                        ? "border-bottom:2px solid var(--mud-palette-primary);border-radius:0"
+                        : "border-radius:0")">
+            @label
+            <MudText Inline="true" Typo="Typo.caption" Class="ml-1 mud-text-secondary">@_counts.For(id)</MudText>
+        </MudButton>;
 
     // RosterDays and OptOutDays share the same bit layout, so a day flag value maps directly.
     private static bool IsAvailable(CwlSignup s, RosterDays day) => ((int)s.OptOutDays & (int)day) == 0;
@@ -325,8 +474,8 @@
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Solve roster",
-            $"This resets every player to their default availability and re-solves the {_targetSize}v{_targetSize} "
-            + "lineup from scratch — any manual day edits will be lost. Continue?",
+            $"This resets every player in {_rosterTitle} to their default availability and re-solves the "
+            + $"{_targetSize}v{_targetSize} lineup from scratch — any manual day edits will be lost. Continue?",
             yesText: "Solve", cancelText: "Cancel");
         if (confirmed != true)
             return;
@@ -337,14 +486,14 @@
             RosterSolver.Solve(_signups, _targetSize);
             var values = _signups.ToDictionary(s => s.Id, s => s.EffectiveRosterDays);
             await Rosters.SetRosterDaysBulkAsync(values);
-            Logger.LogInformation("{Actor} solved the {Clan} roster ({Size}v{Size}, {Count} signups)",
-                _actor, _clanName, _targetSize, _targetSize, _signups.Count);
+            Logger.LogInformation("{Actor} solved {Roster} ({Size}v{Size}, {Count} signups)",
+                _actor, _rosterTitle, _targetSize, _targetSize, _signups.Count);
             Snackbar.Add("Roster solved and saved.", Severity.Success);
         }
         catch
         {
             // Resync the grid to the DB so it doesn't show an unsaved solved state.
-            _signups = await Rosters.GetRosterAsync(ClanTag);
+            _signups = await Rosters.GetRosterAsync(ClanTag, _rosterId);
             Snackbar.Add("Couldn't save the solved roster. Please try again.", Severity.Error);
         }
         finally
@@ -373,15 +522,15 @@
         _adding = true;
         try
         {
-            var result = await Rosters.AddSignupAsync(ClanTag, tag, _addPref, _addBonus);
+            var result = await Rosters.AddSignupAsync(ClanTag, tag, _addPref, _addBonus, _rosterId);
             if (!result.Ok)
             {
                 Snackbar.Add(result.Message, Severity.Error);
                 return; // keep the dialog open so they can correct the tag
             }
             _addOpen = false;
-            Logger.LogInformation("{Actor} added {Player} ({Tag}) to {Clan} — pref {Pref}, bonus {Bonus}",
-                _actor, result.PlayerName ?? tag, tag, _clanName, _addPref, _addBonus);
+            Logger.LogInformation("{Actor} added {Player} ({Tag}) to {Roster} — pref {Pref}, bonus {Bonus}",
+                _actor, result.PlayerName ?? tag, tag, _rosterTitle, _addPref, _addBonus);
             Snackbar.Add(result.Message, Severity.Success);
             await ReloadAsync();
         }
@@ -475,10 +624,132 @@
     // Re-fetch both lists after any mutation so the grid, totals, and hidden section stay in sync.
     private async Task ReloadAsync()
     {
-        _signups = await Rosters.GetRosterAsync(ClanTag);
-        _hidden = await Rosters.GetHiddenAsync(ClanTag);
+        _signups = await Rosters.GetRosterAsync(ClanTag, _rosterId);
+        _hidden = await Rosters.GetHiddenAsync(ClanTag, _rosterId);
+        _counts = await SubRosters.GetCountsAsync(ClanTag);
         if (_hidden.Count == 0)
             _showHidden = false;
+    }
+
+    private async Task OnTargetSizeChanged(int size)
+    {
+        var previous = _targetSize;
+        _targetSize = size; // optimistic — the day-count colours react immediately
+        try
+        {
+            await SubRosters.SetTargetSizeAsync(ClanTag, _rosterId, size);
+            Logger.LogInformation("{Actor} set the war size of {Roster} to {Size}v{Size}",
+                _actor, _rosterTitle, size, size);
+        }
+        catch
+        {
+            _targetSize = previous;
+            Snackbar.Add("Couldn't save the war size. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task OpenCreate()
+    {
+        _createName = _subRosters.Count == 0 ? "B Roster" : string.Empty;
+        _createHostTag = null;
+        _createSize = 15;
+        var tags = await SubRosters.GetAvailableHostClanTagsAsync(ClanTag);
+        var options = new List<(string Tag, string Name)>();
+        foreach (var tag in tags)
+            options.Add((tag, await ClanNames.GetNameOrTagAsync(tag)));
+        _hostClans = options;
+        _createOpen = true;
+    }
+
+    private async Task SubmitCreate()
+    {
+        if (string.IsNullOrEmpty(_createHostTag))
+            return;
+
+        _creating = true;
+        try
+        {
+            var result = await SubRosters.CreateAsync(ClanTag, _createHostTag, _createName, _createSize);
+            if (!result.Ok)
+            {
+                Snackbar.Add(result.Error!, Severity.Error);
+                return; // keep the dialog open so the choice can be corrected
+            }
+
+            var hostName = _hostClans.FirstOrDefault(c => c.Tag == _createHostTag).Name ?? _createHostTag;
+            Logger.LogInformation("{Actor} created roster {Roster} for {Clan}, playing in {HostClan} ({Size}v{Size})",
+                _actor, result.SubRoster!.Name, _clanName, hostName, _createSize, _createSize);
+            _createOpen = false;
+            Snackbar.Add($"Created {result.SubRoster.Name}.", Severity.Success);
+            Nav.NavigateTo(RosterHref(result.SubRoster.Id));
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't create the roster. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private void OpenRename()
+    {
+        _renameName = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId)?.Name ?? string.Empty;
+        _renameOpen = true;
+    }
+
+    private async Task SubmitRename()
+    {
+        if (_rosterId is null || string.IsNullOrWhiteSpace(_renameName))
+            return;
+
+        var previousName = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId)?.Name;
+        try
+        {
+            await SubRosters.RenameAsync(_rosterId.Value, _renameName);
+            Logger.LogInformation("{Actor} renamed roster {OldName} to {NewName} in {Clan}",
+                _actor, previousName, _renameName.Trim(), _clanName);
+            _renameOpen = false;
+            _subRosters = await SubRosters.GetForClanAsync(ClanTag);
+            await ApplyRosterIdentityAsync();
+            Snackbar.Add("Roster renamed.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't rename the roster. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteRoster()
+    {
+        var current = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId);
+        if (current is null)
+            return;
+
+        var count = _signups?.Count ?? 0;
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Delete {current.Name}",
+            count == 0
+                ? $"Delete {current.Name}? Nobody is in it."
+                : $"Delete {current.Name}? Its {count} player(s) move back to the main roster — "
+                  + "their signups and day lineups are kept.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+
+        try
+        {
+            await SubRosters.DeleteAsync(current.Id);
+            Logger.LogInformation("{Actor} deleted roster {Roster} from {Clan}; {Count} player(s) returned to the main roster",
+                _actor, current.Name, _clanName, count);
+            Snackbar.Add($"Deleted {current.Name}.", Severity.Success);
+            Nav.NavigateTo(RosterHref(null));
+        }
+        catch
+        {
+            Snackbar.Add("Couldn't delete the roster. Please try again.", Severity.Error);
+        }
     }
 
     private async Task DownloadImage()
