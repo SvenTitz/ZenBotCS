@@ -5,6 +5,7 @@
 @using System.Security.Claims
 @inject RosterService Rosters
 @inject SubRosterService SubRosters
+@inject ClanSettingsService ClanSettingsSvc
 @inject NavigationManager Nav
 @inject ClanNameService ClanNames
 @inject PlayerSuggestionService PlayerSuggestions
@@ -489,6 +490,15 @@
 
         // Discord username + user id, recorded on every action in the audit log.
         _actor = $"{user.Identity?.Name ?? "unknown"} ({user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "?"})";
+
+        // Event and partner clans have no roster of their own — their CWL players sign up under a war
+        // clan. Reached by a direct URL, send them to the page they do have rather than an empty grid.
+        var settings = await ClanSettingsSvc.GetAsync(ClanTag);
+        if (!RosterTabs.HasRoster(settings.ClanType))
+        {
+            Nav.NavigateTo($"/clans/{Uri.EscapeDataString(ClanTag)}/cwl", replace: true);
+            return;
+        }
 
         _clanName = await ClanNames.GetNameOrTagAsync(ClanTag);
         _champStyle = await Rosters.IsChampStyleAsync(ClanTag);

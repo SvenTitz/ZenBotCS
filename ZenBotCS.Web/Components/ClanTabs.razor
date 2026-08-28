@@ -1,4 +1,5 @@
 @inject ClanNameService ClanNames
+@inject ClanSettingsService ClanSettings
 
 @* Shared header + tab strip for a clan hub. Each clan-scoped page renders this at the top with the
    active tab key, so Roster / CWL history / Stats / Settings all share one consistent navigation. *@
@@ -10,7 +11,10 @@
 </div>
 
 <div class="d-flex flex-wrap gap-1 mb-4" style="border-bottom:1px solid var(--mud-palette-lines-default)">
-    @Tab("roster", "Roster", Icons.Material.Filled.Groups)
+    @if (_hasRoster)
+    {
+        @Tab("roster", "Roster", Icons.Material.Filled.Groups)
+    }
     @Tab("cwl", "CWL history", Icons.Material.Filled.EmojiEvents)
     @Tab("stats", "Stats", Icons.Material.Filled.BarChart)
     <AuthorizeView Roles="@AuthRoles.Gatekeeper">
@@ -25,10 +29,13 @@
     [Parameter, EditorRequired] public string Active { get; set; } = string.Empty;
 
     private string _name = string.Empty;
+    private bool _hasRoster = true;
 
     protected override async Task OnParametersSetAsync()
     {
         _name = await ClanNames.GetNameOrTagAsync(ClanTag);
+        var settings = await ClanSettings.GetAsync(ClanTag);
+        _hasRoster = RosterTabs.HasRoster(settings.ClanType);
     }
 
     private RenderFragment Tab(string key, string label, string icon) =>

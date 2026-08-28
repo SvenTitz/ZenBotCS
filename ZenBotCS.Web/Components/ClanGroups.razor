@@ -14,7 +14,10 @@
         @foreach (var clan in items)
         {
             <MudItem xs="12" sm="6" md="4">
+                @* Event clans have no roster of their own — their players sign up under a war clan
+                   and are moved into a sub-roster — so their card opens CWL history instead. *@
                 <ClanCard ClanTag="@clan.ClanTag" Name="@ClanName(clan.ClanTag)"
+                          Href="@(RosterTabs.HasRoster(clan.ClanType) ? null : $"/clans/{Uri.EscapeDataString(clan.ClanTag)}/cwl")"
                           SignupCount="@(clan.ClanType is ClanType.War or ClanType.FWA ? clan.SignupCount : (int?)null)"
                           ChampStyle="@(clan.ClanType == ClanType.War && clan.ChampStyle)" />
             </MudItem>
