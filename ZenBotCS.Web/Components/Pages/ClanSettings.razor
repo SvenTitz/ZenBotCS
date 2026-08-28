@@ -1,7 +1,9 @@
 @page "/clans/{ClanTag}/settings"
 @using System.Security.Claims
+@using ZenBotCS.Entities
 @using ClanSettingsEntity = ZenBotCS.Entities.Models.ClanSettings
 @inject ClanSettingsService Settings
+@inject SubRosterService SubRosters
 @inject DiscordGuildService Guild
 @inject ClanNameService ClanNames
 @inject ISnackbar Snackbar
@@ -47,6 +49,8 @@
                         <MudText Typo="Typo.subtitle1" Class="mb-3">General</MudText>
 
                         <MudSelect T="ClanType" @bind-Value="_settings.ClanType" Label="Clan type"
+                                   HelperText="Event and partner clans have no roster of their own — they host a war clan's roster instead."
+                                   Error="@(TypeError is not null)" ErrorText="@TypeError"
                                    Dense="true" Class="mb-3">
                             @foreach (var t in Enum.GetValues<ClanType>())
                             {
@@ -93,6 +97,66 @@
                                    Label="Champ-style CWL roster" Class="d-block" />
                         <MudSwitch T="bool" @bind-Value="_settings.CcGoldDump" Color="Color.Primary"
                                    Label="Clan Capital gold dump clan" Class="d-block" />
+
+                        @if (RosterTabs.HasRoster(_settings.ClanType))
+                        {
+                            <div class="mt-3">
+                                <MudText Typo="Typo.caption" Class="d-block">Main roster war size</MudText>
+                                <MudToggleGroup T="int" @bind-Value="_settings.CwlRosterTargetSize"
+                                                Size="Size.Small" Color="Color.Primary">
+                                    <MudToggleItem Value="15">15v15</MudToggleItem>
+                                    <MudToggleItem Value="30">30v30</MudToggleItem>
+                                </MudToggleGroup>
+                                <MudText Typo="Typo.caption" Class="d-block mud-text-secondary mt-1">
+                                    Extra rosters carry their own size, set on the roster page.
+                                </MudText>
+                            </div>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">Rosters</MudText>
+
+                        @if (_hostedRoster is not null)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                                @_hostedRoster.Name (@WarSize(_hostedRoster.TargetSize)) belongs to
+                                <b>@_hostedOwnerName</b> and plays its CWL here. Its players are managed on
+                                <MudLink Href="@RosterHref(_hostedRoster.ClanTag, _hostedRoster.Id)">that clan's roster page</MudLink>.
+                            </MudAlert>
+                        }
+
+                        @if (RosterTabs.HasRoster(_settings.ClanType))
+                        {
+                            <div class="d-flex align-center gap-2 mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">
+                                    Main roster — plays here (@WarSize(_settings.CwlRosterTargetSize))
+                                </MudText>
+                            </div>
+                            @foreach (var sr in _ownRosters)
+                            {
+                                <div class="d-flex align-center gap-2 mb-1">
+                                    <MudIcon Icon="@Icons.Material.Filled.CallSplit" Size="Size.Small" />
+                                    <MudText Typo="Typo.body2">
+                                        @sr.Name — plays in @HostName(sr.GameClanTag) (@WarSize(sr.TargetSize))
+                                    </MudText>
+                                </div>
+                            }
+                            <MudButton Href="@RosterHref(ClanTag, null)" StartIcon="@Icons.Material.Filled.OpenInNew"
+                                       Variant="Variant.Text" Size="Size.Small" Class="mt-2">
+                                Manage on the roster page
+                            </MudButton>
+                        }
+                        else if (_hostedRoster is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                No roster plays here yet. A war clan can split its CWL signups into a roster
+                                hosted by this clan, created from that clan's roster page.
+                            </MudText>
+                        }
                     </MudPaper>
                 </MudItem>
 
@@ -102,7 +166,11 @@
                         @ChannelSelect("Leadership channel", _settings.LeadershipChannelId,
                             v => _settings.LeadershipChannelId = v)
                         <MudSwitch T="bool" @bind-Value="_settings.CwlRosterReminderEnabled" Color="Color.Primary"
-                                   Label="Send CWL roster reminder" Class="d-block mb-2" />
+                                   Label="Send CWL roster reminder" Class="d-block" />
+                        <MudText Typo="Typo.caption" Class="d-block mud-text-secondary mb-2">
+                            One reminder per roster — the clan's own plus every roster it plays in another
+                            clan — all posted to the channel above.
+                        </MudText>
                         @RoleSelect("CWL roster ping role", _settings.CwlRosterReminderPingRoleId,
                             v => _settings.CwlRosterReminderPingRoleId = v)
                         <MudNumericField T="int" @bind-Value="_settings.CwlRosterReminderLeadHours"
@@ -115,7 +183,7 @@
 
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-4">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
-                           OnClick="SaveAsync" Disabled="@(_saving || !ClanSettingsService.IsValidColorHex(_settings.ColorHex))">
+                           OnClick="SaveAsync" Disabled="@(_saving || TypeError is not null || !ClanSettingsService.IsValidColorHex(_settings.ColorHex))">
                     @(_saving ? "Saving…" : "Save settings")
                 </MudButton>
                 <MudSpacer />
@@ -140,6 +208,11 @@
     private bool _saving;
     private bool _refreshing;
 
+    private List<SubRoster> _ownRosters = [];
+    private Dictionary<string, string> _hostNames = new(); // game clan tag -> clan name, for this clan's rosters
+    private SubRoster? _hostedRoster;                      // the roster another clan plays in this clan, if any
+    private string _hostedOwnerName = string.Empty;
+
     private IReadOnlyList<DiscordRole> _roles = [];
     private IReadOnlyList<DiscordChannel> _channels = [];
     private Dictionary<ulong, string> _roleNames = new();
@@ -160,6 +233,46 @@
 
         await LoadGuildAsync();
         await LoadSettingsAsync();
+        await LoadRostersAsync();
+    }
+
+    // The rosters this clan owns, and the one another clan plays here. Both constrain the clan type,
+    // so they're loaded before it can be edited — see <see cref="TypeError"/>.
+    private async Task LoadRostersAsync()
+    {
+        _ownRosters = await SubRosters.GetForClanAsync(ClanTag);
+        _hostNames = new Dictionary<string, string>();
+        foreach (var sr in _ownRosters)
+            _hostNames[sr.GameClanTag] = await ClanNames.GetNameOrTagAsync(sr.GameClanTag);
+
+        _hostedRoster = await SubRosters.GetHostedAsync(ClanTag);
+        _hostedOwnerName = _hostedRoster is null
+            ? string.Empty
+            : await ClanNames.GetNameOrTagAsync(_hostedRoster.ClanTag);
+    }
+
+    /// <summary>
+    /// Why the picked clan type can't be saved, or null when it's fine. Rosters are only rule-checked
+    /// when they're created (SubRosterRules), so the type they depend on has to be held to the same
+    /// rules here — otherwise a type change quietly breaks a roster that already exists.
+    /// </summary>
+    private string? TypeError
+    {
+        get
+        {
+            if (_settings is null)
+                return null;
+
+            if (_hostedRoster is not null && !SubRosterRules.CanHost(_settings.ClanType))
+                return $"{_hostedOwnerName} plays its \"{_hostedRoster.Name}\" roster in this clan, and only "
+                    + "event or partner clans can host one. Delete that roster first.";
+
+            if (_ownRosters.Count > 0 && !RosterTabs.HasRoster(_settings.ClanType))
+                return $"This clan owns {_ownRosters.Count} extra roster{(_ownRosters.Count == 1 ? "" : "s")}, "
+                    + "managed on its roster page — which event and partner clans don't have. Delete them first.";
+
+            return null;
+        }
     }
 
     private async Task LoadSettingsAsync()
@@ -203,6 +316,12 @@
             return;
         }
 
+        if (TypeError is not null)
+        {
+            Snackbar.Add(TypeError, Severity.Error);
+            return;
+        }
+
         _saving = true;
         try
         {
@@ -227,7 +346,9 @@
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Reset clan settings",
-            $"Delete all saved settings for {_clanName}? The clan will fall back to bot defaults. This can't be undone.",
+            $"Delete all saved settings for {_clanName}? The clan will fall back to bot defaults. "
+            + RosterResetWarning()
+            + "This can't be undone.",
             yesText: "Reset", cancelText: "Cancel");
         if (confirmed != true)
             return;
@@ -258,11 +379,36 @@
     private string Summarize(ClanSettingsEntity s) =>
         $"type={s.ClanType}, order={s.Order}, color={s.ColorHex ?? "-"}, "
         + $"member={RoleName(s.MemberRoleId)}, elder={RoleName(s.ElderRoleId)}, leader={RoleName(s.LeaderRoleId)}, cwl={RoleName(s.CwlRoleId)}, "
-        + $"signup={s.EnableCwlSignup}, champStyle={s.ChampStyleCwlRoster}, ccGoldDump={s.CcGoldDump}, "
+        + $"signup={s.EnableCwlSignup}, champStyle={s.ChampStyleCwlRoster}, mainRosterSize={s.CwlRosterTargetSize}, "
+        + $"ccGoldDump={s.CcGoldDump}, "
         + $"leadershipChannel={ChannelName(s.LeadershipChannelId)}, "
         + $"cwlRosterReminder={s.CwlRosterReminderEnabled} "
         + $"(ping={RoleName(s.CwlRosterReminderPingRoleId)}, lead={s.CwlRosterReminderLeadHours}h), "
         + $"warSpinReminder={s.WarSpinReminderEnabled}";
+
+    // Resetting drops the clan type, which is what the roster rules hang off — say so before it happens.
+    private string RosterResetWarning()
+    {
+        if (_ownRosters.Count > 0)
+            return $"Its {_ownRosters.Count} extra roster{(_ownRosters.Count == 1 ? "" : "s")} and their players "
+                + "stay, but the main roster falls back to 15v15. ";
+
+        if (_hostedRoster is not null)
+            return $"{_hostedOwnerName}'s \"{_hostedRoster.Name}\" keeps playing here, but this clan stops "
+                + "counting as an event or partner clan. ";
+
+        return string.Empty;
+    }
+
+    private static string WarSize(int size) => $"{size}v{size}";
+
+    private string HostName(string gameClanTag) =>
+        _hostNames.TryGetValue(gameClanTag, out var name) ? name : gameClanTag;
+
+    private static string RosterHref(string clanTag, int? subRosterId) =>
+        subRosterId is null
+            ? $"/clans/{Uri.EscapeDataString(clanTag)}/roster"
+            : $"/clans/{Uri.EscapeDataString(clanTag)}/roster/{subRosterId}";
 
     private string RoleName(ulong? id) =>
         id is null ? "-" : _roleNames.TryGetValue(id.Value, out var n) ? $"@{n}" : id.Value.ToString();

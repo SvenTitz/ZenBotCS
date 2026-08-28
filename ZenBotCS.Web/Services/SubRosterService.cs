@@ -27,6 +27,16 @@ public class SubRosterService(IDbContextFactory<BotDataContext> dbFactory)
     }
 
     /// <summary>
+    /// The roster another clan plays in <paramref name="gameClanTag"/>, or null when this clan hosts
+    /// none. At most one exists — <see cref="SubRoster.GameClanTag"/> is unique.
+    /// </summary>
+    public async Task<SubRoster?> GetHostedAsync(string gameClanTag, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        return await db.SubRosters.FirstOrDefaultAsync(sr => sr.GameClanTag == gameClanTag, ct);
+    }
+
+    /// <summary>
     /// Clans that could host a new roster for <paramref name="clanTag"/>: event and partner clans
     /// that no other roster has claimed. Ordered like the rest of the site, by ClanSettings.Order.
     /// </summary>
