@@ -125,5 +125,16 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
   `CwlRosterSource.RosterFor` — a bare `Where(s => s.ClanTag == tag)` silently returns the
   wrong players for a host clan. Changing a signup's `ClanTag` must clear `SubRosterId`.
 
+- **Never call ClashKing's `/discord_links` directly.** That endpoint goes down regularly, and a
+  failed lookup used to be indistinguishable from "this player is unlinked" — which silently broke
+  CWL signups. `ClashKingApiClient.PostDiscordLinksAsync` now returns `null` for a failed request
+  (an empty/`null` *value* still means genuinely unlinked), and `Services/DiscordLinkSource` is the
+  only thing that should read it: it falls back to the bot's own `DiscordLinks` table whenever the
+  API has no answer, and mirrors successful lookups back into that table. `ZenBotCS.Web` does the
+  same fallback inline in `RosterService.AddSignupAsync`. The table can be stale (an upstream
+  unlink still resolves to the old user) — that is the accepted trade. `/links add|remove|lookup`
+  edit and inspect that table by hand for when the backup itself is missing an account; note that
+  `/links update` mirrors the API verbatim and will overwrite manual edits on its next run.
+
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.
