@@ -27,7 +27,7 @@ namespace ZenBotCS.Services.SlashCommands
         IMemoryCache _cache,
         CwlSignupCache _signupCache,
         IConfiguration _config,
-        ClashKingApiClient _clashKingApiClient,
+        DiscordLinkSource _discordLinkSource,
         DiscordHelper _discordHelper)
     {
         public (Embed[], MessageComponent) SignupPost()
@@ -123,8 +123,7 @@ namespace ZenBotCS.Services.SlashCommands
         public async Task<(string, MessageComponent)> CreateCwlSignupAccountSelection(SocketUser user)
         {
 
-            //var playerTags = _botDb.DiscordLinks.Where(dl => dl.DiscordId == user.Id).Select(dl => dl.PlayerTag);
-            var playerTags = await _clashKingApiClient.PostDiscordLinksAsync(user.Id);
+            var playerTags = await _discordLinkSource.GetPlayerTagsAsync(user.Id);
 
             if (!playerTags.Any())
             {

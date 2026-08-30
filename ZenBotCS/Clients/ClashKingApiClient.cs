@@ -55,25 +55,27 @@ public class ClashKingApiClient
         return default;
     }
 
-    public async Task<ulong?> PostDiscordLinksAsync(string playerTag)
-    {
-        var dict = await PostDiscordLinksAsync([playerTag]);
-        dict.TryGetValue(playerTag, out ulong? userId);
-        return userId;
-    }
-
-    public async Task<Dictionary<string, ulong?>> PostDiscordLinksAsync(List<string> playerTags)
+    /// <summary>
+    /// Player tag -> Discord user id for a batch of tags. Returns null when the request itself
+    /// failed: "the endpoint is down" is not the same answer as "nobody is linked", and callers
+    /// fall back to the bot's own link table on the former (see DiscordLinkSource). A tag that is
+    /// present with a null value really is unlinked.
+    /// </summary>
+    public async Task<Dictionary<string, ulong?>?> PostDiscordLinksAsync(List<string> playerTags)
     {
         var request = CreateRequest("/discord_links", Method.Post, playerTags);
-        var result = await ExecuteRequestAsync<Dictionary<string, ulong?>>(request);
-        return result ?? [];
+        return await ExecuteRequestAsync<Dictionary<string, ulong?>>(request);
     }
 
-    public async Task<List<string>> PostDiscordLinksAsync(ulong userId)
+    /// <summary>
+    /// The player tags linked to a Discord user. Returns null when the request failed; an empty
+    /// list means the API answered and knows no accounts for that user.
+    /// </summary>
+    public async Task<List<string>?> PostDiscordLinksAsync(ulong userId)
     {
         var request = CreateRequest("/discord_links", Method.Post, new List<string> { userId.ToString() });
         var result = await ExecuteRequestAsync<Dictionary<string, ulong?>>(request);
-        return result?.Where(kvp => kvp.Value != null).Select(kvp => kvp.Key).ToList() ?? [];
+        return result?.Where(kvp => kvp.Value != null).Select(kvp => kvp.Key).ToList();
     }
 
     public async Task<List<Entities.Models.ClashKingApi.WarData>?> GetClanWarHistory(

@@ -10,11 +10,11 @@ using ZenBotCS.Entities;
 using ZenBotCS.Helper;
 
 namespace ZenBotCS.Services.SlashCommands;
-public class GatekeepService(ClashKingApiClient _clashKingApiClient, BotDataContext _botDb, EmbedHelper _embedHelper, DiscordSocketClient _discordClient, PlayersClient _playersClient, CustomClansClient _clansClient, IConfiguration _config)
+public class GatekeepService(DiscordLinkSource _discordLinkSource, BotDataContext _botDb, EmbedHelper _embedHelper, DiscordSocketClient _discordClient, PlayersClient _playersClient, CustomClansClient _clansClient, IConfiguration _config)
 {
     public async Task<Embed[]> Lookup(SocketUser user)
     {
-        var playerTags = await _clashKingApiClient.PostDiscordLinksAsync(user.Id);
+        var playerTags = await _discordLinkSource.GetPlayerTagsAsync(user.Id);
         var normalizedTags = playerTags.Select(t => t.ToUpper()).ToList();
 
         // Get all message IDs where users are mentioned

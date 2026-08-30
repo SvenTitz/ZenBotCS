@@ -13,7 +13,10 @@ namespace ZenBotCS.Web.Services;
 /// </summary>
 public class ClashKingClient(HttpClient http, ILogger<ClashKingClient> logger)
 {
-    /// <summary>The Discord user id linked to a player tag, or null if unlinked / the API errors.</summary>
+    /// <summary>
+    /// The Discord user id linked to a player tag, or null if unlinked / the API errors. Callers
+    /// that need an answer either way fall back to the bot's own DiscordLinks table.
+    /// </summary>
     public async Task<ulong?> GetDiscordUserIdAsync(string playerTag, CancellationToken ct = default)
     {
         try
@@ -21,7 +24,10 @@ public class ClashKingClient(HttpClient http, ILogger<ClashKingClient> logger)
             // POST /discord_links with a list of tags → { "#TAG": <discord id or null>, ... }
             using var resp = await http.PostAsJsonAsync("discord_links", new[] { playerTag }, ct);
             if (!resp.IsSuccessStatusCode)
+            {
+                logger.LogWarning("ClashKing discord-link lookup for {tag} returned {status}", playerTag, resp.StatusCode);
                 return null;
+            }
 
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
             if (!doc.RootElement.TryGetProperty(playerTag, out var idEl))

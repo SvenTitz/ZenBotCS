@@ -11,7 +11,7 @@ namespace ZenBotCS.Services.SlashCommands
         BotDataContext _botDb,
         GspreadService _gspreadService,
         CwlRosterSource _rosterSource,
-        ClashKingApiClient _clashKingApiClient,
+        DiscordLinkSource _discordLinkSource,
         ILogger<CwlRolesService> _logger)
     {
         public async Task<string> RolesAssign(SocketInteractionContext context, SocketRole role, string? spreadsheetUrl, string? clantag)
@@ -28,8 +28,8 @@ namespace ZenBotCS.Services.SlashCommands
 
             if (playerTags is null || playerTags.Count == 0)
                 return "No roster found. Provide a spreadsheet-url or select a clan with a roster.";
-            var discordLinks = await _clashKingApiClient.PostDiscordLinksAsync(playerTags);
-            var userIds = discordLinks.Values.OfType<ulong>().Distinct();
+            var discordLinks = await _discordLinkSource.GetDiscordIdsAsync(playerTags);
+            var userIds = discordLinks.Values.Distinct();
 
             foreach (var userId in userIds)
             {

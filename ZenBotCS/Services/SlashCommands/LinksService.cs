@@ -54,6 +54,14 @@ public class LinksService(BotDataContext botDb, PlayersClient playersClient, Emb
         var playerTags = players.Select(p => p.Tag).ToList();
 
         var links = await _ckApiClient.PostDiscordLinksAsync(playerTags);
+        if (links is null)
+        {
+            // The endpoint is down, not "nobody is linked" -- keep the table we already have so it
+            // can serve as the backup (see DiscordLinkSource) instead of logging every player as
+            // unlinked.
+            _logger.LogWarning("ClashKing discord link update skipped: the lookup failed for all {count} player accounts", playerTags.Count);
+            return;
+        }
 
         foreach (var link in links)
         {

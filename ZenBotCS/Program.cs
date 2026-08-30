@@ -108,6 +108,7 @@ public class Program
             .AddTransient<CwlSignupService>()
             .AddTransient<HelpService>()
             .AddTransient<LinksService>()
+            .AddTransient<DiscordLinkSource>()
             .AddTransient<ReminderService>()
             // Singleton: ClashKingApiClient owns one reused RestClient (and its HttpClient). As a
             // transient it created a new HttpClient per resolution, risking socket/handler exhaustion.

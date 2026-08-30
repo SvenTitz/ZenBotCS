@@ -22,7 +22,7 @@ namespace ZenBotCS.Services.SlashCommands
         CwlRosterSource _rosterSource,
         PlayersClient _playersClient,
         PlayerService _playerService,
-        ClashKingApiClient _clashKingApiClient)
+        DiscordLinkSource _discordLinkSource)
     {
         public async Task<Embed> SignupSummaryAllClans()
         {
@@ -255,7 +255,9 @@ namespace ZenBotCS.Services.SlashCommands
                 return _embedHelper.ErrorEmbed("Error", $"Invalid Player Tag `{playerTag}`");
             }
 
-            var discordUserId = await _clashKingApiClient.PostDiscordLinksAsync(playerTag);
+            // player.Tag, not the raw argument: the resolver matches tags as given, and CocApi has
+            // already normalised this one.
+            var discordUserId = await _discordLinkSource.GetDiscordIdAsync(player.Tag);
             if (discordUserId is null)
             {
                 return _embedHelper.ErrorEmbed("Error", $"{player.Name} not linked to a Discord user.");

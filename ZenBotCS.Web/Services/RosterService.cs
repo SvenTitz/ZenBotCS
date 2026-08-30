@@ -10,11 +10,12 @@ namespace ZenBotCS.Web.Services;
 /// Uses a short-lived context per call via <see cref="IDbContextFactory{TContext}"/> — see Program.cs
 /// for why a scoped context is unsafe in Blazor Server.
 /// </summary>
-public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiClient cocApi, ClashKingClient clashKing)
+public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiClient cocApi, ClashKingClient clashKing, ILogger<RosterService> logger)
 {
     private readonly IDbContextFactory<BotDataContext> _dbFactory = dbFactory;
     private readonly CocApiClient _cocApi = cocApi;
     private readonly ClashKingClient _clashKing = clashKing;
+    private readonly ILogger<RosterService> _logger = logger;
 
     /// <summary>Clans that have CWL signup enabled, with their current active signup count.</summary>
     public async Task<List<ClanSummary>> GetSignupClansAsync(CancellationToken ct = default)
@@ -168,11 +169,31 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
         if (player is null)
             return AddResult.Fail($"Couldn't find a player with tag {tag}.");
 
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // ClashKing's link endpoint goes down often enough to block signups outright, so the bot's
+        // DiscordLinks table -- its rolling copy of that API -- is the backup whenever the API has
+        // no answer. The copy can be stale (a player who unlinked upstream still resolves to their
+        // old user), which beats refusing the signup. A fresh answer is mirrored back into it.
         var discordId = await _clashKing.GetDiscordUserIdAsync(tag, ct);
+        if (discordId is null)
+        {
+            discordId = await db.DiscordLinks
+                .Where(dl => dl.PlayerTag == tag)
+                .Select(dl => (ulong?)dl.DiscordId)
+                .FirstOrDefaultAsync(ct);
+
+            if (discordId is not null)
+                _logger.LogInformation("ClashKing had no discord link for {tag}, used the bot's link table", tag);
+        }
+        else
+        {
+            db.AddOrUpdateDiscordLink(new DiscordLink { PlayerTag = tag, DiscordId = discordId.Value });
+        }
+
         if (discordId is null)
             return AddResult.Fail($"{player.Value.Name} isn't linked to a Discord account.");
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
         if (await db.CwlSignups.AnyAsync(s => s.PlayerTag == tag && !s.Archieved, ct))
             return AddResult.Fail($"{player.Value.Name} is already signed up.");
 
