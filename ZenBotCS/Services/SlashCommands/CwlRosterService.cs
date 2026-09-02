@@ -296,10 +296,13 @@ namespace ZenBotCS.Services.SlashCommands
             return BuildDayRosterEmbed(title, status);
         }
 
-        /// <summary>The CWL war currently in preparation (the upcoming day) for the clan, or null.</summary>
+        /// <summary>
+        /// The CWL war currently in preparation (the upcoming day) for the clan, or null.
+        /// Fetched in realtime -- see <see cref="TryGetLeagueWars"/> for why.
+        /// </summary>
         public async Task<ClanWar?> GetPreparationWar(string clanTag)
         {
-            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag, realtime: true);
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return null;
 
@@ -309,13 +312,21 @@ namespace ZenBotCS.Services.SlashCommands
                 .FirstOrDefault(w => w.State == WarState.Preparation);
         }
 
+        // realtime: true, deliberately. Without it these are cache-first reads served from whatever the
+        // CocApi poller last stored, which can lag the live game by the cache TTL. The day-roster check
+        // compares a freshly-read roster against the in-game lineup, so a stale lineup makes it ask for
+        // opt-ins and opt-outs that leadership already did -- and the reminder posts once per war, so a
+        // single stale sample stays wrong. The prep-day lineup is exactly what changes during CWL
+        // preparation, so it must be read live. Costs one API call per check, inside the lead window.
+        //
         // CocApi's GetOrFetchLeagueWarsAsync can throw (e.g. a NullReferenceException) when the league
-        // group is stale and one of its war tags no longer resolves. Treat any failure as "no wars".
+        // group is stale and one of its war tags no longer resolves. Treat any failure as "no wars":
+        // callers then skip without marking the reminder sent, so the next tick retries.
         private async Task<List<ClanWar>> TryGetLeagueWars(ClanWarLeagueGroup group)
         {
             try
             {
-                var wars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
+                var wars = await _clansClient.GetOrFetchLeagueWarsAsync(group, realtime: true);
                 return wars?.ToList() ?? [];
             }
             catch (Exception ex)
@@ -328,7 +339,7 @@ namespace ZenBotCS.Services.SlashCommands
         // Gathers the day-roster reconciliation for the in-prep war, or a user-facing error reason.
         private async Task<(DayRosterStatus? Status, string? Error)> TryGetDayRosterStatus(string clanTag)
         {
-            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag, realtime: true);
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return (null, "This clan does not seem to be in an active CWL.");
 
