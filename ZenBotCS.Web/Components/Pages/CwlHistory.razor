@@ -1,11 +1,8 @@
-@page "/clans/{ClanTag}/cwl"
+﻿@page "/clans/{ClanTag}/cwl"
 @page "/cwl-history/{ClanTag}"
 @using ZenBotCS.Entities.Models.Cwl
 @inject ClanNameService ClanNames
 @inject CwlHistoryService History
-@inject CwlHistoryImageService HistoryImage
-@inject IJSRuntime JS
-@inject ISnackbar Snackbar
 @inject ILogger<CwlHistory> Logger
 
 <PageTitle>CWL History</PageTitle>
@@ -87,7 +84,9 @@
                             <MudSelectItem T="int" Value="idx">@InstanceLabel(idx)</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
+                    @* A real link, not a JS-driven download. `download` both opts out of Blazor's link
+                       interception and saves without navigating, so the circuit survives; see Roster.razor. *@
+                    <MudButton Href="@CwlImageUrl()" Target="_blank" download="" StartIcon="@Icons.Material.Filled.Download"
                                Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_perf is null)">
                         Download image
                     </MudButton>
@@ -262,15 +261,15 @@
         }
     }
 
-    private async Task DownloadImage()
+    // The endpoint re-reads the instance (season + start time identify it) and renders it.
+    private string? CwlImageUrl()
     {
         if (_perf is null)
-            return;
+            return null;
 
-        var bytes = HistoryImage.Generate(_perf, _clanName, dark: true);
-        var base64 = Convert.ToBase64String(bytes);
-        var fileName = $"{_clanName}-cwl-{_perf.Season}.png".Replace(' ', '_');
-        await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
+        return $"/clans/{Uri.EscapeDataString(ClanTag)}/cwl-image"
+             + $"?season={Uri.EscapeDataString(_perf.Season)}"
+             + $"&startTime={Uri.EscapeDataString(_perf.StartTime.ToString("O"))}";
     }
 
     // Month label, disambiguated by start date when a month holds more than one CWL.

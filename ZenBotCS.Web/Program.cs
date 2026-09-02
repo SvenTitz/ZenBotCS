@@ -13,6 +13,7 @@ using Serilog;
 using ZenBotCS.Entities;
 using ZenBotCS.Web;
 using ZenBotCS.Web.Components;
+using ZenBotCS.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -198,6 +199,76 @@ app.MapPost("/account/logout", async (HttpContext context, string? returnUrl) =>
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.LocalRedirect(returnUrl ?? "/");
 });
+
+// Image downloads are real GET endpoints rather than JS-injected data: URLs, because iOS Safari
+// refuses those: it blocks top-level navigation to data: URLs, honours the anchor's `download`
+// attribute inconsistently, and — this being Blazor Server — the synthetic click happens in a
+// SignalR callback with no user activation. A plain link the user taps sidesteps all three and
+// gets Safari's native download UI. Content-Disposition is set via Results.File's download name.
+// Same RosterAccess role the pages themselves gate on.
+app.MapGet("/clans/{clanTag}/roster-image", async (
+    string clanTag,
+    int? subRosterId,
+    HttpContext http,
+    RosterService rosters,
+    SubRosterService subRosters,
+    ClanNameService clanNames,
+    RosterImageService rosterImage,
+    ILoggerFactory loggerFactory,
+    CancellationToken ct) =>
+{
+    var signups = await rosters.GetRosterAsync(clanTag, subRosterId, ct);
+    if (signups.Count == 0)
+        return Results.NotFound();
+
+    var clanName = await clanNames.GetNameOrTagAsync(clanTag, ct);
+
+    string? rosterName = null, hostName = null;
+    if (subRosterId is not null)
+    {
+        var subRoster = (await subRosters.GetForClanAsync(clanTag, ct)).FirstOrDefault(sr => sr.Id == subRosterId);
+        if (subRoster is null)
+            return Results.NotFound();
+        rosterName = subRoster.Name;
+        hostName = await clanNames.GetNameOrTagAsync(subRoster.GameClanTag, ct);
+    }
+
+    var bytes = rosterImage.Generate(clanName, signups, dark: true, rosterName, hostName);
+    var suffix = rosterName is null ? string.Empty : $"-{rosterName}";
+
+    loggerFactory.CreateLogger("RosterImage").LogInformation(
+        "{Actor} downloaded the roster image for {Clan}{Suffix}", Actor(http), clanName, suffix);
+
+    return Results.File(bytes, "image/png", $"{clanName}{suffix}-cwl-roster.png".Replace(' ', '_'));
+}).RequireAuthorization(policy => policy.RequireRole(AuthRoles.RosterAccess));
+
+app.MapGet("/clans/{clanTag}/cwl-image", async (
+    string clanTag,
+    string season,
+    DateTime startTime,
+    HttpContext http,
+    CwlHistoryService history,
+    ClanNameService clanNames,
+    CwlHistoryImageService historyImage,
+    ILoggerFactory loggerFactory,
+    CancellationToken ct) =>
+{
+    var perf = await history.GetPerformanceAsync(clanTag, season, startTime, ct);
+    if (perf is null)
+        return Results.NotFound();
+
+    var clanName = await clanNames.GetNameOrTagAsync(clanTag, ct);
+    var bytes = historyImage.Generate(perf, clanName, dark: true);
+
+    loggerFactory.CreateLogger("CwlHistoryImage").LogInformation(
+        "{Actor} downloaded the CWL history image for {Clan} {Season}", Actor(http), clanName, season);
+
+    return Results.File(bytes, "image/png", $"{clanName}-cwl-{perf.Season}.png".Replace(' ', '_'));
+}).RequireAuthorization(policy => policy.RequireRole(AuthRoles.RosterAccess));
+
+// Same "username (discordId)" shape the pages record on every leadership action.
+static string Actor(HttpContext http) =>
+    $"{http.User.Identity?.Name ?? "unknown"} ({http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "?"})";
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

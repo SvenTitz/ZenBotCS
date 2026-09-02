@@ -1,4 +1,4 @@
-@page "/clans/{ClanTag}"
+﻿@page "/clans/{ClanTag}"
 @page "/clans/{ClanTag}/roster"
 @page "/clans/{ClanTag}/roster/{SubRosterId:int}"
 @page "/roster/{ClanTag}"
@@ -9,7 +9,6 @@
 @inject NavigationManager Nav
 @inject ClanNameService ClanNames
 @inject PlayerSuggestionService PlayerSuggestions
-@inject RosterImageService RosterImage
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -91,9 +90,24 @@
                        Disabled="@(_signups is null || _signups.Count == 0 || _solving)">
                 Solve roster
             </MudButton>
+            @* Real links, not Blazor OnClick handlers. A JS-driven download from a SignalR callback
+               happens outside any user gesture, which browsers drop — iOS Safari especially.
+
+               `download` is what makes this safe in Blazor Server. Its link interception fires on
+               anchors with no target (or _self) that lack a download attribute, so `download` opts
+               out — and the browser saves the file without navigating, leaving the circuit up. A
+               top-level navigation here tears the circuit down and shows "Reconnecting to server".
+               Target="_blank" is the belt-and-braces fallback: ignored by the browser whenever
+               `download` applies, and it keeps the current page (and circuit) untouched if it
+               doesn't. Content-Disposition on the endpoint sets the real filename either way.
+
+               One entry per roster, each its own link, so grabbing several is a click each. There is
+               deliberately no "download all": firing N downloads from one gesture is refused by
+               iOS Safari (one file only) and by Firefox, so it silently under-delivered. *@
             @if (_subRosters.Count == 0)
             {
-                <MudButton OnClick="DownloadImage" StartIcon="@Icons.Material.Filled.Download"
+                <MudButton Href="@RosterImageUrl(null)" Target="_blank" download=""
+                           StartIcon="@Icons.Material.Filled.Download"
                            Variant="Variant.Outlined" Size="Size.Small" Class="mr-2"
                            Disabled="@(_signups is null || _signups.Count == 0)">
                     Download image
@@ -104,9 +118,12 @@
                 <MudMenu Label="Download image" StartIcon="@Icons.Material.Filled.Download"
                          EndIcon="@Icons.Material.Filled.ArrowDropDown"
                          Variant="Variant.Outlined" Size="Size.Small" Class="mr-2" Dense="true"
-                         Disabled="@(_downloading || _signups is null || _signups.Count == 0)">
-                    <MudMenuItem OnClick="DownloadImage">This roster</MudMenuItem>
-                    <MudMenuItem OnClick="DownloadAllImages">All rosters (one image each)</MudMenuItem>
+                         Disabled="@(_signups is null || _signups.Count == 0)">
+                    <MudMenuItem Href="@RosterImageUrl(null)" Target="_blank" download="">Main roster</MudMenuItem>
+                    @foreach (var sr in _subRosters)
+                    {
+                        <MudMenuItem Href="@RosterImageUrl(sr.Id)" Target="_blank" download="">@sr.Name</MudMenuItem>
+                    }
                 </MudMenu>
             }
             @if (_hidden is { Count: > 0 })
@@ -441,7 +458,6 @@
     private bool _selectMode;
     private readonly HashSet<int> _selected = new();
     private bool _movingBulk;
-    private bool _downloading;
     // Single-row "move to roster" reuses the bulk path with one id.
     private bool _rowMoveOpen;
     private CwlSignup? _rowMoveTarget;
@@ -953,48 +969,13 @@
         }
     }
 
-    private async Task DownloadImage()
+    // The endpoint re-reads the roster and renders it; see Program.cs for why this is a link.
+    private string RosterImageUrl(int? subRosterId)
     {
-        if (_signups is null || _signups.Count == 0)
-            return;
-
-        var current = _subRosters.FirstOrDefault(sr => sr.Id == _rosterId);
-        await EmitImageAsync(_signups, current);
+        var url = $"/clans/{Uri.EscapeDataString(ClanTag)}/roster-image";
+        return subRosterId is null ? url : $"{url}?subRosterId={subRosterId}";
     }
 
-    // One image per roster: each names its own host clan, which is how players learn where to move.
-    private async Task DownloadAllImages()
-    {
-        _downloading = true;
-        try
-        {
-            var main = await Rosters.GetRosterAsync(ClanTag, null);
-            if (main.Count > 0)
-                await EmitImageAsync(main, null);
-
-            foreach (var sr in _subRosters)
-            {
-                var signups = await Rosters.GetRosterAsync(ClanTag, sr.Id);
-                if (signups.Count > 0)
-                    await EmitImageAsync(signups, sr);
-            }
-            Logger.LogInformation("{Actor} downloaded images for every roster of {Clan}", _actor, _clanName);
-        }
-        finally
-        {
-            _downloading = false;
-        }
-    }
-
-    private async Task EmitImageAsync(IReadOnlyList<CwlSignup> signups, SubRoster? subRoster)
-    {
-        var hostName = subRoster is null ? null : await ClanNames.GetNameOrTagAsync(subRoster.GameClanTag);
-        var bytes = RosterImage.Generate(_clanName, signups, dark: true, subRoster?.Name, hostName);
-        var base64 = Convert.ToBase64String(bytes);
-        var suffix = subRoster is null ? string.Empty : $"-{subRoster.Name}";
-        var fileName = $"{_clanName}{suffix}-cwl-roster.png".Replace(' ', '_');
-        await JS.InvokeVoidAsync("downloadFile", fileName, "image/png", base64);
-    }
 
     // Day-cell colours. Kept as constants so the table and the legend stay in sync.
     private const string ColPlaying = "rgba(56,142,60,0.32)";   // green — rostered, player was available
