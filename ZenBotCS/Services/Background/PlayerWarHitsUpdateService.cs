@@ -1,4 +1,4 @@
-using CocApi.Cache;
+﻿using CocApi.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,7 +6,6 @@ using ZenBotCS.Clients;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
 using ZenBotCS.Extensions;
-using ZenBotCS.Services;
 
 namespace ZenBotCS.Services.Background;
 

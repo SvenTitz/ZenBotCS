@@ -25,11 +25,10 @@ public class Item
     [JsonProperty("endTime")]
     public string EndTime { get; set; } = default!;
 
-    [JsonProperty("clan")]
-    public Clan Clan { get; set; } = default!;
-
-    [JsonProperty("opponent")]
-    public Opponent Opponent { get; set; } = default!;
+    // The payload also carries full `clan` and `opponent` blocks (name, badge urls, totals). They are
+    // deliberately not mapped: nothing reads them, and since these items are cached as JSON in
+    // PlayerWarHitsCache, mapping them would more than double the stored size (measured: 904 bytes
+    // per war, 58% of the payload). Add them back only alongside a consumer.
 
     /// <summary><c>cwl</c>, <c>random</c> or <c>friendly</c>.</summary>
     [JsonProperty("type")]

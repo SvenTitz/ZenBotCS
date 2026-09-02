@@ -36,6 +36,10 @@ public class ClashKingApiService(ClashKingApiClient _ckApiClient, BotDataContext
 
     // Write the fresh copy back so the next caller (and the next command) is a DB hit. A failure here
     // is logged and swallowed -- refreshing a cache must never fail the command that triggered it.
+    //
+    // Note this SaveChanges() commits the whole scoped BotDataContext, which an interaction shares
+    // (see CLAUDE.md). Every current caller is read-only by the time it gets here, so nothing else is
+    // in flight; don't call GetOrFetchPlayerWarhitsAsync with unsaved changes staged.
     private void Store(PlayerWarHitsCache? existing, string playerTag, PlayerWarhits warHits)
     {
         try

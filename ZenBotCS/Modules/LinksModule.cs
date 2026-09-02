@@ -1,6 +1,5 @@
 ﻿using Discord.Interactions;
 using Discord.WebSocket;
-using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Services.SlashCommands;
 
@@ -27,6 +26,7 @@ public class LinksModule : InteractionModuleBase<SocketInteractionContext>
         await FollowupAsync("Done.");
     }
 
+    // (Re-enabling either block below also needs `using ZenBotCS.Attributes;` back.)
     // Disabled: /links add was the break-glass path for when the link endpoint was down and the
     // table had nothing cached. The v2 endpoint is reliable and Update() now prunes properly, so a
     // hand-written row would only be deleted again on the next run. LinksService.Add stays in place

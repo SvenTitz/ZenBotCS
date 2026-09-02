@@ -12,9 +12,6 @@ public class WarData
     public string EndTime { get; set; } = string.Empty;
     public WarClan Clan { get; set; } = new();
     public WarClan Opponent { get; set; } = new();
-    public int StatusCode { get; set; }
-    public double Timestamp { get; set; }
-    public int ResponseRetry { get; set; }
 
     /// <summary>
     /// The CWL round war tag. Present only for Clan War League wars — regular wars leave this null,

@@ -111,4 +111,12 @@ Useful diff helpers from the library when handling events:
 - The CoC API token (`CocApiToken`) is **IP-locked** and rate-limited per token;
   tokens are registered in `Program.cs` via `AddTokens`.
 - Reading from the cache returns whatever the last successful poll stored — it can
-  lag the live game by up to the TTL. Use `GetOrFetch…` when you need freshness.
+  lag the live game by up to the TTL.
+- **`GetOrFetch…` is not the same as "fresh".** It falls back to the API on a cache
+  *miss*, but a cache *hit* is served from whatever the poller last stored. For the
+  CWL helpers — `GetOrFetchLeagueGroupOrDefaultAsync` and
+  `GetOrFetchLeagueWarsAsync` — freshness needs the optional `realtime` argument,
+  which defaults to unset (cached). This bit the CWL roster reminder: it compared a
+  freshly-read roster against a cached prep-day lineup and asked for changes that
+  had already been made in game. `CwlRosterService` now passes `realtime: true` on
+  that path; anything else comparing against a live lineup must do the same.

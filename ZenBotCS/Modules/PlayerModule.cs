@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using Discord.Interactions;
 using Discord.WebSocket;
-using ZenBotCS.Attributes;
 using ZenBotCS.Handler;
 using ZenBotCS.Models.Enums;
 using ZenBotCS.Services.SlashCommands;
