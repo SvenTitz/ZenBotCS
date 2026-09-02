@@ -63,6 +63,48 @@ namespace ZenBotCS.Clients
         }
 
 
+        /// <summary>
+        /// A league group's wars, paired with the war tag each came from, read from the CoC cache.
+        /// Replaces the base <c>GetOrFetchLeagueWarsAsync</c>, which has two defects: on a cache miss
+        /// it dereferences the live-fetch result without a null check, so one war tag that fails to
+        /// resolve throws a <see cref="NullReferenceException"/> and loses the <i>whole</i> group; and
+        /// its <c>realtime</c> argument only reaches that fallback, so a cached war is always returned
+        /// as stored and realtime cannot be used to read a fresh lineup. Here an unreadable tag is
+        /// skipped and the rest of the group survives. For a current lineup, fetch the one war you
+        /// care about through <see cref="CocApi.Cache.ClansClient.ClansApi"/> with realtime.
+        /// </summary>
+        public async Task<List<(string WarTag, ClanWar War)>> GetLeagueWarsSafeAsync(ClanWarLeagueGroup group)
+        {
+            var wars = new List<(string, ClanWar)>();
+
+            foreach (var round in group.Rounds)
+            {
+                // "#0" is the placeholder the game uses for a round it hasn't revealed yet.
+                foreach (var warTag in round.WarTags.Where(t => t != "#0"))
+                {
+                    try
+                    {
+                        var war = (await GetLeagueWarOrDefaultAsync(warTag, group.Season))?.Content;
+                        if (war is null)
+                            continue; // not ingested yet; the other rounds are still fine
+
+                        // Same season guard the base method applies: war tags recur across seasons.
+                        if (war.PreparationStartTime.Month == group.Season.Month
+                            && war.PreparationStartTime.Year == group.Season.Year)
+                        {
+                            wars.Add((warTag, war));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Skipping CWL war {warTag} that could not be read", warTag);
+                    }
+                }
+            }
+
+            return wars;
+        }
+
         public async Task<List<Clan>> GetCachedClansAsync()
         {
             var clans = await (from i in this.ScopeFactory.CreateScope().ServiceProvider.GetRequiredService<CacheDbContext>().Clans.AsNoTracking()

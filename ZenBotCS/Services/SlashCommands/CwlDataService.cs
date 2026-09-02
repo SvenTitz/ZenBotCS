@@ -1,4 +1,4 @@
-using CocApi.Rest.Models;
+﻿using CocApi.Rest.Models;
 using Discord;
 using ZenBotCS.Clients;
 using ZenBotCS.Entities;
@@ -112,8 +112,8 @@ namespace ZenBotCS.Services.SlashCommands
 
         private async Task<List<CwlDataMemberModel>> ExtractCwlDataMemberModelsAsync(ClanWarLeagueGroup group, string clantag)
         {
-            var allWars = await _clansClient.GetOrFetchLeagueWarsAsync(group);
-            var wars = allWars.Where(w => w.Clans.ContainsKey(clantag)).OrderBy(c => c.StartTime).ToList();
+            var allWars = await _clansClient.GetLeagueWarsSafeAsync(group);
+            var wars = allWars.Select(w => w.War).Where(w => w.Clans.ContainsKey(clantag)).OrderBy(c => c.StartTime).ToList();
 
             List<CwlDataMemberModel> memberModels = new();
             foreach (var war in wars)

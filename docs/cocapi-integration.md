@@ -112,11 +112,16 @@ Useful diff helpers from the library when handling events:
   tokens are registered in `Program.cs` via `AddTokens`.
 - Reading from the cache returns whatever the last successful poll stored — it can
   lag the live game by up to the TTL.
-- **`GetOrFetch…` is not the same as "fresh".** It falls back to the API on a cache
-  *miss*, but a cache *hit* is served from whatever the poller last stored. For the
-  CWL helpers — `GetOrFetchLeagueGroupOrDefaultAsync` and
-  `GetOrFetchLeagueWarsAsync` — freshness needs the optional `realtime` argument,
-  which defaults to unset (cached). This bit the CWL roster reminder: it compared a
-  freshly-read roster against a cached prep-day lineup and asked for changes that
-  had already been made in game. `CwlRosterService` now passes `realtime: true` on
-  that path; anything else comparing against a live lineup must do the same.
+- **`GetOrFetch…` is not the same as "fresh", and `realtime: true` does not make it
+  so.** These methods are cache-first (`cached ?? fetch(realtime)`), so `realtime`
+  only ever reaches the fallback taken on a cache *miss*. A cached entity — which is
+  every tracked clan — is returned as stored, and passing `realtime` changes nothing.
+  To actually read current data you must call the underlying API yourself:
+  `clansClient.ClansApi.Fetch…OrDefaultAsync(tag, realtime: true)`.
+  This bit the CWL roster reminder, which compared a freshly-read roster against a
+  cached prep-day lineup and asked for changes already made in game. See
+  `CwlRosterService.FetchLiveWarOrDefaultAsync`.
+- **Don't use `GetOrFetchLeagueWarsAsync`.** On a cache miss it dereferences the
+  fetch result without a null check, so one war tag whose live fetch fails throws a
+  `NullReferenceException` that loses the entire group. `CwlRosterService.GetLeagueWarsAsync`
+  walks the group's war tags itself and skips the ones it can't read.

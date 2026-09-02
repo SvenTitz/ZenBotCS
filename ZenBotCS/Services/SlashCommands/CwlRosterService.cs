@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using CocApi.Rest.Models;
 using Discord;
 using Microsoft.Extensions.Logging;
@@ -297,62 +297,67 @@ namespace ZenBotCS.Services.SlashCommands
         }
 
         /// <summary>
-        /// The CWL war currently in preparation (the upcoming day) for the clan, or null.
-        /// Fetched in realtime -- see <see cref="TryGetLeagueWars"/> for why.
+        /// The CWL war currently in preparation (the upcoming day) for the clan, or null. Served from
+        /// the cache: only the war's schedule is read here, and that doesn't change once it exists.
         /// </summary>
         public async Task<ClanWar?> GetPreparationWar(string clanTag)
         {
-            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag, realtime: true);
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return null;
 
-            return (await TryGetLeagueWars(group))
+            return (await _clansClient.GetLeagueWarsSafeAsync(group))
+                .Select(w => w.War)
                 .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
                 .OrderBy(w => w.StartTime)
                 .FirstOrDefault(w => w.State == WarState.Preparation);
         }
 
-        // realtime: true, deliberately. Without it these are cache-first reads served from whatever the
-        // CocApi poller last stored, which can lag the live game by the cache TTL. The day-roster check
-        // compares a freshly-read roster against the in-game lineup, so a stale lineup makes it ask for
-        // opt-ins and opt-outs that leadership already did -- and the reminder posts once per war, so a
-        // single stale sample stays wrong. The prep-day lineup is exactly what changes during CWL
-        // preparation, so it must be read live. Costs one API call per check, inside the lead window.
-        //
-        // CocApi's GetOrFetchLeagueWarsAsync can throw (e.g. a NullReferenceException) when the league
-        // group is stale and one of its war tags no longer resolves. Treat any failure as "no wars":
-        // callers then skip without marking the reminder sent, so the next tick retries.
-        private async Task<List<ClanWar>> TryGetLeagueWars(ClanWarLeagueGroup group)
+        /// <summary>
+        /// The war as the game has it right now, or null if it can't be fetched. The cached copy lags
+        /// the live game by the poller's TTL, and the prep-day lineup is exactly what leadership edits
+        /// during preparation — reconciling a freshly-read roster against a stale lineup is what made
+        /// the reminder ask for changes that had already been made.
+        /// </summary>
+        private async Task<ClanWar?> FetchLiveWarOrDefaultAsync(string warTag)
         {
             try
             {
-                var wars = await _clansClient.GetOrFetchLeagueWarsAsync(group, realtime: true);
-                return wars?.ToList() ?? [];
+                var response = await _clansClient.ClansApi.FetchClanWarLeagueWarOrDefaultAsync(warTag, realtime: true);
+                if (response is not null && response.TryOk(out var war))
+                    return war;
+
+                _logger.LogWarning("Live fetch of CWL war {warTag} returned {status}; using the cached copy",
+                    warTag, response?.StatusCode.ToString() ?? "no response");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch CWL league wars (likely a stale league group)");
-                return [];
+                _logger.LogWarning(ex, "Live fetch of CWL war {warTag} failed; using the cached copy", warTag);
             }
+            return null;
         }
 
         // Gathers the day-roster reconciliation for the in-prep war, or a user-facing error reason.
         private async Task<(DayRosterStatus? Status, string? Error)> TryGetDayRosterStatus(string clanTag)
         {
-            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag, realtime: true);
+            var group = await _clansClient.GetOrFetchLeagueGroupOrDefaultAsync(clanTag);
             if (group?.Clans is null || group.Clans.All(c => c.Tag != clanTag))
                 return (null, "This clan does not seem to be in an active CWL.");
 
-            var wars = (await TryGetLeagueWars(group))
-                .Where(w => w?.Clans != null && w.Clans.ContainsKey(clanTag))
-                .OrderBy(w => w.StartTime)
+            var wars = (await _clansClient.GetLeagueWarsSafeAsync(group))
+                .Where(w => w.War?.Clans != null && w.War.Clans.ContainsKey(clanTag))
+                .OrderBy(w => w.War.StartTime)
                 .ToList();
 
-            var prepIndex = wars.FindIndex(w => w.State == WarState.Preparation);
+            var prepIndex = wars.FindIndex(w => w.War.State == WarState.Preparation);
             if (prepIndex < 0)
                 return (null, "There is no CWL war currently in preparation for this clan.");
 
-            var prepWar = wars[prepIndex];
+            // The one war whose lineup has to be current; everything else above is only scheduling.
+            // Only trust the live copy if the clan is actually in it -- picking the wrong side would
+            // reconcile the roster against the opponent's lineup.
+            var live = await FetchLiveWarOrDefaultAsync(wars[prepIndex].WarTag);
+            var prepWar = live?.Clans?.ContainsKey(clanTag) == true ? live : wars[prepIndex].War;
             var warClan = prepWar.Clan.Tag == clanTag ? prepWar.Clan : prepWar.Opponent;
             var opponent = prepWar.Clan.Tag == clanTag ? prepWar.Opponent : prepWar.Clan;
 
