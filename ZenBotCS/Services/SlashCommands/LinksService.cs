@@ -51,41 +51,73 @@ public class LinksService(BotDataContext botDb, PlayersClient playersClient, Emb
         return builder.Build();
     }
 
+    /// <summary>
+    /// Mirror ClashKing's links into the bot's table: stored links that no longer exist upstream are
+    /// deleted, not just skipped. Asks about every tag the table already holds as well as every
+    /// tracked player, so an account that left the family still gets validated.
+    ///
+    /// The prune leans on v2 telling the two failure modes apart: a tag answered with a null value is
+    /// genuinely unlinked, while a tag missing from the answer belongs to a batch that failed and is
+    /// left alone. Under v1 that distinction didn't exist, which is why this used to only ever add.
+    /// </summary>
     public async Task Update()
     {
         var players = await _playersClient.GetCachedPlayersAsync();
-        var playerTags = players.Select(p => p.Tag).ToList();
+        // Read the table once, tracked: the same rows are both the extra tags to ask about and the
+        // candidates for pruning, so the stale set is filtered in memory rather than through a
+        // several-hundred-value SQL IN clause.
+        var storedLinks = _botDb.DiscordLinks.ToList();
+
+        var playerTags = players.Select(p => p.Tag)
+            .Concat(storedLinks.Select(dl => dl.PlayerTag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var links = await _ckApiClient.PostDiscordLinksAsync(playerTags);
         if (links is null)
         {
             // The endpoint is down, not "nobody is linked" -- keep the table we already have so it
-            // can serve as the backup (see DiscordLinkSource) instead of logging every player as
-            // unlinked.
+            // can serve as the backup (see DiscordLinkSource) instead of wiping every player.
             _logger.LogWarning("ClashKing discord link update skipped: the lookup failed for all {count} player accounts", playerTags.Count);
             return;
         }
 
+        var linked = 0;
+        var unlinked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var link in links)
         {
             if (link.Value is null)
+            {
+                unlinked.Add(link.Key);
                 continue;
-            var linkModel = new DiscordLink { DiscordId = (ulong)link.Value!, PlayerTag = link.Key };
-            _botDb.AddOrUpdateDiscordLink(linkModel);
+            }
+            _botDb.AddOrUpdateDiscordLink(new DiscordLink { DiscordId = link.Value.Value, PlayerTag = link.Key });
+            linked++;
         }
+
+        // Answered-and-unlinked: drop our copy so the table stops resolving accounts the owner has
+        // since unlinked. Tags absent from `links` were never answered and keep their rows.
+        var stale = storedLinks.Where(dl => unlinked.Contains(dl.PlayerTag)).ToList();
+        if (stale.Count > 0)
+        {
+            _botDb.DiscordLinks.RemoveRange(stale);
+            _logger.LogInformation("Pruned {count} discord link(s) no longer linked at ClashKing: {playerTags}",
+                stale.Count, JsonConvert.SerializeObject(stale.Select(dl => dl.PlayerTag)));
+        }
+
         _botDb.SaveChanges();
 
-        _logger.LogInformation("Updated discord links for {count} player accounts", links.Where(l => l.Value is not null).Count());
-
-        var nonLinked = links.Where(l => l.Value is null).Select(kvp => kvp.Key).ToList();
-        _logger.LogWarning("Could not find discord link for the following {count} player accounts: {playerTags}", nonLinked.Count, JsonConvert.SerializeObject(nonLinked));
+        var unanswered = playerTags.Count(t => !links.ContainsKey(t));
+        _logger.LogInformation("Updated discord links: {linked} linked, {unlinked} unlinked, {unanswered} unanswered of {asked} accounts asked",
+            linked, unlinked.Count, unanswered, playerTags.Count);
     }
 
     /// <summary>
-    /// Manually write a link into the bot's table. This is the break-glass path for when ClashKing's
-    /// /v2/links/shared is down and <see cref="DiscordLinkSource"/> has nothing cached for a player.
-    /// Overwrites whatever the table held for that tag -- and is itself overwritten by the next
-    /// successful <see cref="Update"/>, which mirrors the API verbatim.
+    /// Manually write a link into the bot's table. <b>The /links add command is currently disabled</b>
+    /// (see LinksModule): now that <see cref="Update"/> prunes, a hand-written row for an account
+    /// ClashKing doesn't know is deleted again on the next run, so this only makes sense while the
+    /// endpoint is down. Kept for that case; overwrites whatever the table held for that tag.
     /// </summary>
     public async Task<Embed> Add(string playerTag, SocketUser user)
     {
@@ -119,8 +151,9 @@ public class LinksService(BotDataContext botDb, PlayersClient playersClient, Emb
     }
 
     /// <summary>
-    /// Drop a link from the bot's table. Only removes the bot's copy -- if ClashKing still knows the
-    /// link, the next <see cref="Update"/> puts it straight back.
+    /// Drop a link from the bot's table. <b>The /links remove command is currently disabled</b>
+    /// (see LinksModule): <see cref="Update"/> prunes unlinked rows by itself now, and a link
+    /// ClashKing still knows about comes straight back on the next run. Kept for manual use.
     /// </summary>
     public Embed Remove(string playerTag)
     {

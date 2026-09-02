@@ -146,10 +146,18 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
   in a batch that failed), and `Services/DiscordLinkSource` is the only thing that should read it:
   it falls back to the bot's own `DiscordLinks` table whenever the API has no answer, and mirrors
   successful lookups back into that table. `ZenBotCS.Web` does the same fallback inline in
-  `RosterService.AddSignupAsync`. The table can be stale (an upstream unlink still resolves to the
-  old user) — that is the accepted trade. `/links add|remove|lookup` edit and inspect that table by
-  hand for when the backup itself is missing an account; note that `/links update` mirrors the API
-  verbatim and will overwrite manual edits on its next run.
+  `RosterService.AddSignupAsync`.
+
+- **`/links update` prunes, so the table tracks upstream unlinks.** It asks about every tag the table
+  already holds *plus* every tracked player (so accounts that left the family still get validated),
+  then deletes the rows ClashKing answered as unlinked. Rows for tags in a *failed* batch are left
+  alone — the prune is only safe because v2 tells those two apart. The table can still be one sweep
+  (10 min) behind. `/links add` and `/links remove` are both **disabled** for now — the prune makes
+  them pointless (a hand-written row for an account ClashKing doesn't know is deleted on the next
+  run; a removed row that ClashKing still knows comes straight back), and they only make sense while
+  the endpoint is down. Uncomment them in `LinksModule` for that; the service methods are untouched.
+  `/links lookup` still works and reads the bot's table only, never the API — that is the point, it
+  shows what the backup would serve.
 
 - **`/v2/links/shared` needs a developer token and takes at most 100 tags.** The token comes from
   config `CkApiToken` (`ck_dev_…`); without it the endpoint 401s while the public war endpoints keep

@@ -69,7 +69,7 @@ Clients/ + Helper/ + Entities (EF)       ← CoC cache, ClashKing client, Google
 | `/clan` | `add`, `delete`, `list`, `warlog`, `stats attacks`, `settings edit`, `settings reset` |
 | `/cwl` | `data`, `signup post/roster/pin-roster/missing/summary/check/delete/reset/dump/move/add`, `roles assign/remove` (+ button/menu component flows for the signup wizard) |
 | `/player` | `to-do`, `stats misses`, `stats attacks` |
-| `/links` | `list-unlinked`, `update` |
+| `/links` | `list-unlinked`, `update`, `lookup` |
 | `/reminder` | `misses add/remove/list` |
 | `/gatekeep` | `notes lookup`, `notes post` |
 | `/help` | `bots linking`, `bots gatekeeper`, `cwl signup` |

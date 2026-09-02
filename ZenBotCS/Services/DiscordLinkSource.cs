@@ -13,9 +13,10 @@ namespace ZenBotCS.Services;
 /// rolling copy of the API kept by <see cref="Background.DiscordLinkUpdateService"/> and topped up
 /// here on every successful lookup, so it stays usable while the endpoint is broken.
 ///
-/// The backup can be stale: a player who unlinked upstream keeps resolving to their old user until
-/// the row is replaced. That is the deliberate trade -- a CWL signup that works off last-known data
-/// beats one that refuses to run at all.
+/// <see cref="Background.DiscordLinkUpdateService"/> also prunes: a player who unlinked upstream has
+/// their row deleted on the next sweep, so the backup no longer resolves them indefinitely. It can
+/// still be up to one sweep behind, which is the deliberate trade -- a CWL signup that works off
+/// last-known data beats one that refuses to run at all.
 /// </summary>
 public class DiscordLinkSource(
     BotDataContext _botDb,
