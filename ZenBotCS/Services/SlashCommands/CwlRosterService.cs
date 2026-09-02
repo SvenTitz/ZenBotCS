@@ -244,17 +244,17 @@ namespace ZenBotCS.Services.SlashCommands
             var attacks = warAttacks.Items
                 .Where(w =>
                 {
-                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    var endTime = DateTime.ParseExact(w.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
                     TimeSpan difference = DateTime.UtcNow - endTime;
                     return difference.TotalDays <= numberDays;
                 })
-                .SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.MemberData.TownhallLevel));
+                .SelectMany(i => i.Attacks.Where(a => a.Defender.TownhallLevel >= i.Player.TownhallLevel));
 
             return new AttackSuccessModel
             (
-                playerName: warAttacks.Items.FirstOrDefault()?.MemberData.Name ?? "",
+                playerName: warAttacks.Items.FirstOrDefault()?.Player.Name ?? "",
                 playerTag: playerTag,
-                playerTh: warAttacks.Items.FirstOrDefault()?.MemberData.TownhallLevel ?? 0,
+                playerTh: warAttacks.Items.FirstOrDefault()?.Player.TownhallLevel ?? 0,
                 attackCount: attacks.Count(),
                 successCount: attacks.Count(a => a.Stars >= 3)
             );

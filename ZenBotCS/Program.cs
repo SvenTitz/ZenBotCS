@@ -91,7 +91,7 @@ public class Program
             .AddHostedService<DiscordLinkUpdateService>()
             .AddHostedService<WarHistoryUpdateService>()
             .AddHostedService<CwlHistoryUpdateService>()
-            //.AddHostedService<PlayerStatsUpdateService>()
+            .AddHostedService<PlayerWarHitsUpdateService>()
             .AddHostedService<LeadershipLogBackfillService>()
             .AddHostedService<CwlRosterReminderService>()
             .AddHostedService<WarSpinReminderService>()

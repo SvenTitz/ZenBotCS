@@ -80,21 +80,6 @@ public class ClanModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync(embed: embed);
         }
 
-        [SlashCommand("activity", "Get a breakdown of clan member activity")]
-        public async Task Activity(
-            [Summary("ClanTag"), Autocomplete(typeof(ClanTagAutocompleteHandler))]
-                string clanTag,
-             [Summary("MinAttacks", "Minimum number of attacks done in the last 60 days (default = 6)")]
-                uint minAttacks = 6,
-            [Summary("MinActicity", "Minimum activity in current + last season (default = 100)")]
-                uint minActivity = 100,
-            [Summary("MaxDaysOffline", "Maximum number of days since last login (default = 7)")]
-                uint maxDaysOffline = 7)
-        {
-            await DeferAsync();
-            var embed = await ClanService.StatsActivity(clanTag, minAttacks, minActivity, maxDaysOffline);
-            await FollowupAsync(embed: embed);
-        }
     }
 
     [Group("roles", "Commands related to clan discord roles")]

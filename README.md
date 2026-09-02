@@ -17,7 +17,7 @@ The bot is built for a **single Discord server**.
 | Runtime         | .NET 8 (C#, nullable + implicit usings enabled) |
 | Discord         | [Discord.Net](https://github.com/discord-net/Discord.Net) 3.17 + `Discord.Addons.Hosting` (Interaction framework) |
 | Game data       | [CocApi](https://www.nuget.org/packages/CocApi) (`.Rest` + `.Cache`) |
-| Extra stats     | [ClashKing API](https://api.clashk.ing) via RestSharp |
+| Extra stats     | [ClashKing API](https://api.clashk.ing) v2 via RestSharp |
 | Spreadsheets    | Google Sheets / Drive API |
 | Database        | MySQL via EF Core 9 + Pomelo provider |
 | Logging         | Serilog (console + rolling file in `ZenBotCS/logs/`) |
@@ -54,7 +54,7 @@ Clients/ + Helper/ + Entities (EF)       ← CoC cache, ClashKing client, Google
 - **Background services** (`Services/Background/`) run periodic sync loops:
   - `DiscordLinkUpdateService` – refreshes player↔Discord links (every 10 min)
   - `WarHistoryUpdateService` – pulls clan war history (every 15 min)
-  - `PlayerStatsUpdateService` – pulls per-player stats & war hits
+  - `PlayerWarHitsUpdateService` – caches per-player war hits (every 15 min)
   - `LeadershipLogBackfillService` – backfills leadership-notes history
 - **Two databases**: the bot's own data (`BotDbConnectionString`) and the CoC API
   cache (`CocApiCacheConnectionString`). Both are MySQL and both have their EF
@@ -66,9 +66,9 @@ Clients/ + Helper/ + Entities (EF)       ← CoC cache, ClashKing client, Google
 
 | Group | Commands |
 |-------|----------|
-| `/clan` | `add`, `delete`, `list`, `warlog`, `stats attacks`, `stats activity`, `settings edit`, `settings reset` |
+| `/clan` | `add`, `delete`, `list`, `warlog`, `stats attacks`, `settings edit`, `settings reset` |
 | `/cwl` | `data`, `signup post/roster/pin-roster/missing/summary/check/delete/reset/dump/move/add`, `roles assign/remove` (+ button/menu component flows for the signup wizard) |
-| `/player` | `to-do`, `stats misses`, `stats attacks`, `stats data` |
+| `/player` | `to-do`, `stats misses`, `stats attacks` |
 | `/links` | `list-unlinked`, `update` |
 | `/reminder` | `misses add/remove/list` |
 | `/gatekeep` | `notes lookup`, `notes post` |
@@ -101,6 +101,7 @@ Keys the bot reads:
 |-----|---------|
 | `DiscordToken` | Discord bot token |
 | `CocApiToken` | Clash of Clans API token |
+| `CkApiToken` | ClashKing developer token (`ck_dev_…`). Required by `/v2/links/shared`, the Discord-link lookup; the war endpoints are public. |
 | `BotDbConnectionString` | MySQL connection string for the bot database |
 | `CocApiCacheConnectionString` | MySQL connection string for the CoC cache database |
 | `PathToGspreadCredentials` | Path to the Google service-account JSON |

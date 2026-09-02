@@ -125,16 +125,37 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
   `CwlRosterSource.RosterFor` — a bare `Where(s => s.ClanTag == tag)` silently returns the
   wrong players for a host clan. Changing a signup's `ClanTag` must clear `SubRosterId`.
 
-- **Never call ClashKing's `/discord_links` directly.** That endpoint goes down regularly, and a
-  failed lookup used to be indistinguishable from "this player is unlinked" — which silently broke
-  CWL signups. `ClashKingApiClient.PostDiscordLinksAsync` now returns `null` for a failed request
-  (an empty/`null` *value* still means genuinely unlinked), and `Services/DiscordLinkSource` is the
-  only thing that should read it: it falls back to the bot's own `DiscordLinks` table whenever the
-  API has no answer, and mirrors successful lookups back into that table. `ZenBotCS.Web` does the
-  same fallback inline in `RosterService.AddSignupAsync`. The table can be stale (an upstream
-  unlink still resolves to the old user) — that is the accepted trade. `/links add|remove|lookup`
-  edit and inspect that table by hand for when the backup itself is missing an account; note that
-  `/links update` mirrors the API verbatim and will overwrite manual edits on its next run.
+- **ClashKing is on the v2 API.** Base is still `https://api.clashk.ing`, but the endpoints the bot
+  uses are `POST /v2/links/shared`, `GET /v2/clan/{tag}/wars` and `GET /v2/player/{tag}/war/stats`.
+  The v1 paths (`/discord_links`, `/player/{tag}/stats`, `/list/seasons`, `/player/{tag}/legends`)
+  are gone — 404, not deprecated, with no v2 replacement for the player-stats payload. The features
+  that depended on it were removed rather than ported: `/player stats data`, `/clan stats activity`,
+  and the Legend League block in `/player to-do`. **Don't try to bring them back** — `last_online`,
+  the per-season activity score, `looted`, per-season `attack_wins` and the day-by-day legend
+  attacks have no v2 equivalent at all, and `/v2/player/{tag}/history/stats` (the nominal
+  replacement for donations/clan games/capital) returned empty for every player tested.
+  Reviving `/clan stats activity` means deriving last-seen ourselves from the CocApi cache.
+  Timestamps are unchanged (`yyyyMMddTHHmmss.fffZ`), but war filtering moved from unix
+  `timestamp_start`/`timestamp_end` to ISO-8601 `time[after]`/`time[before]`, whose brackets must be
+  percent-encoded, and `limit` is capped at 500.
+
+- **Never call ClashKing's link endpoint directly.** It goes down regularly, and a failed lookup
+  used to be indistinguishable from "this player is unlinked" — which silently broke CWL signups.
+  `ClashKingApiClient.PostDiscordLinksAsync` returns `null` when nothing could be asked at all
+  (a `null` *value* for a tag still means genuinely unlinked, and a tag missing from the result was
+  in a batch that failed), and `Services/DiscordLinkSource` is the only thing that should read it:
+  it falls back to the bot's own `DiscordLinks` table whenever the API has no answer, and mirrors
+  successful lookups back into that table. `ZenBotCS.Web` does the same fallback inline in
+  `RosterService.AddSignupAsync`. The table can be stale (an upstream unlink still resolves to the
+  old user) — that is the accepted trade. `/links add|remove|lookup` edit and inspect that table by
+  hand for when the backup itself is missing an account; note that `/links update` mirrors the API
+  verbatim and will overwrite manual edits on its next run.
+
+- **`/v2/links/shared` needs a developer token and takes at most 100 tags.** The token comes from
+  config `CkApiToken` (`ck_dev_…`); without it the endpoint 401s while the public war endpoints keep
+  working. `PostDiscordLinksAsync` chunks tags into 100s and treats a chunk's failure as "unanswered"
+  rather than "unlinked". It also drops tags outside the base-14 CoC alphabet before sending, because
+  one malformed tag makes the API reject the whole batch with a 400.
 
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.

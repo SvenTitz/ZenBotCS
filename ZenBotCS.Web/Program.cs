@@ -37,7 +37,7 @@ builder.Services.AddScoped<ZenBotCS.Web.Services.ClanNameService>();
 builder.Services.AddScoped<ZenBotCS.Web.Services.PlayerSuggestionService>();
 // CWL performance history: reads/lazily-fills the CwlHistory cache from ClashKing war history.
 builder.Services.AddScoped<ZenBotCS.Web.Services.CwlHistoryService>();
-// Reads the current (live) CWL for a clan from the CoC cache DB — /war/previous is unreliable for it.
+// Reads the current (live) CWL for a clan from the CoC cache DB — the war history is unreliable for it.
 builder.Services.AddScoped<ZenBotCS.Web.Services.CocCacheCwlService>();
 // Per-clan settings editing (bot config) + Discord role/channel suggestions for the settings page.
 builder.Services.AddScoped<ZenBotCS.Web.Services.ClanSettingsService>();
@@ -58,12 +58,16 @@ builder.Services.AddCocApi(options =>
         .AddTimeoutPolicy(TimeSpan.FromSeconds(5)));
 });
 builder.Services.AddScoped<ZenBotCS.Web.Services.CocApiClient>();
-// ClashKing is kept only for the Discord-link lookup (the official API has no Discord links).
+// ClashKing covers the Discord-link lookup (the official API has no Discord links) and the CWL war
+// history. The developer token is required by /v2/links/shared; the war endpoints are public.
+var ckApiToken = builder.Configuration["CkApiToken"];
 builder.Services.AddHttpClient<ZenBotCS.Web.Services.ClashKingClient>(c =>
 {
     c.BaseAddress = new Uri("https://api.clashk.ing/");
     c.DefaultRequestHeaders.UserAgent.ParseAdd("ZenBot");
     c.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    if (!string.IsNullOrWhiteSpace(ckApiToken))
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ckApiToken);
 });
 
 // Direct DB access: the website is a second consumer of the shared BotDataContext.

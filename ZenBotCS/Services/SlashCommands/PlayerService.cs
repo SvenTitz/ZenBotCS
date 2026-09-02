@@ -14,7 +14,7 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands
 {
-    public class PlayerService(EmbedHelper embedHelper, ClashKingApiClient ckApiClient, ClashKingApiService _ckApiService, BotDataContext botDb, ILogger<PlayerService> logger, PlayersClient playersClient, CustomClansClient clansClient)
+    public class PlayerService(EmbedHelper embedHelper, ClashKingApiClient ckApiClient, BotDataContext botDb, ILogger<PlayerService> logger, PlayersClient playersClient, CustomClansClient clansClient)
     {
         private readonly EmbedHelper _embedHelper = embedHelper;
         private readonly ClashKingApiClient _ckApiClient = ckApiClient;
@@ -160,11 +160,11 @@ namespace ZenBotCS.Services.SlashCommands
 
                 if (warTypeFilter == WarTypeFilter.CWLOnly)
                 {
-                    warHits.Items = warHits.Items.Where(i => i.WarData.Type == "cwl").ToList();
+                    warHits.Items = warHits.Items.Where(i => i.Type == "cwl").ToList();
                 }
                 else if (warTypeFilter == WarTypeFilter.RegularOnly)
                 {
-                    warHits.Items = warHits.Items.Where(i => i.WarData.Type != "cwl").ToList();
+                    warHits.Items = warHits.Items.Where(i => i.Type != "cwl").ToList();
                 }
 
                 var stringBuilder = new StringBuilder();
@@ -177,13 +177,13 @@ namespace ZenBotCS.Services.SlashCommands
                 stringBuilder.Append($"Attacks:  ");
                 stringBuilder.AppendLine(warHits.Items.Sum(i => i.Attacks.Count).ToString());
                 stringBuilder.Append("Misses:   ");
-                stringBuilder.AppendLine(warHits.Items.Sum(i => (i.WarData.AttacksPerMember > 0 ? i.WarData.AttacksPerMember : 1) - i.Attacks.Count).ToString());
+                stringBuilder.AppendLine(warHits.Items.Sum(i => (i.AttacksPerMember > 0 ? i.AttacksPerMember : 1) - i.Attacks.Count).ToString());
                 stringBuilder.AppendLine();
 
 
                 // stringBuilder.Append("\n\n");
 
-                var groupedHits = warHits.Items.GroupBy(i => i.MemberData.TownhallLevel).OrderByDescending(g => g.Key);
+                var groupedHits = warHits.Items.GroupBy(i => i.Player.TownhallLevel).OrderByDescending(g => g.Key);
 
                 var data = new List<string[]>
                 {
@@ -338,32 +338,6 @@ namespace ZenBotCS.Services.SlashCommands
                 embedBuilder.WithDescription(description.ToString());
                 embeds.Add(embedBuilder.Build());
 
-
-                embedBuilder.WithTitle($"Legend League Attacks for {(user as SocketGuildUser)?.DisplayName ?? user.GlobalName}");
-                description = new StringBuilder();
-                var season = await _ckApiClient.GetCurrentSeason();
-                foreach (var player in players)
-                {
-                    if (player.League?.Name != "Legend League" || season is null)
-                        continue;
-
-                    var legendPlayer = await _ckApiClient.GetPlayerLegends(player.Tag, season);
-                    var numAttacks = legendPlayer.Legends[_ckApiClient.GetCurrentLegendDay()].NumAttacks;
-                    if (numAttacks == 8)
-                        description.Append("~~");
-                    description.Append($"- {numAttacks}/8 on **{player.Name}{_embedHelper.ToSuperscript(player.TownHallLevel)}**");
-                    if (numAttacks == 8)
-                        description.Append("~~");
-                    description.AppendLine();
-                }
-                if (description.Length > 0)
-                {
-                    embedBuilder.WithDescription(description.ToString());
-                    embeds.Add(embedBuilder.Build());
-                }
-
-
-
                 return embeds;
             }
             catch (Exception ex)
@@ -393,97 +367,6 @@ namespace ZenBotCS.Services.SlashCommands
 
             List<Player> result = [.. players.Where(p => p is not null).OrderBy(p => p?.TownHallLevel)];
             return result;
-        }
-
-        public async Task<Embed[]> StatsData(string playerTag)
-        {
-            var (playerStats, lastUpdated) = await _ckApiService.GetOrFetchPlayerStatsAsync(playerTag);
-
-            if (playerStats is null)
-            {
-                return [embedHelper.ErrorEmbed("Error", "Could not fetch player data from CK API.")];
-            }
-
-            var clan = await _clansClient.GetOrFetchClanOrDefaultAsync(playerStats.ClanTag);
-
-            var embedTemplate = new EmbedBuilder()
-                .WithColor(Color.Purple);
-
-
-            var playerInfoText =
-                $"`Name:         ` {playerStats.Name}\n" +
-                $"`Tag:          ` {playerStats.Tag}\n" +
-                $"`Townhall:     ` {playerStats.Townhall}\n" +
-                $"`LastOnline:   ` <t:{playerStats.LastOnline}:f>\n" +
-                //$"`Trophies:     ` {playerStats.Trophies}\n" +
-                //$"`WarStars:     ` {playerStats.WarStars}\n" +
-                $"`ClanCapContr.:` {playerStats.ClanCapitalContributions:N0}\n" +
-                $"`Clan:         ` {clan?.Name ?? ""}\n" +
-                $"`League:       ` {playerStats.League}\n" +
-                $"`LastUpdated:  ` <t:{new DateTimeOffset(lastUpdated, TimeSpan.Zero).ToUnixTimeSeconds()}:f>\n";
-            var playerInfoEmbed = embedTemplate
-                .WithTitle("Player Data")
-                .WithDescription(playerInfoText)
-                .Build();
-
-            var playerDonationText = new StringBuilder();
-            foreach (var kvp in playerStats.Donations ?? [])
-            {
-                playerDonationText.AppendLine($"- `{kvp.Key}`");
-                playerDonationText.AppendLine($"  - `donated: ` {kvp.Value.Donated}");
-                playerDonationText.AppendLine($"  - `received:` {kvp.Value.Received}");
-            }
-            var playerDonationEmbed = embedTemplate
-                .WithTitle("Player Donations")
-                .WithDescription(playerDonationText.ToString())
-                .Build();
-
-            var playerCapText = new StringBuilder();
-            foreach (var kvp in playerStats.CapitalRaids ?? [])
-            {
-                playerCapText.AppendLine($"- `{kvp.Key}`");
-                playerCapText.AppendLine($"  - `donated:` [ {string.Join(", ", kvp.Value.Donate)} ]");
-                if (kvp.Value.Raid.Count != 0)
-                    playerCapText.AppendLine($"  - `raided: ` [ {string.Join(", ", kvp.Value.Raid)} ]");
-            }
-            var playerCapEmbed = embedTemplate
-                .WithTitle("Player Capital Raids")
-                .WithDescription(playerCapText.ToString())
-                .Build();
-
-            var playerClanGamesText = new StringBuilder();
-            foreach (var kvp in playerStats.ClanGames ?? [])
-            {
-                playerClanGamesText.AppendLine($"- `{kvp.Key}`");
-                playerClanGamesText.AppendLine($"  - `clan:  ` {kvp.Value.ClanTag}");
-                playerClanGamesText.AppendLine($"  - `points:` {kvp.Value.Points}");
-            }
-            var playerClanGamesEmbed = embedTemplate
-                .WithTitle("Player Clan Game Points")
-                .WithDescription(playerClanGamesText.ToString())
-                .Build();
-
-            var playerAttackWinsText = new StringBuilder();
-            foreach (var kvp in playerStats.AttackWins ?? [])
-            {
-                playerAttackWinsText.AppendLine($"- `{kvp.Key}:` {kvp.Value}");
-            }
-            var playerAttackWinsEmbed = embedTemplate
-                .WithTitle("Player Multiplayer Attack Wins")
-                .WithDescription(playerAttackWinsText.ToString())
-                .Build();
-
-            var playerActivityText = new StringBuilder();
-            foreach (var kvp in playerStats.Activity ?? [])
-            {
-                playerActivityText.AppendLine($"- `{kvp.Key}:` {kvp.Value}");
-            }
-            var playerActivityEmbed = embedTemplate
-                .WithTitle("Player Activity")
-                .WithDescription(playerActivityText.ToString())
-                .Build();
-
-            return [playerInfoEmbed, playerDonationEmbed, playerCapEmbed, playerClanGamesEmbed, playerAttackWinsEmbed, playerActivityEmbed];
         }
     }
 

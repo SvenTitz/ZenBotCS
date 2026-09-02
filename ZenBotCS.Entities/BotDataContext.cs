@@ -12,7 +12,7 @@ namespace ZenBotCS.Entities
         public DbSet<PinnedRoster> PinnedRosters { get; set; }
         public DbSet<ReminderMisses> ReminderMisses { get; set; }
         public DbSet<ReminderState> ReminderStates { get; set; }
-        public DbSet<PlayerStats> PlayerStats { get; set; }
+        public DbSet<PlayerWarHitsCache> PlayerWarHitsCaches { get; set; }
         public DbSet<CwlHistory> CwlHistories { get; set; }
         public DbSet<ClanSettings> ClanSettings { get; set; }
         public DbSet<SubRoster> SubRosters { get; set; }
@@ -59,9 +59,13 @@ namespace ZenBotCS.Entities
                 .HasForeignKey(s => s.SubRosterId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<PlayerWarHitsCache>()
+                .HasIndex(x => x.PlayerTag)
+                .IsUnique();
+
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());
 
-            modelBuilder.ApplyConfiguration(new PlayerStatsConfiguration());
+            modelBuilder.ApplyConfiguration(new PlayerWarHitsCacheConfiguration());
 
             modelBuilder.ApplyConfiguration(new CwlHistoryConfiguration());
 

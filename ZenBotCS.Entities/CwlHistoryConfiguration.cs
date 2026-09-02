@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Newtonsoft.Json;
@@ -16,7 +16,7 @@ public class CwlHistoryConfiguration : IEntityTypeConfiguration<CwlHistory>
         builder.HasIndex(ch => new { ch.ClanTag, ch.Season, ch.StartTime })
             .IsUnique();
 
-        // Store the whole computed performance object as a JSON column, like WarHistory/PlayerStats.
+        // Store the whole computed performance object as a JSON column, like WarHistory.
         builder.Property(ch => ch.Performance)
             .HasColumnType("longtext")
             .HasConversion(

@@ -8,8 +8,8 @@ namespace ZenBotCS.Services;
 
 /// <summary>
 /// Single source of truth for "which Discord user owns this player tag" and the reverse. ClashKing's
-/// /discord_links endpoint is asked first; whenever it has no answer -- it is down, or it simply does
-/// not know the tag -- the bot's own <c>DiscordLinks</c> table answers instead. That table is a
+/// /v2/links/shared endpoint is asked first; whenever it has no answer -- it is down, or it simply
+/// does not know the tag -- the bot's own <c>DiscordLinks</c> table answers instead. That table is a
 /// rolling copy of the API kept by <see cref="Background.DiscordLinkUpdateService"/> and topped up
 /// here on every successful lookup, so it stays usable while the endpoint is broken.
 ///

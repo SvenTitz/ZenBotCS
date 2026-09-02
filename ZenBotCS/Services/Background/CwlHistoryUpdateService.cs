@@ -10,7 +10,7 @@ namespace ZenBotCS.Services.Background;
 
 /// <summary>
 /// Daily snapshot of each managed clan's CWL performance into <see cref="CwlHistory"/>. Computes the
-/// same metrics the website shows (from ClashKing's <c>/war/{tag}/previous</c> history, grouped into
+/// same metrics the website shows (from ClashKing's <c>/v2/clan/{tag}/wars</c> history, grouped into
 /// CWL instances), and — for the current CWL only — stamps each player's <see cref="CwlSignup.Bonus"/>
 /// while the signups are still live (bonus can't be recovered from war data later). Finished CWLs are
 /// immutable, so older instances are inserted once and never overwritten (never clobbering a bonus
@@ -82,7 +82,7 @@ public class CwlHistoryUpdateService(IServiceScopeFactory serviceScopeFactory, I
 
         foreach (var instanceWars in instances)
         {
-            // Skip the current, in-progress CWL: /war/previous delivers its rounds incompletely. The
+            // Skip the current, in-progress CWL: the war history delivers its rounds incompletely. The
             // website sources the live CWL from the CoC cache instead; the bot only persists finished
             // (immutable) CWLs, inserted once.
             if (CwlPerformanceCalculator.GroupStart(instanceWars) >= currentCutoff)

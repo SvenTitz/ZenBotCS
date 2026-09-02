@@ -2,14 +2,9 @@ using Newtonsoft.Json;
 
 namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 
+/// <summary>An attack the queried player made. v2 names the defending base <c>player</c>.</summary>
 public class Attack
 {
-    [JsonProperty("attackerTag")]
-    public string AttackerTag { get; set; } = default!;
-
-    [JsonProperty("defenderTag")]
-    public string DefenderTag { get; set; } = default!;
-
     [JsonProperty("stars")]
     public int Stars { get; set; }
 
@@ -25,9 +20,6 @@ public class Attack
     [JsonProperty("fresh")]
     public bool Fresh { get; set; }
 
-    [JsonProperty("defender")]
-    public Defender Defender { get; set; } = default!;
-
-    [JsonProperty("attack_order")]
-    public int AttackOrder { get; set; }
+    [JsonProperty("player")]
+    public WarParticipant Defender { get; set; } = default!;
 }

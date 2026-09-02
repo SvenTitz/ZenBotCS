@@ -83,7 +83,7 @@ public class LinksService(BotDataContext botDb, PlayersClient playersClient, Emb
 
     /// <summary>
     /// Manually write a link into the bot's table. This is the break-glass path for when ClashKing's
-    /// /discord_links is down and <see cref="DiscordLinkSource"/> has nothing cached for a player.
+    /// /v2/links/shared is down and <see cref="DiscordLinkSource"/> has nothing cached for a player.
     /// Overwrites whatever the table held for that tag -- and is itself overwritten by the next
     /// successful <see cref="Update"/>, which mirrors the API verbatim.
     /// </summary>

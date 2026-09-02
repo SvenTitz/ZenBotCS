@@ -2,7 +2,12 @@ using Newtonsoft.Json;
 
 namespace ZenBotCS.Entities.Models.ClashKingApi.PlayerWarHits;
 
-public class MemberData
+/// <summary>
+/// A base in a war, as <c>/v2/player/{tag}/war/stats</c> reports it. The same shape stands in for the
+/// queried player, the defender of one of their attacks, and the attacker of one of their defenses --
+/// the endpoint calls all three <c>player</c>.
+/// </summary>
+public class WarParticipant
 {
     [JsonProperty("tag")]
     public string Tag { get; set; } = default!;
@@ -15,7 +20,4 @@ public class MemberData
 
     [JsonProperty("mapPosition")]
     public int MapPosition { get; set; }
-
-    [JsonProperty("opponentAttacks")]
-    public int OpponentAttacks { get; set; }
 }

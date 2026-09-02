@@ -4,7 +4,7 @@ using ZenBotCS.Entities.Models.ClashKingApi;
 namespace ZenBotCS.Entities.Models.Cwl;
 
 /// <summary>
-/// Turns a clan's raw war history (from <c>/war/{tag}/previous</c>, where each war's <c>Clan</c> is
+/// Turns a clan's raw war history (from <c>/v2/clan/{tag}/wars</c>, where each war's <c>Clan</c> is
 /// the queried clan) into computed CWL performance, reproducing the family's Google-sheet metrics.
 /// Pure and stateless so both the website (lazy fill) and the bot (background snapshot) can share it.
 /// </summary>

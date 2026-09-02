@@ -18,13 +18,10 @@ public class WarData
 
     /// <summary>
     /// The CWL round war tag. Present only for Clan War League wars — regular wars leave this null,
-    /// so it's the discriminator used to pick out CWL wars from a <c>/war/{tag}/previous</c> history
+    /// so it's the discriminator used to pick out CWL wars from a <c>/v2/clan/{tag}/wars</c> history
     /// (where the field is named <c>tag</c>; the live-CWL endpoint calls the same thing <c>war_tag</c>).
+    /// CWL wars also omit <c>attacksPerMember</c>, which is why it defaults to 1 above.
     /// </summary>
     [JsonProperty("tag")]
     public string? WarTag { get; set; }
-
-    /// <summary>The season this war belongs to (<c>yyyy-MM</c>), as reported by <c>/war/{tag}/previous</c>.</summary>
-    [JsonProperty("season")]
-    public string? Season { get; set; }
 }

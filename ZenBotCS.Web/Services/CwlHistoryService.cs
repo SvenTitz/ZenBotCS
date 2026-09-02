@@ -7,7 +7,7 @@ namespace ZenBotCS.Web.Services;
 
 /// <summary>
 /// Reads a clan's CWL performance history from the <see cref="CwlHistory"/> cache, lazily filling it
-/// from ClashKing's war history (<c>/war/{tag}/previous</c>) on first request or when stale. Finished
+/// from ClashKing's war history (<c>/v2/clan/{tag}/wars</c>) on first request or when stale. Finished
 /// CWLs are immutable so they're computed once and served from the DB thereafter; the most recent
 /// instance is refreshed while it may still be in progress. Per-operation DbContext (Blazor Server).
 /// </summary>
@@ -84,7 +84,7 @@ public class CwlHistoryService(
             await RefreshHistoricalAsync(clanTag, ct);
     }
 
-    // Finished CWLs from ClashKing /war/previous — immutable, inserted once, never overwritten.
+    // Finished CWLs from ClashKing /v2/clan/{tag}/wars — immutable, inserted once, never overwritten.
     // Anything inside the current window is skipped (owned by the CoC-cache path).
     private async Task RefreshHistoricalAsync(string clanTag, CancellationToken ct)
     {

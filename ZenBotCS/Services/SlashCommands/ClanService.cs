@@ -385,10 +385,10 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
                 continue;
 
             var warHitsFiltered = warHits.Items
-                .OrderByDescending(w => w.WarData.EndTime).Take((int)limitWars)
+                .OrderByDescending(w => w.EndTime).Take((int)limitWars)
                 .Where(w =>
                 {
-                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    var endTime = DateTime.ParseExact(w.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
                     TimeSpan difference = DateTime.UtcNow - endTime;
                     return difference.TotalDays <= limitDays;
                 });
@@ -398,17 +398,17 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
 
             foreach (var warHit in warHitsFiltered)
             {
-                if (playerTh is not null && warHit.MemberData.TownhallLevel != playerTh)
+                if (playerTh is not null && warHit.Player.TownhallLevel != playerTh)
                     continue;
-                if (warTypeFilter == WarTypeFilter.CWLOnly && warHit.WarData.Type != "cwl")
+                if (warTypeFilter == WarTypeFilter.CWLOnly && warHit.Type != "cwl")
                     continue;
-                if (warTypeFilter == WarTypeFilter.RegularOnly && warHit.WarData.Type == "cwl")
+                if (warTypeFilter == WarTypeFilter.RegularOnly && warHit.Type == "cwl")
                     continue;
 
                 foreach (var attack in warHit.Attacks)
                 {
                     var opponentTh = attack.Defender.TownhallLevel;
-                    if (!attackFilterFunc(warHit.MemberData.TownhallLevel, opponentTh))
+                    if (!attackFilterFunc(warHit.Player.TownhallLevel, opponentTh))
                         continue;
 
                     if (successFunc(attack.Stars))
@@ -561,66 +561,4 @@ public partial class ClanService(CustomClansClient _clansClient, ClashKingApiCli
             .WithDescription("Done")
             .Build();
     }
-
-    public async Task<Embed> StatsActivity(string clanTag, uint minAttacks, uint minActivity, uint maxDays)
-    {
-        var clan = await _clansClient.GetOrFetchClanAsync(clanTag);
-
-        List<ActivityData> activityData = [];
-        foreach (var member in clan.Members)
-        {
-            var memberData = await _clashKingApiService.GetOrFetchPlayerStatsAsync(member.Tag);
-            var memberAttacks = await _clashKingApiService.GetOrFetchPlayerWarhitsAsync(member.Tag);
-
-            var activity = memberData.player?.Activity?.TakeLast(2).Select(kvp => kvp.Value).Sum();
-            var attacks = memberAttacks?.Items
-                .OrderByDescending(w => w.WarData.EndTime)
-                .Where(w =>
-                {
-                    var endTime = DateTime.ParseExact(w.WarData.EndTime, "yyyyMMddTHHmmss.fffZ", null, System.Globalization.DateTimeStyles.RoundtripKind);
-                    TimeSpan difference = DateTime.UtcNow - endTime;
-                    return difference.TotalDays <= 60;
-                })
-                .SelectMany(w => w.Attacks.Where(a => a.DestructionPercentage > 0))
-                .Count();
-
-            var activityString = activity.ToString()?.PadLeft(4) ?? "    ";
-            var attacksString = attacks?.ToString()?.PadLeft(3) ?? "   ";
-
-            var inactive = (activity < minActivity && attacks < minAttacks)
-                        || memberData.player?.LastOnline < DateTimeOffset.UtcNow.AddDays(-maxDays).ToUnixTimeSeconds();
-
-            activityData.Add(new ActivityData(member.Name + _embedHelper.ToSuperscript(member.TownHallLevel ?? 0), member.Tag, attacksString, activityString, memberData.player?.LastOnline.ToString() ?? "", inactive));
-        }
-
-        var stringBuilder = new StringBuilder();
-
-        void AppendSection(string heading, bool inactive)
-        {
-            stringBuilder.AppendLine(heading);
-            stringBuilder.AppendLine("`Atk` `Acti` `last online`");
-            var members = activityData.Where(ad => ad.inactive == inactive).OrderByDescending(ad => ad.Activity).ToList();
-            foreach (var ad in members)
-            {
-                var lastOnline = string.IsNullOrEmpty(ad.lastOnline)
-                    ? "- - -"
-                    : $"<t:{ad.lastOnline}:R>";
-                stringBuilder.AppendLine($"`{ad.Attacks}` `{ad.Activity}` {lastOnline} **{ad.Name}**");
-            }
-            stringBuilder.AppendLine($"Count: **{members.Count}**");
-        }
-
-        AppendSection("### Active Members:", inactive: false);
-        stringBuilder.AppendLine();
-        AppendSection("### Inactive Members:", inactive: true);
-
-        return new EmbedBuilder()
-            .WithTitle($"{clan.Name} Activity")
-            .WithDescription(stringBuilder.ToString())
-            .WithColor(Color.Purple)
-            .WithFooter("Atk = War attacks last 60 days, Acti = Activity score current + last season")
-            .Build();
-    }
-
-    private record ActivityData(string Name, string Tag, string Attacks, string Activity, string lastOnline, bool inactive);
 }

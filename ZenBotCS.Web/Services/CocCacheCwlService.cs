@@ -7,7 +7,7 @@ namespace ZenBotCS.Web.Services;
 /// <summary>
 /// Reads the <b>current</b> CWL's wars for a clan straight from the CoC cache DB
 /// (CocApiCacheConnectionString) — the bot fills it live, so it has every round (including the
-/// in-progress one) with correct orientation, unlike ClashKing's <c>/war/previous</c> which only
+/// in-progress one) with correct orientation, unlike ClashKing's war history which only
 /// exposes finished wars piecemeal. The cached <c>war.RawContent</c> is the raw CoC war JSON (same
 /// shape as <see cref="WarData"/>); the war tag lives in the separate <c>WarTag</c> column, so it's
 /// injected after deserialisation. Mirrors <see cref="ClanNameService"/>'s cache-DB access.

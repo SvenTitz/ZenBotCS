@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\ZenBotCS.Entities\ZenBotCS.Entities.csproj" />
@@ -23,6 +23,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>7e4b4785-ed6c-4916-ba53-90ad5434bc0e</UserSecretsId>
   </PropertyGroup>
 
   <!-- Bundled font for server-side roster image rendering (deterministic across machines). -->
