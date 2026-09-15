@@ -1,0 +1,8 @@
+@inherits LayoutComponentBase
+
+@* Deliberately free of MudBlazor. The error page renders in the scope that
+   UseExceptionHandler(createScopeForErrors: true) creates, and that scope is disposed
+   synchronously — resolving MudBlazor's scoped services into it (PointerEventsNoneService
+   is IAsyncDisposable-only) throws a second exception during cleanup and tears down the
+   response. See Program.cs, UseExceptionHandler. *@
+@Body

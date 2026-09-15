@@ -119,10 +119,30 @@ Already done, but here's the full path in case you rebuild the box.
 9. **Firewall** — `sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw enable`.
 10. **Discord** — add redirect URL `https://rosters.YOURDOMAIN/signin-discord` in the Developer
     Portal (OAuth2 → Redirects).
+11. **Restart-on-runtime-upgrade hook** — `/etc/apt/apt.conf.d/99-restart-zenbot`:
+    ```
+    DPkg::Post-Invoke { "systemctl try-restart zenbot-web zenbot-bot || true"; };
+    ```
+    Without this, a monthly `unattended-upgrades` patch of the .NET runtime leaves both
+    long-running processes pointing at a deleted framework directory (see Troubleshooting).
+    It runs after dpkg finishes, and `try-restart` is a no-op for anything not running.
 
 ---
 
 ## Troubleshooting (things we actually hit)
+
+- **Random `FileNotFoundException` on a *framework* assembly after weeks of uptime**
+  (e.g. *Could not load file or assembly 'System.Formats.Asn1, Version=8.0.0.0'* breaking
+  Discord login). The .NET runtime was patched underneath the running process:
+  `unattended-upgrades` installs `8.0.<new>` and **deletes**
+  `/usr/share/dotnet/shared/Microsoft.NETCore.App/8.0.<old>/`, which the process pinned at
+  startup. Already-loaded assemblies stay mapped and keep working, so the app looks healthy
+  for days — until it first needs one it hadn't loaded yet. `System.Formats.Asn1` is the
+  usual victim: it loads only on the first outbound TLS cert-chain build in the process.
+  `sudo systemctl restart zenbot-web` fixes it instantly. Confirm after the fact with
+  `grep -E 'dotnet|aspnetcore' /var/log/dpkg.log* | grep -E ' (install|upgrade) '` and
+  compare against `systemctl show zenbot-web -p ActiveEnterTimestamp`. Prevented by the apt
+  hook in setup step 11.
 
 - **"Server Not Found" / site won't load, but `dig` resolves it** — local DNS cached the old
   "no such domain" answer. `ipconfig /flushdns` on your PC (and check the browser isn't using a
