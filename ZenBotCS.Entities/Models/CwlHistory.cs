@@ -5,10 +5,10 @@ using ZenBotCS.Entities.Models.Cwl;
 namespace ZenBotCS.Entities.Models;
 
 /// <summary>
-/// A cached, computed CWL performance snapshot for one clan in one CWL instance. Keyed by
-/// (ClanTag, Season, StartTime): <see cref="StartTime"/> disambiguates the rare case of two CWLs
-/// in the same month. Finished CWLs are immutable and served straight from here; the live season
-/// is recomputed. See <c>CwlHistoryConfiguration</c> for the JSON column mapping.
+/// A cached, computed CWL performance snapshot for one clan in one CWL instance. Stored one row per
+/// CWL slot (see <c>CwlHistoryStore</c>), which is what keeps the rare two-CWLs-in-a-month case apart
+/// without letting a partial fetch invent a third. Finished CWLs are served straight from here; the
+/// live one is recomputed. See <c>CwlHistoryConfiguration</c> for the JSON column mapping.
 /// </summary>
 public class CwlHistory
 {
@@ -25,7 +25,7 @@ public class CwlHistory
     [MaxLength(7)]
     public string Season { get; set; } = string.Empty;
 
-    /// <summary>The first war's start time — part of the key so two CWLs in a month stay distinct.</summary>
+    /// <summary>The earliest known war start of this CWL — part of the unique key, and what the UI labels.</summary>
     public DateTime StartTime { get; set; }
 
     public CwlSeasonPerformance? Performance { get; set; }

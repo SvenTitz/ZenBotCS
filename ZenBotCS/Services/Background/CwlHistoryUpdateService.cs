@@ -12,9 +12,10 @@ namespace ZenBotCS.Services.Background;
 /// Daily snapshot of each managed clan's CWL performance into <see cref="CwlHistory"/>. Computes the
 /// same metrics the website shows (from ClashKing's <c>/v2/clan/{tag}/wars</c> history, grouped into
 /// CWL instances), and — for the current CWL only — stamps each player's <see cref="CwlSignup.Bonus"/>
-/// while the signups are still live (bonus can't be recovered from war data later). Finished CWLs are
-/// immutable, so older instances are inserted once and never overwritten (never clobbering a bonus
-/// captured while they were current). Mirrors <c>WarHistoryUpdateService</c>'s scope/catch pattern.
+/// while the signups are still live (bonus can't be recovered from war data later). Writing goes
+/// through <see cref="CwlHistoryStore"/>, so a re-snapshot of a finished CWL keeps the bonus flags
+/// captured while it was current and can only add rounds, never drop them. Mirrors
+/// <c>WarHistoryUpdateService</c>'s scope/catch pattern.
 /// </summary>
 public class CwlHistoryUpdateService(IServiceScopeFactory serviceScopeFactory, ILogger<CwlHistoryUpdateService> logger) : BackgroundService
 {
@@ -92,20 +93,7 @@ public class CwlHistoryUpdateService(IServiceScopeFactory serviceScopeFactory, I
             if (performance.Players.Count == 0)
                 continue;
 
-            var exists = botDb.CwlHistories.Any(
-                h => h.ClanTag == clanTag && h.Season == performance.Season && h.StartTime == performance.StartTime);
-            if (!exists)
-            {
-                botDb.CwlHistories.Add(new CwlHistory
-                {
-                    ClanTag = clanTag,
-                    Season = performance.Season,
-                    StartTime = performance.StartTime,
-                    Performance = performance,
-                    UpdatedAt = DateTime.UtcNow,
-                });
-                await botDb.SaveChangesAsync(ct);
-            }
+            await CwlHistoryStore.UpsertAsync(botDb, clanTag, performance, ct);
         }
     }
 }

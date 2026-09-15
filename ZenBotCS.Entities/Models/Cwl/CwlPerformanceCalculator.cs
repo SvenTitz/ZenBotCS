@@ -13,41 +13,57 @@ public static class CwlPerformanceCalculator
     // CoC timestamps look like "20260602T195213.000Z".
     private const string CocTimeFormat = "yyyyMMdd'T'HHmmss.fff'Z'";
 
-    // A CWL runs one war per day for ~7 days; the next CWL is ~10 days later. Split into a new
-    // instance only on a gap this large, so a missing/not-yet-ingested round in the middle doesn't
-    // fracture one CWL into two, while two CWLs in the same month still separate cleanly.
-    private static readonly TimeSpan InstanceGap = TimeSpan.FromDays(5);
+    // CWL runs once per calendar month, its seven rounds starting on the 1st. Exactly one month in
+    // the game's history ran a second CWL from mid-month, so a month holds at most two instances,
+    // split at this day of the month.
+    private const int SecondInstanceDay = 14;
+
+    /// <summary>Identifies one CWL: the calendar slot its wars fall in (a month, and which half).</summary>
+    public readonly record struct CwlInstanceKey(int Year, int Month, bool SecondOfMonth);
+
+    /// <summary>The CWL slot a war start (or any moment) belongs to.</summary>
+    public static CwlInstanceKey InstanceKey(DateTime moment)
+        => new(moment.Year, moment.Month, moment.Day >= SecondInstanceDay);
+
+    /// <summary>The earliest a war of <paramref name="moment"/>'s CWL slot can have started.</summary>
+    public static DateTime InstanceSlotStart(DateTime moment)
+        => new(moment.Year, moment.Month, moment.Day >= SecondInstanceDay ? SecondInstanceDay : 1,
+            0, 0, 0, DateTimeKind.Utc);
 
     /// <summary>
-    /// Split a clan's war history into individual CWL instances (each a run of ~7 consecutive
-    /// tagged wars), newest first. Regular wars (no <see cref="WarData.WarTag"/>) are ignored.
+    /// Split a clan's war history into individual CWL instances, newest first. Regular wars (no
+    /// <see cref="WarData.WarTag"/>) are ignored. Grouping is by calendar slot, not by the gaps
+    /// between wars: rounds go missing all the time (a war not yet ingested, a cache window that
+    /// has slid past round 1), and a gap rule turns those into a second, bogus CWL.
     /// </summary>
     public static List<List<WarData>> GroupIntoCwlInstances(IEnumerable<WarData> wars)
     {
-        var cwlWars = wars
+        return wars
             .Where(w => !string.IsNullOrEmpty(w.WarTag))
             .Select(w => (War: w, Start: ParseTime(w.StartTime)))
             .Where(x => x.Start != default)
-            .OrderBy(x => x.Start)
+            .GroupBy(x => InstanceKey(x.Start))
+            .OrderByDescending(g => g.Min(x => x.Start)) // newest instance first
+            .Select(g => g.OrderBy(x => x.Start).Select(x => x.War).ToList())
             .ToList();
+    }
 
-        var instances = new List<List<WarData>>();
-        List<WarData>? current = null;
-        DateTime prevStart = default;
+    /// <summary>
+    /// How many of the seven rounds a computed performance actually holds — the measure of how
+    /// complete a snapshot is, used to keep a partial fetch from replacing a full one.
+    /// </summary>
+    public static int RoundsWithData(CwlSeasonPerformance? performance)
+    {
+        if (performance is null)
+            return 0;
 
-        foreach (var (war, start) in cwlWars)
+        var rounds = 0;
+        for (var round = 0; round < 7; round++)
         {
-            if (current is null || start - prevStart > InstanceGap)
-            {
-                current = [];
-                instances.Add(current);
-            }
-            current.Add(war);
-            prevStart = start;
+            if (performance.Players.Any(p => p.Days[round] is not null))
+                rounds++;
         }
-
-        instances.Reverse(); // newest instance first
-        return instances;
+        return rounds;
     }
 
     /// <summary>The earliest war start in an instance (its identifying <c>StartTime</c>), or default if empty.</summary>

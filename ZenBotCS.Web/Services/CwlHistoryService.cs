@@ -19,7 +19,7 @@ public class CwlHistoryService(
 {
     // A CWL whose first war started within this many days is treated as "current": it comes from the
     // CoC cache (complete + live), and is excluded from the ClashKing /previous fill (which delivers
-    // in-progress rounds unreliably). Matches CocCacheCwlService's window.
+    // in-progress rounds unreliably).
     private static readonly TimeSpan CurrentWindow = TimeSpan.FromDays(9);
 
     public record CwlInstanceInfo(string Season, DateTime StartTime);
@@ -84,8 +84,9 @@ public class CwlHistoryService(
             await RefreshHistoricalAsync(clanTag, ct);
     }
 
-    // Finished CWLs from ClashKing /v2/clan/{tag}/wars — immutable, inserted once, never overwritten.
-    // Anything inside the current window is skipped (owned by the CoC-cache path).
+    // Finished CWLs from ClashKing /v2/clan/{tag}/wars. Anything inside the current window is skipped
+    // (owned by the CoC-cache path); the rest is upserted per CWL slot, which also repairs rows a
+    // partial fetch fragmented earlier.
     private async Task RefreshHistoricalAsync(string clanTag, CancellationToken ct)
     {
         var history = await clashKing.GetClanWarHistoryAsync(clanTag, limit: 300, ct: ct);
@@ -107,29 +108,15 @@ public class CwlHistoryService(
             if (performance.Players.Count == 0)
                 continue;
 
-            var exists = await db.CwlHistories.AnyAsync(
-                h => h.ClanTag == clanTag && h.Season == performance.Season && h.StartTime == performance.StartTime, ct);
-            if (!exists)
-            {
-                db.CwlHistories.Add(new CwlHistory
-                {
-                    ClanTag = clanTag,
-                    Season = performance.Season,
-                    StartTime = performance.StartTime,
-                    Performance = performance,
-                    UpdatedAt = DateTime.UtcNow,
-                });
-            }
+            await CwlHistoryStore.UpsertAsync(db, clanTag, performance, ct);
         }
-
-        await db.SaveChangesAsync(ct);
     }
 
-    // The current, in-progress CWL from the CoC cache (complete + live) — always overwritten so
+    // The current, in-progress CWL from the CoC cache (complete + live) — rewritten as rounds land so
     // progressive results and late attacks are reflected, with live bonus flags from the signups.
     private async Task RefreshCurrentAsync(string clanTag, CancellationToken ct)
     {
-        var currentWars = await cocCache.GetCurrentCwlWarsAsync(clanTag, ct: ct);
+        var currentWars = await cocCache.GetCurrentCwlWarsAsync(clanTag, ct);
         if (currentWars.Count == 0)
             return;
 
@@ -156,26 +143,7 @@ public class CwlHistoryService(
             if (performance.Players.Count == 0)
                 continue;
 
-            var existing = await db.CwlHistories.FirstOrDefaultAsync(
-                h => h.ClanTag == clanTag && h.Season == performance.Season && h.StartTime == performance.StartTime, ct);
-            if (existing is null)
-            {
-                db.CwlHistories.Add(new CwlHistory
-                {
-                    ClanTag = clanTag,
-                    Season = performance.Season,
-                    StartTime = performance.StartTime,
-                    Performance = performance,
-                    UpdatedAt = DateTime.UtcNow,
-                });
-            }
-            else
-            {
-                existing.Performance = performance;
-                existing.UpdatedAt = DateTime.UtcNow;
-            }
+            await CwlHistoryStore.UpsertAsync(db, clanTag, performance, ct);
         }
-
-        await db.SaveChangesAsync(ct);
     }
 }

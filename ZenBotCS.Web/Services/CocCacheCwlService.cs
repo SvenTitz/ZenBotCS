@@ -1,6 +1,7 @@
 using MySqlConnector;
 using Newtonsoft.Json;
 using ZenBotCS.Entities.Models.ClashKingApi;
+using ZenBotCS.Entities.Models.Cwl;
 
 namespace ZenBotCS.Web.Services;
 
@@ -19,16 +20,22 @@ public class CocCacheCwlService(IConfiguration config, ILogger<CocCacheCwlServic
 
     /// <summary>
     /// The started wars (in-war or ended) of the clan's current CWL — those whose preparation began
-    /// within <paramref name="windowDays"/> days. Empty when no CWL is active or the cache is unset.
+    /// within the current CWL slot. Empty when no CWL is active or the cache is unset.
     /// </summary>
-    public async Task<List<WarData>> GetCurrentCwlWarsAsync(string clanTag, int windowDays = 9, CancellationToken ct = default)
+    /// <remarks>
+    /// The cut-off is the start of the calendar slot, not a rolling "last N days": a rolling window
+    /// slides past round 1 a few days after CWL ends, and the truncated war set that came back then
+    /// looked like a whole separate (later-starting) CWL to everything downstream.
+    /// </remarks>
+    public async Task<List<WarData>> GetCurrentCwlWarsAsync(string clanTag, CancellationToken ct = default)
     {
         var result = new List<WarData>();
         var connectionString = config["CocApiCacheConnectionString"];
         if (string.IsNullOrWhiteSpace(connectionString))
             return result;
 
-        var since = DateTime.UtcNow.AddDays(-windowDays);
+        // A day of slack: round 1's preparation can begin just before the slot does.
+        var since = CwlPerformanceCalculator.InstanceSlotStart(DateTime.UtcNow).AddDays(-1);
 
         try
         {

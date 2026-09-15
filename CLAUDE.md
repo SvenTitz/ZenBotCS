@@ -165,5 +165,13 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
   rather than "unlinked". It also drops tags outside the base-14 CoC alphabet before sending, because
   one malformed tag makes the API reject the whole batch with a 400.
 
+- **A CWL is identified by its calendar slot, never by the first war you happen to see.** CWL runs
+  once a month from the 1st; exactly one month in the game's history ran a second one from mid-month,
+  so `CwlPerformanceCalculator.InstanceKey` buckets wars by (month, day >= 14). Rounds go missing from
+  a fetch all the time, and the old gap-based split turned those into extra, bogus CWLs — one season
+  was listed three times. Write `CwlHistory` rows only through `CwlHistoryStore.UpsertAsync`: one row
+  per slot, bonus flags carried across recomputes, and a snapshot with fewer rounds never replaces a
+  fuller one. `CocCacheCwlService` reads from the slot start, not a rolling window, for the same reason.
+
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.
