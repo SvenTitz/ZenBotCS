@@ -156,8 +156,14 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
     /// name/TH, require a linked Discord account, and reject a duplicate active signup. Returns a
     /// user-facing result — <see cref="AddResult.Ok"/> false carries the message to show.
     /// </summary>
+    /// <param name="discordIdOverride">
+    /// Set this to skip the ClashKing/DiscordLinks lookup entirely and sign the player up under this
+    /// Discord user instead — the break-glass path for a player nothing has a link for yet. Deliberately
+    /// not written back to DiscordLinks: nothing downstream needs it there, since role assignment and
+    /// signup check both read the discord id straight off the signup.
+    /// </param>
     public async Task<AddResult> AddSignupAsync(string clanTag, string? rawTag, WarPreference warPreference,
-        bool bonus, int? subRosterId = null, CancellationToken ct = default)
+        bool bonus, int? subRosterId = null, ulong? discordIdOverride = null, CancellationToken ct = default)
     {
         var tag = NormalizeTag(rawTag);
         if (string.IsNullOrEmpty(tag))
@@ -171,28 +177,32 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // ClashKing's link endpoint goes down often enough to block signups outright, so the bot's
-        // DiscordLinks table -- its rolling copy of that API -- is the backup whenever the API has
-        // no answer. The copy can be stale (a player who unlinked upstream still resolves to their
-        // old user), which beats refusing the signup. A fresh answer is mirrored back into it.
-        var discordId = await _clashKing.GetDiscordUserIdAsync(tag, ct);
+        var discordId = discordIdOverride;
         if (discordId is null)
         {
-            discordId = await db.DiscordLinks
-                .Where(dl => dl.PlayerTag == tag)
-                .Select(dl => (ulong?)dl.DiscordId)
-                .FirstOrDefaultAsync(ct);
+            // ClashKing's link endpoint goes down often enough to block signups outright, so the bot's
+            // DiscordLinks table -- its rolling copy of that API -- is the backup whenever the API has
+            // no answer. The copy can be stale (a player who unlinked upstream still resolves to their
+            // old user), which beats refusing the signup. A fresh answer is mirrored back into it.
+            discordId = await _clashKing.GetDiscordUserIdAsync(tag, ct);
+            if (discordId is null)
+            {
+                discordId = await db.DiscordLinks
+                    .Where(dl => dl.PlayerTag == tag)
+                    .Select(dl => (ulong?)dl.DiscordId)
+                    .FirstOrDefaultAsync(ct);
 
-            if (discordId is not null)
-                _logger.LogInformation("ClashKing had no discord link for {tag}, used the bot's link table", tag);
-        }
-        else
-        {
-            db.AddOrUpdateDiscordLink(new DiscordLink { PlayerTag = tag, DiscordId = discordId.Value });
+                if (discordId is not null)
+                    _logger.LogInformation("ClashKing had no discord link for {tag}, used the bot's link table", tag);
+            }
+            else
+            {
+                db.AddOrUpdateDiscordLink(new DiscordLink { PlayerTag = tag, DiscordId = discordId.Value });
+            }
         }
 
         if (discordId is null)
-            return AddResult.Fail($"{player.Value.Name} isn't linked to a Discord account.");
+            return AddResult.NotLinked(player.Value.Name);
 
         if (await db.CwlSignups.AnyAsync(s => s.PlayerTag == tag && !s.Archieved, ct))
             return AddResult.Fail($"{player.Value.Name} is already signed up.");
@@ -263,10 +273,15 @@ public class RosterService(IDbContextFactory<BotDataContext> dbFactory, CocApiCl
 
 /// <summary>Outcome of <see cref="RosterService.AddSignupAsync"/>: whether it worked, a message to
 /// show, and (on success) the resolved player name for logging.</summary>
-public record AddResult(bool Ok, string Message, string? PlayerName = null)
+public record AddResult(bool Ok, string Message, string? PlayerName = null, bool NeedsDiscordId = false)
 {
     public static AddResult Success(string message, string? playerName = null) => new(true, message, playerName);
     public static AddResult Fail(string message) => new(false, message);
+
+    /// <summary>Failed because no Discord account is linked yet — the caller can retry with a manually
+    /// entered Discord user ID via <see cref="RosterService.AddSignupAsync"/>'s discordIdOverride.</summary>
+    public static AddResult NotLinked(string playerName) =>
+        new(false, $"{playerName} isn't linked to a Discord account yet. Enter their Discord user ID below to continue.", playerName, NeedsDiscordId: true);
 }
 
 /// <summary>A clan offered for CWL signup. ClanName is not stored in the bot DB (it comes from CocApi);

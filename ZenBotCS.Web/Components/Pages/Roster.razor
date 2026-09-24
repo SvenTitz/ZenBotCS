@@ -306,6 +306,12 @@
                     }
                 </MudSelect>
                 <MudCheckBox T="bool" @bind-Value="_addBonus" Label="Bonus" Color="Color.Primary" />
+                @if (_addNeedsDiscordId)
+                {
+                    <MudTextField @bind-Value="_addDiscordId" Label="Discord user ID" Class="mt-3"
+                                  Placeholder="e.g. 123456789012345678"
+                                  HelperText="Right-click the member in Discord → Copy User ID (Developer Mode must be enabled)." />
+                }
             </DialogContent>
             <DialogActions>
                 <MudButton OnClick="@(() => _addOpen = false)" Disabled="_adding">Cancel</MudButton>
@@ -469,6 +475,9 @@
     private string _addTag = string.Empty;  // raw typed text, used when nothing is picked
     private WarPreference _addPref = WarPreference.Alternate;
     private bool _addBonus;
+    // Revealed after a first attempt fails because the player has no Discord link yet.
+    private bool _addNeedsDiscordId;
+    private string _addDiscordId = string.Empty;
     // Move dialog
     private bool _moveOpen;
     private bool _moving;
@@ -627,6 +636,8 @@
         _addTag = string.Empty;
         _addPref = WarPreference.Alternate;
         _addBonus = false;
+        _addNeedsDiscordId = false;
+        _addDiscordId = string.Empty;
         _addOpen = true;
     }
 
@@ -638,18 +649,33 @@
     {
         // Prefer the picked suggestion's tag; fall back to whatever tag was typed for an unlisted player.
         var tag = _addPlayer?.Tag ?? _addTag;
+
+        ulong? discordIdOverride = null;
+        if (_addNeedsDiscordId)
+        {
+            if (!ulong.TryParse(_addDiscordId, out var parsedId))
+            {
+                Snackbar.Add("Enter a valid numeric Discord user ID.", Severity.Error);
+                return;
+            }
+            discordIdOverride = parsedId;
+        }
+
         _adding = true;
         try
         {
-            var result = await Rosters.AddSignupAsync(ClanTag, tag, _addPref, _addBonus, _rosterId);
+            var result = await Rosters.AddSignupAsync(ClanTag, tag, _addPref, _addBonus, _rosterId, discordIdOverride);
             if (!result.Ok)
             {
                 Snackbar.Add(result.Message, Severity.Error);
-                return; // keep the dialog open so they can correct the tag
+                if (result.NeedsDiscordId)
+                    _addNeedsDiscordId = true;
+                return; // keep the dialog open so they can correct the tag (or now, the discord id)
             }
             _addOpen = false;
-            Logger.LogInformation("{Actor} added {Player} ({Tag}) to {Roster} — pref {Pref}, bonus {Bonus}",
-                _actor, result.PlayerName ?? tag, tag, _rosterTitle, _addPref, _addBonus);
+            Logger.LogInformation("{Actor} added {Player} ({Tag}) to {Roster} — pref {Pref}, bonus {Bonus}{Override}",
+                _actor, result.PlayerName ?? tag, tag, _rosterTitle, _addPref, _addBonus,
+                discordIdOverride is null ? "" : $", manual discord id {discordIdOverride}");
             Snackbar.Add(result.Message, Severity.Success);
             await ReloadAsync();
         }
