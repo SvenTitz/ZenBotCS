@@ -28,7 +28,8 @@ namespace ZenBotCS.Services.SlashCommands
         CwlSignupCache _signupCache,
         IConfiguration _config,
         DiscordLinkSource _discordLinkSource,
-        DiscordHelper _discordHelper)
+        DiscordHelper _discordHelper,
+        ILogger<CwlSignupWizardService> _logger)
     {
         public (Embed[], MessageComponent) SignupPost()
         {
@@ -120,20 +121,13 @@ namespace ZenBotCS.Services.SlashCommands
             return (null, embeds, component);
         }
 
+        /// <summary>Selected in the account-picker menu in place of a real player tag to open the
+        /// manual-tag modal instead -- see <see cref="TryCacheSignupFromManualTag"/>.</summary>
+        public const string ManualTagMenuValue = "manual";
+
         public async Task<(string, MessageComponent)> CreateCwlSignupAccountSelection(SocketUser user)
         {
-
             var playerTags = await _discordLinkSource.GetPlayerTagsAsync(user.Id);
-
-            if (!playerTags.Any())
-            {
-                var errorMessage = "No clash accounts linked to your user. Please link them with ClashPerks oder ClashKing.";
-                return await Task.FromResult((errorMessage, new ComponentBuilder().Build()));
-            }
-
-            //var players = (await _playersClient.GetCachedPlayersAsync(playerTags)).Select(cp => cp.Content);
-            IEnumerable<Player> players = await _playersClient.GetOrFetchPlayersAsync(playerTags);
-            players = players.OrderByDescending(p => p?.TownHallLevel).ThenBy(p => p?.Name).Take(25);
 
             var menuBuilder = new SelectMenuBuilder()
                 .WithPlaceholder("Select your account")
@@ -141,23 +135,42 @@ namespace ZenBotCS.Services.SlashCommands
                 .WithMinValues(1)
                 .WithMaxValues(1);
 
-            foreach (var player in players)
+            string message;
+            if (playerTags.Any())
             {
-                if (player is null)
-                    continue;
+                //var players = (await _playersClient.GetCachedPlayersAsync(playerTags)).Select(cp => cp.Content);
+                IEnumerable<Player> players = await _playersClient.GetOrFetchPlayersAsync(playerTags);
+                // Take 24, not 25: one slot is reserved for the manual-tag option below.
+                players = players.OrderByDescending(p => p?.TownHallLevel).ThenBy(p => p?.Name).Take(24);
 
-                menuBuilder.AddOption(
-                    player.Name,
-                    player.Tag,
-                    $"TH: {player.TownHallLevel}, Clan: {player.Clan?.Name}, Tag: {player.Tag}",
-                    BotEmotes.GetThEmote(player.TownHallLevel));
+                foreach (var player in players)
+                {
+                    if (player is null)
+                        continue;
+
+                    menuBuilder.AddOption(
+                        player.Name,
+                        player.Tag,
+                        $"TH: {player.TownHallLevel}, Clan: {player.Clan?.Name}, Tag: {player.Tag}",
+                        BotEmotes.GetThEmote(player.TownHallLevel));
+                }
+
+                message = "Select your account you want to sign up, or enter a tag manually if it's not listed.";
             }
+            else
+            {
+                message = "No clash accounts linked to your user. Select the option below to sign up with a player tag instead.";
+            }
+
+            // Always offered, not just as a fallback: ClashKing being down or a fresh member not being
+            // tracked there yet both look the same here -- "no linked accounts found" -- and typing the
+            // tag directly works around either case without needing a real link.
+            menuBuilder.AddOption("Enter Player Tag Manually", ManualTagMenuValue, "Type a tag for an account not listed above");
 
             var components = new ComponentBuilder()
                 .WithSelectMenu(menuBuilder)
                 .Build();
 
-            var message = "Select your account you want to sign up.";
             return (message, components);
         }
 
@@ -536,6 +549,72 @@ namespace ZenBotCS.Services.SlashCommands
 
             _signupCache.Set(interaction.Message.Id, data);
             return true;
+        }
+
+        public enum ManualTagOutcome { Error, NeedsLinkConfirmation, Success }
+
+        /// <summary>
+        /// The manual-tag counterpart to <see cref="TryCacheSigupDetails"/>, used when the signing-up
+        /// user has no discord link for the picker to draw from. Validates the hand-typed tag, checks
+        /// it isn't already registered, and caches the same signup skeleton -- deliberately without
+        /// writing to DiscordLinks, since <paramref name="discordId"/> is already the real interacting
+        /// user and nothing downstream needs the link table for a signup made this way (role assignment
+        /// and signup check both read the discord id straight off the signup).
+        ///
+        /// A hand-typed tag isn't verified against the interacting user at all otherwise, so a tag that
+        /// ClashKing (or the bot's own table) already links to a *different* discord user gets an extra
+        /// confirmation step instead of silently going through -- catches both an honest typo (someone
+        /// else's tag) and a deliberate attempt to claim someone else's account.
+        /// </summary>
+        /// <returns>The outcome, a message to show, and confirm/cancel components when confirmation is needed.</returns>
+        public async Task<(ManualTagOutcome Outcome, string Message, MessageComponent? Components)> TryCacheSignupFromManualTag(ulong messageId, ulong discordId, string rawTag)
+        {
+            var tag = ClashKingApiClient.NormalizeTag(rawTag);
+            if (tag is null)
+                return (ManualTagOutcome.Error, $"`{rawTag}` doesn't look like a valid player tag. Please try again.", null);
+
+            var player = await _playersClient.GetOrFetchPlayerAsync(tag);
+            if (player is null)
+                return (ManualTagOutcome.Error, $"Could not find a Clash of Clans account for `{tag}`. Double check the tag and try again.", null);
+
+            if (_botDb.CwlSignups.Any(s => !s.Archieved && s.PlayerTag == player.Tag))
+                return (ManualTagOutcome.Error, "You have already registered that account. Type `/cwl signup check` to check your registration", null);
+
+            var data = new CwlSignup
+            {
+                DiscordId = discordId,
+                PlayerTag = player.Tag,
+                PlayerName = player.Name,
+                PlayerThLevel = player.TownHallLevel
+            };
+            // Cached regardless of the check below -- nothing is written to CwlSignups until the whole
+            // wizard finishes, so caching here is safe even if the user ends up cancelling.
+            _signupCache.Set(messageId, data);
+
+            var linkedDiscordId = await _discordLinkSource.GetDiscordIdAsync(player.Tag);
+            if (linkedDiscordId is not null && linkedDiscordId != discordId)
+            {
+                _logger.LogWarning(
+                    "Cwl signup wizard: {discordId} typed tag {tag} manually, but it's linked to a different discord user {linkedDiscordId}",
+                    discordId, player.Tag, linkedDiscordId);
+
+                var confirmButton = new ButtonBuilder()
+                    .WithLabel("Yes, this is my account")
+                    .WithCustomId("button_cwl_signup_manual_tag_confirm")
+                    .WithStyle(ButtonStyle.Success);
+                var cancelButton = new ButtonBuilder()
+                    .WithLabel("No, cancel")
+                    .WithCustomId("button_cwl_signup_manual_tag_cancel")
+                    .WithStyle(ButtonStyle.Danger);
+                var component = new ComponentBuilder().WithButton(confirmButton).WithButton(cancelButton).Build();
+
+                var warning = $":warning: **{player.Name}** (`{player.Tag}`) is currently linked to <@{linkedDiscordId}>, not you. " +
+                    "If this is actually your account, confirm below to continue anyway. Otherwise cancel and double check the tag.";
+                return (ManualTagOutcome.NeedsLinkConfirmation, warning, component);
+            }
+
+            _logger.LogInformation("Cwl signup wizard: {discordId} signed up {tag} by typing the tag manually", discordId, player.Tag);
+            return (ManualTagOutcome.Success, "", null);
         }
 
         public bool TryUpdateCachedSignupClan(SocketMessageComponent interaction)

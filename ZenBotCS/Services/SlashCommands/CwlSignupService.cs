@@ -21,7 +21,6 @@ namespace ZenBotCS.Services.SlashCommands
         GspreadService _gspreadService,
         CwlRosterSource _rosterSource,
         PlayersClient _playersClient,
-        PlayerService _playerService,
         DiscordLinkSource _discordLinkSource)
     {
         public async Task<Embed> SignupSummaryAllClans()
@@ -94,12 +93,14 @@ namespace ZenBotCS.Services.SlashCommands
 
             try
             {
-                var players = await _playerService.GetPlayersFromTagAndUser(playerTag, user);
-                var playerTags = players.Select(x => x.Tag).ToList();
-
                 var clans = await _clansClient.GetCachedClansAsync();
 
-                var signups = _botDb.CwlSignups.Where(s => !s.Archieved && playerTags.Contains(s.PlayerTag)).ToList();
+                // Match the signup itself, not a live discord-link lookup: the signup already carries
+                // the discord id it was created with, so this also finds signups made through a
+                // temporary/manual link that never made it into (or was pruned from) DiscordLinks.
+                var signups = _botDb.CwlSignups.Where(s => !s.Archieved
+                    && ((playerTag != null && s.PlayerTag == playerTag) || (user != null && s.DiscordId == user.Id)))
+                    .ToList();
                 var embedBuilder = new EmbedBuilder();
                 foreach (var signup in signups)
                 {
@@ -232,7 +233,7 @@ namespace ZenBotCS.Services.SlashCommands
             }
         }
 
-        public async Task<Embed> SignupAdd(string playerTag, string clanTag, bool? bonus, WarPreference? warPreference)
+        public async Task<Embed> SignupAdd(string playerTag, string clanTag, bool? bonus, WarPreference? warPreference, SocketUser? user = null)
         {
             Player player;
             Clan clan;
@@ -256,11 +257,12 @@ namespace ZenBotCS.Services.SlashCommands
             }
 
             // player.Tag, not the raw argument: the resolver matches tags as given, and CocApi has
-            // already normalised this one.
-            var discordUserId = await _discordLinkSource.GetDiscordIdAsync(player.Tag);
+            // already normalised this one. An explicit `user` overrides the link lookup entirely --
+            // it's how leadership signs up someone ClashKing doesn't know about yet.
+            var discordUserId = user?.Id ?? await _discordLinkSource.GetDiscordIdAsync(player.Tag);
             if (discordUserId is null)
             {
-                return _embedHelper.ErrorEmbed("Error", $"{player.Name} not linked to a Discord user.");
+                return _embedHelper.ErrorEmbed("Error", $"{player.Name} not linked to a Discord user. Re-run with the `user` option to set it manually.");
             }
 
             var existingSignup = _botDb.CwlSignups.FirstOrDefault(s => s.PlayerTag == playerTag && !s.Archieved);

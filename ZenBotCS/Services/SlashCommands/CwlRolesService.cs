@@ -30,7 +30,25 @@ namespace ZenBotCS.Services.SlashCommands
             if (playerTags is null || playerTags.Count == 0)
                 return "No roster found. Provide a spreadsheet-url or select a clan with a roster.";
 
-            var discordLinks = await _discordLinkSource.GetDiscordIdsAsync(playerTags);
+            // The signup itself already carries the discord id it was created with -- prefer that over
+            // a fresh link lookup so a player who signed up through a manual/temporary link (never
+            // reflected in DiscordLinks, or pruned from it since) still gets the role. Tags with no
+            // active signup (e.g. a roster pulled from an explicit spreadsheet override) still fall
+            // back to a live lookup.
+            var signupLinks = _botDb.CwlSignups
+                .Where(s => !s.Archieved && playerTags.Contains(s.PlayerTag))
+                .ToDictionary(s => s.PlayerTag, s => s.DiscordId, StringComparer.OrdinalIgnoreCase);
+
+            var missingTags = playerTags.Where(t => !signupLinks.ContainsKey(t)).ToList();
+            var fallbackLinks = missingTags.Count > 0
+                ? await _discordLinkSource.GetDiscordIdsAsync(missingTags)
+                : new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
+
+            var discordLinks = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in signupLinks)
+                discordLinks[kvp.Key] = kvp.Value;
+            foreach (var kvp in fallbackLinks)
+                discordLinks[kvp.Key] = kvp.Value;
 
             // Every drop between "player is on the roster" and "user has the role" used to be
             // silent, which made a half-finished assign impossible to explain. Count each reason

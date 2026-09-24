@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using ZenBotCS.Attributes;
 using ZenBotCS.Entities.Models.Enums;
 using ZenBotCS.Handler;
+using ZenBotCS.Models;
 using ZenBotCS.Services.SlashCommands;
 
 namespace ZenBotCS.Modules
@@ -163,10 +164,12 @@ namespace ZenBotCS.Modules
                 [Description("Opt in for bonuses")]
                 bool bonus = false,
                 [Summary("WarPreference")]
-                WarPreference warPreference = WarPreference.Alternate)
+                WarPreference warPreference = WarPreference.Alternate,
+                [Summary("User", "Discord user to sign this player up as, if their account isn't linked yet")]
+                SocketUser? user = null)
             {
                 await DeferAsync();
-                var embed = await CwlSignupService.SignupAdd(playerTag, clanTag, bonus, warPreference);
+                var embed = await CwlSignupService.SignupAdd(playerTag, clanTag, bonus, warPreference, user);
                 await FollowupAsync(embed: embed);
             }
         }
@@ -306,6 +309,15 @@ namespace ZenBotCS.Modules
         {
             if (Context.Interaction is not SocketMessageComponent interaction)
                 return;
+
+            // Opening a modal has to be the interaction's first (and only) response, so this has to be
+            // checked before DeferAsync -- not after, the way every other branch here acks first.
+            if (interaction.Data.Values.FirstOrDefault() == CwlSignupWizardService.ManualTagMenuValue)
+            {
+                await interaction.RespondWithModalAsync<LinkNewAccountModal>("modal_cwl_signup_manual_tag");
+                return;
+            }
+
             await DeferAsync();
 
             if (CwlSignupWizardService.CheckAlreadyRegistered(interaction))
@@ -321,6 +333,72 @@ namespace ZenBotCS.Modules
             await CwlSignupWizardService.TryCacheSigupDetails(interaction);
 
             (var message, var components) = await CwlSignupWizardService.CreateCwlSignupClanSelection();
+            await interaction.ModifyOriginalResponseAsync(x =>
+            {
+                x.Content = message;
+                x.Components = components;
+            });
+        }
+
+        [ModalInteraction("modal_cwl_signup_manual_tag", true)]
+        public async Task HandleCwlSignupManualTagModal(LinkNewAccountModal modal)
+        {
+            if (Context.Interaction is not SocketModal interaction || interaction.Message is null)
+                return;
+
+            // The original message (with the "Enter Player Tag Manually" button) is an ephemeral
+            // interaction response, not a normal channel message -- it can only be edited via the
+            // interaction's own UPDATE_MESSAGE response, not a REST message PATCH. UpdateAsync is that
+            // response, so it doubles as this interaction's only ack; no separate DeferAsync.
+            var (outcome, resultMessage, components) = await CwlSignupWizardService.TryCacheSignupFromManualTag(interaction.Message.Id, interaction.User.Id, modal.PlayerTag);
+
+            if (outcome == CwlSignupWizardService.ManualTagOutcome.Error)
+            {
+                await interaction.UpdateAsync(x => x.Content = resultMessage);
+                return;
+            }
+
+            if (outcome == CwlSignupWizardService.ManualTagOutcome.NeedsLinkConfirmation)
+            {
+                await interaction.UpdateAsync(x =>
+                {
+                    x.Content = resultMessage;
+                    x.Components = components;
+                });
+                return;
+            }
+
+            (var message, var clanComponents) = await CwlSignupWizardService.CreateCwlSignupClanSelection();
+            await interaction.UpdateAsync(x =>
+            {
+                x.Content = message;
+                x.Components = clanComponents;
+            });
+        }
+
+        [ComponentInteraction("button_cwl_signup_manual_tag_confirm", true)]
+        public async Task HandleCwlSignupManualTagConfirm()
+        {
+            if (Context.Interaction is not SocketMessageComponent interaction)
+                return;
+            await DeferAsync();
+
+            (var message, var components) = await CwlSignupWizardService.CreateCwlSignupClanSelection();
+            await interaction.ModifyOriginalResponseAsync(x =>
+            {
+                x.Content = message;
+                x.Components = components;
+            });
+        }
+
+        [ComponentInteraction("button_cwl_signup_manual_tag_cancel", true)]
+        public async Task HandleCwlSignupManualTagCancel()
+        {
+            if (Context.Interaction is not SocketMessageComponent interaction)
+                return;
+            await DeferAsync();
+
+            (var message, var components) = await CwlSignupWizardService.CreateCwlSignupAccountSelection(interaction.User);
             await interaction.ModifyOriginalResponseAsync(x =>
             {
                 x.Content = message;
