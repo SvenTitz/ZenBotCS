@@ -89,35 +89,51 @@ Admin-only commands use `[RequireUserPermission(GuildPermission.Administrator)]`
   privileged intents enabled in the Discord developer portal)
 - A **Clash of Clans API token** (https://developer.clashofclans.com) — note the
   token is IP-locked
-- A **Google service account** (`gspread.json`) and **OAuth2 client**
-  (`gspreadOAuth2.json`) with access to the Sheets & Drive APIs
+- _Optional:_ a **Google OAuth2 client** (`gspreadOAuth2.json`) with access to the
+  Sheets & Drive APIs — only for the Google Sheets features (roster sheets, CWL data
+  export, signup dump, `RosterSource = Spreadsheet`). Without it everything else works;
+  those commands report an error.
 
 ### Configuration
 
-Create `ZenBotCS/appsettings.json` (it is **git-ignored** and not committed).
+Copy [`ZenBotCS/appsettings.Example.json`](ZenBotCS/appsettings.Example.json) to
+`ZenBotCS/appsettings.json` (it is **git-ignored** and not committed) and fill it in.
+
+> **Secrets on a dev machine:** keep tokens, passwords and connection strings in
+> [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets)
+> rather than in `appsettings.json`. They live in your user profile, and
+> `Program.cs` loads them after `appsettings.json`, so they override it:
+>
+> ```bash
+> dotnet user-secrets set "CocApiPassword" "..." --project ZenBotCS
+> ```
+>
+> On a server there is no user-secrets store; use the `chmod 600` `appsettings.json` there.
+
 Keys the bot reads:
 
 | Key | Purpose |
 |-----|---------|
 | `DiscordToken` | Discord bot token |
 | `CocApiToken` | Clash of Clans API token |
+| `CocApiAutoProvisionKey` | _Optional, dev machines._ When `true`, logs into developer.clashofclans.com at startup and (re)creates the key `CocApiKeyName` for the current public IP, so a changing home IP doesn't break the IP-locked token. `CocApiToken` is the fallback. |
+| `CocApiEmail` / `CocApiPassword` | Login for developer.clashofclans.com, only needed with `CocApiAutoProvisionKey`. Put these in user secrets. |
+| `CocApiKeyName` | _Optional._ Name of the auto-provisioned key (default `ZenBotCS-<machine name>`). |
 | `CkApiToken` | ClashKing developer token (`ck_dev_…`). Required by `/v2/links/shared`, the Discord-link lookup; the war endpoints are public. |
 | `BotDbConnectionString` | MySQL connection string for the bot database |
 | `CocApiCacheConnectionString` | MySQL connection string for the CoC cache database |
-| `PathToGspreadCredentials` | Path to the Google service-account JSON |
-| `PathToGspreadCredentialsOAuth2` | Path to the Google OAuth2 client JSON |
-| `PathToGspreadToken` | Path where the OAuth2 token is cached |
-| `CwlRosterTemplateSpreadsheetId` | Google Sheet template for CWL rosters |
-| `CwlRosterChampStyleTemplateSpreadsheetId` | Template for "champ style" rosters |
+| `PathToGspreadCredentialsOAuth2` | _Optional (Sheets)._ Path to the Google OAuth2 client JSON |
+| `PathToGspreadToken` | _Optional (Sheets)._ Directory where the OAuth2 token is cached. Release builds never prompt for a login, so authorize once with a Debug build and copy the token here. |
+| `CwlRosterTemplateSpreadsheetId` | _Optional (Sheets)._ Google Sheet template for CWL rosters |
+| `CwlRosterChampStyleTemplateSpreadsheetId` | _Optional (Sheets)._ Template for "champ style" rosters |
 | `RosterSource` | _Optional._ Where CWL roster reads come from: `Database` (default — the web roster site) or `Spreadsheet` (fall back to the pinned Google Sheet). |
 | `FamilyLeadershipRoleId` / `WarGeneralRoleId` | Discord role IDs used for permission checks |
 | `LeadershipNotesChannelId` | Channel for gatekeep/leadership notes |
 | `HelpBotsLinking` / `HelpBotsGatekeeper` / `HelpCwlSignup` / `CwlSignupHelpButton` | Help text / button targets |
 | `Serilog` | Logging configuration (console + rolling file) |
 
-> The Google credential files (`gspread.json`, `gspreadOAuth2.json`) are copied to
-> the output directory on build and are also git-ignored. Keep them out of source
-> control.
+> The Google OAuth2 client file (`gspreadOAuth2.json`) is copied to the output
+> directory on build and is git-ignored. Keep it out of source control.
 
 ### Build & run
 
@@ -156,7 +172,7 @@ A `Dockerfile` and `docker-compose.yml` are provided for containerized deploymen
 ### Prerequisites
 
 - Docker and Docker Compose
-- The same config files as above (`appsettings.json`, `gspread.json`,`gspreadOAuth2.json`).
+- The same config files as above (`appsettings.json`, optionally `gspreadOAuth2.json`).
 
 ### Quick start
 

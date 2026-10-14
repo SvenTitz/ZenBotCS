@@ -49,9 +49,6 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="gspread.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
 	  <None Update="gspreadOAuth2.json">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>

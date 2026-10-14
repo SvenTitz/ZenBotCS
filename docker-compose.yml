@@ -20,9 +20,8 @@ services:
       mysql:
         condition: service_healthy
     volumes:
-      # Bot config + Google credentials (git-ignored, live on the host)
+      # Bot config + Google OAuth2 client (git-ignored, live on the host)
       - ./ZenBotCS/appsettings.json:/app/appsettings.json:ro
-      - ./ZenBotCS/gspread.json:/app/gspread.json:ro
       - ./ZenBotCS/gspreadOAuth2.json:/app/gspreadOAuth2.json:ro
       - zenbot_logs:/app/logs
     # The bot is the migrator for the whole stack: it applies EF migrations before

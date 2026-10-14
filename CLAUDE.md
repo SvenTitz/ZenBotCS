@@ -48,7 +48,7 @@ docker compose up -d
 | Service      | Image / target            | Notes |
 |-------------|---------------------------|-------|
 | `mysql`     | `mysql:8.0`               | Root password via `MYSQL_ROOT_PASSWORD` env var. Runs `init.sql` on first start to create both databases. |
-| `zenbot`    | `Dockerfile` target `bot` | The Discord bot host (`.NET 8 runtime`). Mounts `appsettings.json`, `gspread.json`, `gspreadOAuth2.json` read-only from the host. |
+| `zenbot`    | `Dockerfile` target `bot` | The Discord bot host (`.NET 8 runtime`). Mounts `appsettings.json` and `gspreadOAuth2.json` read-only from the host. |
 | `zenbot-web`| `Dockerfile` target `web` | ASP.NET 8 web app. Needs `libfontconfig1` (SkiaSharp). Mounts its own `appsettings.json`. |
 | `caddy`     | `caddy:2`                 | Reverse proxy for `zenbot-web`, configured via `Caddyfile`. Auto-TLS on ports 80/443. |
 
@@ -60,7 +60,7 @@ docker compose up -d
 
 ### Config in Docker
 
-The config files (`appsettings.json`, `gspread.json`, `gspreadOAuth2.json`) are
+The config files (`appsettings.json`, `gspreadOAuth2.json`) are
 git-ignored, volume-mounted into the containers, and **excluded from the Docker
 build context by `.dockerignore`** — they are never baked into the image.
 Connection strings in `appsettings.json` should point to `Server=mysql` (the
@@ -88,7 +88,7 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
 
 ## Conventions
 
-- `appsettings.json`, `gspread.json`, `gspreadOAuth2.json` are **git-ignored** —
+- `appsettings.json`, `gspreadOAuth2.json` are **git-ignored** —
   never commit secrets or hardcode tokens. Read config via
   `builder.Configuration["Key"]`.
 - Services are registered in `Program.cs` (`AddTransient`). Background workers are
