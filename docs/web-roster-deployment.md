@@ -23,11 +23,14 @@ Browser ──HTTPS──> Caddy (:80/:443, auto TLS) ──HTTP──> zenbot-w
 - **Reverse proxy**: **Caddy** terminates HTTPS and proxies to the app. The app uses
   `UseForwardedHeaders`, so it sees the real `https`/host (needed for correct OAuth URLs).
 - **Config/secrets**: `/opt/zenbot-web/appsettings.json` (git-ignored, `chmod 600`). It is
-  **not** overwritten by re-publishing, because it doesn't exist in the repo.
+  **not** overwritten by re-publishing, because it doesn't exist in the repo. User secrets
+  are not loaded in Production, so every secret lives in this file.
+- **Bot**: published to `/opt/zenbot-bot`, run by the systemd service `zenbot-bot`, with its
+  own `appsettings.json` there. The bot **owns the database schema**: it applies all pending
+  EF migrations on startup, before it connects to Discord. The site never migrates.
 - **DB**: bound to `127.0.0.1` only; firewall (`ufw`) allows just `22/80/443`. Remote DB
   access is via SSH tunnel (`ssh -L 3307:127.0.0.1:3306 YOURUSER@vps`), not an open port.
-- Currently deployed from the **`feature/web`** branch (switch the commands to `main` once
-  it's merged).
+- Deployed from **`main`**.
 
 ---
 
@@ -48,25 +51,31 @@ curl -sS http://127.0.0.1:5080 -o /dev/null -w "%{http_code}\n"   # 200
 `appsettings.json` is preserved across publishes, so there's nothing to re-enter.
 
 ### Update that includes a database migration
-If the pulled changes add an EF migration (new files under `ZenBotCS/Migrations/BotDb/`),
-apply it **before** restarting — and **back up the DB first** (`Scripts/BACKUP.md`):
+If the pulled changes add an EF migration (new files under `ZenBotCS/Migrations/`), update
+the **bot first**: restarting it applies the migration. **Back up the DB first**
+(`Scripts/BACKUP.md`):
 ```bash
 cd ~/ZenBotCS
 git pull
-dotnet ef database update --project ZenBotCS --context BotDataContext   # see gotcha below
+dotnet publish ZenBotCS -c Release -o /opt/zenbot-bot
+sudo systemctl restart zenbot-bot
+journalctl -u zenbot-bot -n 50 --no-pager      # look for the migration / any "migration failed"
 dotnet publish ZenBotCS.Web -c Release -o /opt/zenbot-web
 sudo systemctl restart zenbot-web
 ```
-> **Gotcha:** `dotnet ef` spins up the bot's host, which needs the bot's `appsettings.json`
-> in the `ZenBotCS` project folder. It's git-ignored, so the VPS clone usually doesn't have
-> it and you'll get *"Unable to create a 'DbContext'…"*. Fix: copy your bot's config into the
-> project folder first — `cp /opt/zenbot-bot/appsettings.json ~/ZenBotCS/ZenBotCS/` (adjust
-> the source path). (A design-time `IDesignTimeDbContextFactory` would remove this step — not
-> yet added.)
+If a migration fails, the bot logs `Database migration failed during startup.` and exits,
+so the site keeps running on the old schema until it's fixed.
+Restarting the site before the bot can make it query columns that don't exist yet.
+
+> **Manual `dotnet ef` (only if you need it):** `dotnet ef database update` spins up the bot's
+> host, which needs the bot's `appsettings.json` in the `ZenBotCS` project folder. It's
+> git-ignored, so the VPS clone usually doesn't have it and you'll get *"Unable to create a
+> 'DbContext'…"*. Copy it there first: `cp /opt/zenbot-bot/appsettings.json ~/ZenBotCS/ZenBotCS/`.
 
 ### Handy commands
 ```bash
 journalctl -u zenbot-web -f          # live app logs
+journalctl -u zenbot-bot -f          # live bot logs (migrations show up here)
 journalctl -u caddy -f               # Caddy / TLS logs
 sudo systemctl restart zenbot-web    # restart app
 sudo systemctl reload caddy          # reload Caddy after editing the Caddyfile
@@ -80,16 +89,24 @@ Already done, but here's the full path in case you rebuild the box.
 
 1. **DNS** — point `rosters.YOURDOMAIN` (A / AAAA record) at the VPS IP. Verify with
    `dig +short rosters.YOURDOMAIN`.
-2. **Code** — `cd ~/ZenBotCS && git checkout feature/web && git pull`.
+2. **Code** — `cd ~/ZenBotCS && git checkout main && git pull`.
 3. **Runtime** — confirm ASP.NET Core 8 is present: `dotnet --list-runtimes | grep AspNetCore`
    (install `aspnetcore-runtime-8.0` if missing).
-4. **Migrate** — back up, then `dotnet ef database update --project ZenBotCS --context BotDataContext`
-   (see gotcha above).
+4. **Bot running** — the bot (`zenbot-bot`) must be on the current commit and have started
+   once, so its startup migration has created/updated the tables (see the main
+   [README](../README.md) for setting the bot up). Back up the DB before that if it already
+   holds data.
 5. **Publish** — `sudo mkdir -p /opt/zenbot-web && sudo chown $USER:$USER /opt/zenbot-web`
    then `dotnet publish ZenBotCS.Web -c Release -o /opt/zenbot-web`.
-6. **Config** — `cd /opt/zenbot-web && cp appsettings.Example.json appsettings.json`, fill in
-   the DB connection strings (same as the bot), `MySqlServerVersion`, and the Discord
-   `ClientId`/`ClientSecret`/`BotToken`/`GuildId`/`RequiredRoleId`; then `chmod 600 appsettings.json`.
+6. **Config** — `cd /opt/zenbot-web && cp appsettings.Example.json appsettings.json` and fill in:
+   - `BotDbConnectionString` and `CocApiCacheConnectionString` (same databases as the bot),
+     `MySqlServerVersion`
+   - `CocApiToken` (a CoC API key for the VPS IP) and `CkApiToken` (ClashKing developer
+     token), both used by *Add player*
+   - Discord `ClientId`/`ClientSecret`/`BotToken`/`GuildId`/`RequiredRoleId`, plus the optional
+     `GatekeeperRoleId` and `AdminUserIds`
+
+   Then `chmod 600 appsettings.json`.
 7. **systemd** — `/etc/systemd/system/zenbot-web.service`:
    ```ini
    [Unit]
@@ -151,7 +168,11 @@ Already done, but here's the full path in case you rebuild the box.
   callback URLs. Make sure the deployed build includes `UseForwardedHeaders` (the proxy fix) and
   that `https://rosters.YOURDOMAIN/signin-discord` is registered in Discord.
 - **`dotnet ef` → "Unable to create a 'DbContext'…"** — missing `appsettings.json` in the
-  `ZenBotCS` project folder; see the migration gotcha above.
+  `ZenBotCS` project folder; see the manual `dotnet ef` note above. Usually you don't need
+  `dotnet ef` at all: restarting the bot migrates.
+- **Site errors about unknown columns/tables after an update** — the site was updated before
+  the bot applied the new migration. Publish and restart `zenbot-bot`, check its log, then
+  restart `zenbot-web`.
 - **502 Bad Gateway** — Caddy is up but the app isn't: `systemctl status zenbot-web`,
   `journalctl -u zenbot-web -e`.
 - **Cert not issued** — Caddy needs port 80 reachable and DNS live: `journalctl -u caddy -e`.
