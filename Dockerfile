@@ -1,5 +1,5 @@
 # ── Build stage ──────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files first (layer caching for restores)
@@ -16,13 +16,13 @@ RUN dotnet publish ZenBotCS/ZenBotCS.csproj -c Release -o /out/bot
 RUN dotnet publish ZenBotCS.Web/ZenBotCS.Web.csproj -c Release -o /out/web
 
 # ── Bot runtime image ────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS bot
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS bot
 WORKDIR /app
 COPY --from=build /out/bot .
 ENTRYPOINT ["dotnet", "ZenBotCS.dll"]
 
 # ── Web runtime image ────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS web
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS web
 WORKDIR /app
 COPY --from=build /out/web .
 # SkiaSharp needs libfontconfig1 for the bundled .ttf fonts

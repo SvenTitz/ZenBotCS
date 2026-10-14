@@ -4,7 +4,11 @@ How ZenBotCS uses **[devhl-labs/CocApi](https://github.com/devhl-labs/CocApi)** 
 a .NET wrapper for the Clash of Clans API with an optional EF Core caching layer.
 Docs live in the [project wiki](https://github.com/devhl-labs/CocApi/wiki).
 
-NuGet packages (all `2.14.2-net8`): `CocApi`, `CocApi.Rest`, `CocApi.Cache`.
+NuGet packages: `CocApi` 2.14.4, `CocApi.Rest` 2.14.2, `CocApi.Cache` 2.14.2.
+The author's `2.14.2-net8` variants were deleted from nuget.org, and the remaining
+builds target `net9.0` (2.14.x) or `net10.0` (3.x) — so the projects target
+`net10.0` and consume the net9.0 builds. Don't move them back to `net8.0`: no
+net8.0-compatible version of these packages is published anymore.
 
 ## Mental model
 

@@ -14,7 +14,7 @@ The bot is built for a **single Discord server**.
 
 | Area            | Technology |
 |-----------------|------------|
-| Runtime         | .NET 8 (C#, nullable + implicit usings enabled) |
+| Runtime         | .NET 10 (C#, nullable + implicit usings enabled) |
 | Discord         | [Discord.Net](https://github.com/discord-net/Discord.Net) 3.17 + `Discord.Addons.Hosting` (Interaction framework) |
 | Game data       | [CocApi](https://www.nuget.org/packages/CocApi) (`.Rest` + `.Cache`) |
 | Extra stats     | [ClashKing API](https://api.clashk.ing) v2 via RestSharp |
@@ -100,7 +100,7 @@ it can take a while until Discord shows them.
 
 ### Prerequisites
 
-- .NET 8 SDK (plus `dotnet tool install -g dotnet-ef` if you want to add migrations)
+- .NET 10 SDK (plus `dotnet tool install -g dotnet-ef` if you want to add migrations)
 - A MySQL 8 server (MariaDB works too) with **two empty databases**, one for the
   bot and one for the CoC cache. [`init.sql`](init.sql) creates them as `BotDb` and
   `CocApiCache`. The bot creates all tables itself on startup.
@@ -303,8 +303,8 @@ docker compose up -d
 | Service      | Purpose |
 |-------------|---------|
 | `mysql`      | MySQL 8.0 — `init.sql` auto-creates the `BotDb` and `CocApiCache` databases on first start. Persists data in a named volume. |
-| `zenbot`     | The Discord bot (`.NET 8` runtime). EF migrations run at startup — no manual `dotnet ef` step needed. Logs written to a named volume. |
-| `zenbot-web` | ASP.NET 8 web companion (roster rendering, etc.). Requires `libfontconfig1` for SkiaSharp font support. |
+| `zenbot`     | The Discord bot (`.NET 10` runtime). EF migrations run at startup — no manual `dotnet ef` step needed. Logs written to a named volume. |
+| `zenbot-web` | ASP.NET 10 web companion (roster rendering, etc.). Requires `libfontconfig1` for SkiaSharp font support. |
 | `caddy`      | Caddy 2 reverse proxy in front of `zenbot-web` with automatic TLS via Let's Encrypt. Configured via `Caddyfile`. |
 
 ### Important notes
