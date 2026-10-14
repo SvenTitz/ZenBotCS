@@ -17,28 +17,44 @@ namespace ZenBotCS.Services;
 public class GspreadService
 {
     private const string UrlTemplate = "https://docs.google.com/spreadsheets/d/{0}#gid={1}";
-    private readonly SheetsService _sheetsService;
-    private readonly DriveService _driveService;
     private readonly IConfiguration _config;
     private readonly ILogger<GspreadService> _logger;
+    private readonly Lazy<(SheetsService Sheets, DriveService Drive)> _google;
+
+    // Signing in to Google is deferred to the first Sheets/Drive call: this service is a
+    // dependency of every CWL service, and most of their commands never touch a sheet, so
+    // they must keep working on a bot that has no Google credentials configured.
+    private SheetsService _sheetsService => _google.Value.Sheets;
+    private DriveService _driveService => _google.Value.Drive;
 
     public GspreadService(IConfiguration congig, ILogger<GspreadService> logger)
     {
         _config = congig;
         _logger = logger;
+        _google = new Lazy<(SheetsService, DriveService)>(SignIn);
+    }
 
-        string credPath = _config["PathToGspreadToken"]!;
+    private (SheetsService, DriveService) SignIn()
+    {
+        string? credPath = _config["PathToGspreadToken"];
+        string? oauthClientPath = _config["PathToGspreadCredentialsOAuth2"];
+
+        if (string.IsNullOrWhiteSpace(credPath) || string.IsNullOrWhiteSpace(oauthClientPath) || !System.IO.File.Exists(oauthClientPath))
+        {
+            _logger.LogError("Google Sheets is not configured: PathToGspreadCredentialsOAuth2 ({OAuthClientPath}) / PathToGspreadToken ({CredPath}) missing.", oauthClientPath, credPath);
+            throw new InvalidOperationException("Google Sheets is not configured for this bot (PathToGspreadCredentialsOAuth2 / PathToGspreadToken).");
+        }
 
 #if !DEBUG
         if (!System.IO.File.Exists(Path.Combine(credPath, "Google.Apis.Auth.OAuth2.Responses.TokenResponse-user")))
         {
             _logger.LogError("Goole OAuth2 Token gone again. FUCK MY LIFE");
-            return;
+            throw new InvalidOperationException("The cached Google OAuth2 token is missing; re-authorize on a dev machine and copy it to PathToGspreadToken.");
         }
 #endif
 
         UserCredential credential;
-        using (var stream = new FileStream(_config["PathToGspreadCredentialsOAuth2"]!, FileMode.Open, FileAccess.Read))
+        using (var stream = new FileStream(oauthClientPath, FileMode.Open, FileAccess.Read))
         {
 
             credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
@@ -49,15 +65,17 @@ public class GspreadService
                 new FileDataStore(credPath, true)).Result;
         }
 
-        _sheetsService = new SheetsService(new SheetsService.Initializer
+        var sheetsService = new SheetsService(new SheetsService.Initializer
         {
             HttpClientInitializer = credential,
         });
 
-        _driveService = new DriveService(new BaseClientService.Initializer
+        var driveService = new DriveService(new BaseClientService.Initializer
         {
             HttpClientInitializer = credential,
         });
+
+        return (sheetsService, driveService);
     }
 
     public string WriteCwlData(object[][] data, string clanname, string? spreadsheetId = null)
