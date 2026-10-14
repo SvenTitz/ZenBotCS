@@ -85,6 +85,7 @@ Clients/ + Helper/ + Entities (EF)       ← CoC cache, ClashKing client, Google
 | `/links` | `list-unlinked`, `update`, `lookup` (`add`/`remove` exist but are disabled) |
 | `/reminder` | `misses add/remove/list` |
 | `/gatekeep` | `notes lookup`, `notes post` |
+| `/strike` | `add`, `remove`, `list` |
 | `/help` | `bots linking`, `bots gatekeeper`, `cwl signup` |
 | `/util` | `ping`, `timestamp`, `spintimes` |
 
