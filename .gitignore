@@ -365,3 +365,5 @@ FodyWeavers.xsd
 #Custom
 
 **/appsettings.json
+# Local-only compose overrides (publishes MySQL to the host for `dotnet run` in development)
+docker-compose.override.yml

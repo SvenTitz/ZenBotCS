@@ -19,6 +19,7 @@ namespace ZenBotCS.Entities
         public DbSet<LeadershipLogMessage> LeadershipLogMessages { get; set; }
         public DbSet<LeadershipLogUser> LeadershipLogUsers { get; set; }
         public DbSet<LeadershipLogPlayerTag> LeadershipLogPlayerTags { get; set; }
+        public DbSet<Strike> Strikes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -62,6 +63,15 @@ namespace ZenBotCS.Entities
             modelBuilder.Entity<PlayerWarHitsCache>()
                 .HasIndex(x => x.PlayerTag)
                 .IsUnique();
+
+            // Strike IDs are typed by hand into /strike remove and are never reused, so they have to be
+            // unique across every strike ever, not just per player.
+            modelBuilder.Entity<Strike>()
+                .HasIndex(x => x.StrikeId)
+                .IsUnique();
+
+            modelBuilder.Entity<Strike>()
+                .HasIndex(x => x.PlayerTag);
 
             modelBuilder.ApplyConfiguration(new WarHistoryConfiguration());
 

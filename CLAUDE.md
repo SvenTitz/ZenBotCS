@@ -5,7 +5,7 @@ human-facing overview.
 
 ## What this is
 
-A single-server Discord bot (.NET 8, C#) for Clash of Clans clan management:
+A single-server Discord bot (.NET 10, C#) for Clash of Clans clan management:
 war/CWL stats, CWL signup & roster wizard, account linking, reminders, and
 leadership notes. Two projects:
 
@@ -48,8 +48,8 @@ docker compose up -d
 | Service      | Image / target            | Notes |
 |-------------|---------------------------|-------|
 | `mysql`     | `mysql:8.0`               | Root password via `MYSQL_ROOT_PASSWORD` env var. Runs `init.sql` on first start to create both databases. |
-| `zenbot`    | `Dockerfile` target `bot` | The Discord bot host (`.NET 8 runtime`). Mounts `appsettings.json` and `gspreadOAuth2.json` read-only from the host. |
-| `zenbot-web`| `Dockerfile` target `web` | ASP.NET 8 web app. Needs `libfontconfig1` (SkiaSharp). Mounts its own `appsettings.json`. |
+| `zenbot`    | `Dockerfile` target `bot` | The Discord bot host (`.NET 10 runtime`). Mounts `appsettings.json` and `gspreadOAuth2.json` read-only from the host. |
+| `zenbot-web`| `Dockerfile` target `web` | ASP.NET 10 web app. Needs `libfontconfig1` (SkiaSharp). Mounts its own `appsettings.json`. |
 | `caddy`     | `caddy:2`                 | Reverse proxy for `zenbot-web`, configured via `Caddyfile`. Auto-TLS on ports 80/443. |
 
 ### Dockerfile stages
@@ -109,7 +109,7 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
   without making the scope outlive execution — either reintroduces a single shared,
   non-thread-safe context.
 - **Background services must catch inside their loop.** An unhandled exception in a
-  `BackgroundService` stops the whole app (.NET 8 default = `StopHost`). The three
+  `BackgroundService` stops the whole app (the framework default = `StopHost`). The three
   update services wrap each cycle in try/catch and log-and-continue; keep that
   pattern when adding workers (`DiscordLinkUpdateService` is the simplest model).
 - **`ClashKingApiClient` is a singleton** reusing one `RestClient`/`HttpClient`.
@@ -175,3 +175,10 @@ Handler/InteractionHandler  →  Modules/*  →  Services/SlashCommands/*  →  
 
 - `CwlService` is ~1,400 lines; when adding to it, prefer extracting a focused
   helper over growing it further.
+
+- **The projects target `net10.0`; don't retarget them back to `net8.0`.** The CocApi
+  `2.14.2-net8` packages this repo used to pin were deleted from nuget.org, and every
+  published build of those packages now targets net9.0 (2.14.x) or net10.0 (3.x) — so
+  net8.0 can no longer restore. `CocApi.Rest`/`CocApi.Cache` stay on 2.14.2 (the same
+  source as the old net8 builds); only the `CocApi` meta-package moved to 2.14.4, and it
+  contains no code this project consumes. Details: `docs/cocapi-integration.md`.

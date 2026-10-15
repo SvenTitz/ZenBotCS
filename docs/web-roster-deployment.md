@@ -90,8 +90,8 @@ Already done, but here's the full path in case you rebuild the box.
 1. **DNS** — point `rosters.YOURDOMAIN` (A / AAAA record) at the VPS IP. Verify with
    `dig +short rosters.YOURDOMAIN`.
 2. **Code** — `cd ~/ZenBotCS && git checkout main && git pull`.
-3. **Runtime** — confirm ASP.NET Core 8 is present: `dotnet --list-runtimes | grep AspNetCore`
-   (install `aspnetcore-runtime-8.0` if missing).
+3. **Runtime** — confirm ASP.NET Core 10 is present: `dotnet --list-runtimes | grep AspNetCore`
+   (install `aspnetcore-runtime-10.0` if missing).
 4. **Bot running** — the bot (`zenbot-bot`) must be on the current commit and have started
    once, so its startup migration has created/updated the tables (see the main
    [README](../README.md) for setting the bot up). Back up the DB before that if it already
@@ -151,8 +151,8 @@ Already done, but here's the full path in case you rebuild the box.
 - **Random `FileNotFoundException` on a *framework* assembly after weeks of uptime**
   (e.g. *Could not load file or assembly 'System.Formats.Asn1, Version=8.0.0.0'* breaking
   Discord login). The .NET runtime was patched underneath the running process:
-  `unattended-upgrades` installs `8.0.<new>` and **deletes**
-  `/usr/share/dotnet/shared/Microsoft.NETCore.App/8.0.<old>/`, which the process pinned at
+  `unattended-upgrades` installs `<major>.<minor>.<new>` and **deletes**
+  `/usr/share/dotnet/shared/Microsoft.NETCore.App/<major>.<minor>.<old>/`, which the process pinned at
   startup. Already-loaded assemblies stay mapped and keep working, so the app looks healthy
   for days — until it first needs one it hadn't loaded yet. `System.Formats.Asn1` is the
   usual victim: it loads only on the first outbound TLS cert-chain build in the process.

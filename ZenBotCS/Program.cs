@@ -119,7 +119,8 @@ public class Program
             .AddTransient<CwlSignupCache>()
             .AddTransient<DiscordHelper>()
             .AddTransient<UtilService>()
-            .AddTransient<GatekeepService>();
+            .AddTransient<GatekeepService>()
+            .AddTransient<StrikeService>();
 
         builder.Services.AddDbContext<BotDataContext>(options =>
         {

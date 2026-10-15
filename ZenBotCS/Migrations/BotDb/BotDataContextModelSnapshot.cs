@@ -418,6 +418,62 @@ namespace ZenBotCS.Migrations.BotDb
                     b.ToTable("ReminderStates");
                 });
 
+            modelBuilder.Entity("ZenBotCS.Entities.Models.Strike", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<ulong>("CreatedByDiscordId")
+                        .HasColumnType("bigint unsigned");
+
+                    b.Property<string>("PlayerName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("PlayerTag")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("varchar(12)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<ulong?>("RemovedByDiscordId")
+                        .HasColumnType("bigint unsigned");
+
+                    b.Property<int?>("RolloverDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StrikeId")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("varchar(8)");
+
+                    b.Property<int>("Weight")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerTag");
+
+                    b.HasIndex("StrikeId")
+                        .IsUnique();
+
+                    b.ToTable("Strikes");
+                });
+
             modelBuilder.Entity("ZenBotCS.Entities.Models.SubRoster", b =>
                 {
                     b.Property<int>("Id")

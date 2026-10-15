@@ -192,7 +192,9 @@ namespace ZenBotCS.Helper
             EmbedBuilder baseEmbed)
         {
             const int MaxDescriptionLength = 4096;
-            var lines = descriptionBuilder.ToString().Split("\r\n");
+            // Split on both endings: AppendLine writes "\n" on Linux (the deployment target), where
+            // splitting on "\r\n" alone would leave one oversized chunk that Discord rejects.
+            var lines = descriptionBuilder.ToString().Split(["\r\n", "\n"], StringSplitOptions.None);
             var chunks = new List<string>();
             var currentChunk = new StringBuilder();
 
