@@ -44,11 +44,14 @@ public class StrikeModule : InteractionModuleBase<SocketInteractionContext>
         [Summary("view", "How to display strikes (player = grouped per account, strike = individual entries)")] StrikeListView view,
         [Summary("clan", "Only show strikes for a specific clan"), Autocomplete(typeof(ClanTagAutocompleteHandler)), MaxLength(12)] string? clan = null,
         [Summary("player", "Only show strikes of a specific player (can be combined with clan)"), Autocomplete(typeof(PlayerTagAutocompleteHandler)), MaxLength(100)] string? player = null,
-        [Summary("strike_amount", "Player view only: only show players with at least this many active strikes"), MinValue(1)] int? strikeAmount = null,
+        [Summary("strike_amount", "Player view only: only show players whose active strike weight adds up to at least this"), MinValue(1)] int? strikeAmount = null,
         [Summary("view_expired_strikes", "Also show strikes that have rolled over")] bool viewExpiredStrikes = false)
     {
         await DeferAsync(ephemeral: true);
         var embeds = await Service.List(view, clan, player, strikeAmount, viewExpiredStrikes);
-        await FollowupAsync(embeds: embeds, ephemeral: true);
+        // One message per embed: each chunk can be up to 4096 characters, and Discord rejects a
+        // message whose embeds add up to more than 6000.
+        foreach (var embed in embeds)
+            await FollowupAsync(embed: embed, ephemeral: true);
     }
 }

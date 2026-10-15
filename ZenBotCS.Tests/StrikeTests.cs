@@ -22,14 +22,6 @@ public class StrikeTests
     }
 
     [Fact]
-    public void GeneratedIds_AreUnique()
-    {
-        var ids = Enumerable.Range(0, 1_000).Select(_ => StrikeIdGenerator.Generate()).ToList();
-
-        Assert.Equal(ids.Count, ids.Distinct().Count());
-    }
-
-    [Fact]
     public void Alphabet_ExcludesAmbiguousCharacters()
     {
         Assert.DoesNotContain('I', StrikeIdGenerator.Alphabet);

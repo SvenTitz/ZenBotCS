@@ -13,7 +13,7 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands;
 
-public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, PlayersClient _playersClient)
+public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, PlayersClient _playersClient, ILogger<StrikeService> _logger)
 {
     /// <summary>Insert attempts before giving up on a unique strike ID; the unique index is the backstop.</summary>
     private const int MaxInsertAttempts = 2;
@@ -36,7 +36,15 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
             CreatedByDiscordId = createdBy.Id,
         };
 
-        await InsertWithUniqueIdAsync(strike);
+        try
+        {
+            await InsertWithUniqueIdAsync(strike);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save strike for {PlayerTag}", strike.PlayerTag);
+            return _embedHelper.ErrorEmbed("Strike not saved", "The strike could not be saved. Please try again.");
+        }
 
         var rollsOver = strike.RollsOverAt is { } rollsOverAt
             ? $"{Timestamp(rollsOverAt, "R")} ({strike.RolloverDays} days)"
@@ -95,20 +103,15 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
 
         var now = DateTime.UtcNow;
 
-        var strikes = await _botDb.Strikes
-            .Where(s => s.RemovedAt == null)
-            .ToListAsync();
-
-        var active = strikes.Where(s => s.IsActiveAt(now)).ToList();
-        var rolledOver = strikes.Where(s => !s.IsActiveAt(now)).ToList();
-
         // One cache read for both the player resolver and the clan filter.
         var cachedPlayers = clanTag is not null || playerInput is not null
             ? await _playersClient.GetCachedPlayersAsync()
             : [];
 
         var filterLines = new List<string>();
+        var query = _botDb.Strikes.Where(s => s.RemovedAt == null);
 
+        // Resolve the player first so the filter runs in SQL (PlayerTag is indexed).
         if (playerInput is not null)
         {
             var (player, error) = await ResolvePlayerAsync(playerInput, cachedPlayers);
@@ -116,11 +119,15 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
                 return [error!];
 
             var playerTag = PlayerInputParser.NormalizeTag(player.Tag);
-            active = active.Where(s => IsTag(s.PlayerTag, playerTag)).ToList();
-            rolledOver = rolledOver.Where(s => IsTag(s.PlayerTag, playerTag)).ToList();
+            query = query.Where(s => s.PlayerTag == playerTag);
 
             filterLines.Add($"Player: {player.Name} ({playerTag})");
         }
+
+        var strikes = await query.ToListAsync();
+
+        var active = strikes.Where(s => s.IsActiveAt(now)).ToList();
+        var rolledOver = strikes.Where(s => !s.IsActiveAt(now)).ToList();
 
         if (clanTag is not null)
         {
@@ -151,9 +158,10 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
 
         if (strikeAmount is not null)
         {
+            // Weight is the tally: a weight-2 strike counts as two strikes.
             var qualifyingPlayers = active
                 .GroupBy(s => s.PlayerTag, StringComparer.OrdinalIgnoreCase)
-                .Where(g => g.Count() >= strikeAmount.Value)
+                .Where(g => g.Sum(s => s.Weight) >= strikeAmount.Value)
                 .Select(g => g.Key)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -214,8 +222,8 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
                 Active = g.Where(s => s.IsActiveAt(now)).ToList(),
                 RolledOver = g.Where(s => !s.IsActiveAt(now)).ToList(),
             })
-            .OrderByDescending(g => g.Active.Count)
-            .ThenByDescending(g => g.Active.Sum(s => s.Weight))
+            .OrderByDescending(g => g.Active.Sum(s => s.Weight))
+            .ThenByDescending(g => g.Active.Count)
             .ThenBy(g => g.Name)
             .ToList();
 
@@ -227,7 +235,7 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
             builder.AppendLine(header);
 
             foreach (var strike in group.Active.Concat(group.RolledOver).OrderByDescending(s => s.CreatedAt))
-                builder.AppendLine(StrikeLine(strike, now, Timestamp(strike.CreatedAt, "d")));
+                builder.AppendLine($"{StrikeLine(strike, now, Timestamp(strike.CreatedAt, "d"))} - {strike.Reason}");
 
             builder.AppendLine();
         }
@@ -255,7 +263,7 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
         var line = $"`{strike.StrikeId}` (w{strike.Weight}) {suffix}";
         if (!strike.IsActiveAt(now) && strike.RollsOverAt is { } rolledOverAt)
             line += $" - rolled over {Timestamp(rolledOverAt, "d")}";
-        return $"{line} - {strike.Reason}";
+        return line;
     }
 
     /// <summary>
