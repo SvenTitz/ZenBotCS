@@ -170,6 +170,7 @@ Keys the bot reads:
 | `RosterSource` | _Optional._ Where CWL roster reads come from: `Database` (default — the web roster site) or `Spreadsheet` (fall back to the pinned Google Sheet). |
 | `FamilyLeadershipRoleId` / `WarGeneralRoleId` | Discord role IDs used for permission checks |
 | `LeadershipNotesChannelId` | Channel for gatekeep/leadership notes |
+| `StrikeLogChannelId` | _Optional._ Channel where every `/strike add` and `/strike remove` is logged (`0` or unset = no log) |
 | `HelpBotsLinking` / `HelpBotsGatekeeper` / `HelpCwlSignup` / `CwlSignupHelpButton` | Help text / button targets |
 | `Serilog` | Logging configuration (console + rolling file) |
 

@@ -4,6 +4,7 @@ using CocApi.Rest.Models;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ZenBotCS.Entities;
 using ZenBotCS.Entities.Models;
@@ -13,7 +14,7 @@ using ZenBotCS.Models.Enums;
 
 namespace ZenBotCS.Services.SlashCommands;
 
-public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, PlayersClient _playersClient, ILogger<StrikeService> _logger)
+public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, PlayersClient _playersClient, DiscordSocketClient _discordClient, IConfiguration _config, ILogger<StrikeService> _logger)
 {
     /// <summary>Insert attempts before giving up on a unique strike ID; the unique index is the backstop.</summary>
     private const int MaxInsertAttempts = 2;
@@ -50,7 +51,7 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
             ? $"{Timestamp(rollsOverAt, "R")} ({strike.RolloverDays} days)"
             : "never";
 
-        return new EmbedBuilder()
+        var embed = new EmbedBuilder()
             .WithTitle("Strike Added")
             .WithColor(Color.Purple)
             .AddField("Player", $"{player.Name} ({strike.PlayerTag})")
@@ -60,6 +61,9 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
             .AddField("Reason", strike.Reason)
             .AddField("Given by", $"<@{createdBy.Id}>")
             .Build();
+
+        await PostToLogChannelAsync(embed);
+        return embed;
     }
 
     public async Task<Embed> Remove(string strikeInput, SocketUser removedBy)
@@ -87,13 +91,42 @@ public class StrikeService(BotDataContext _botDb, EmbedHelper _embedHelper, Play
             .Where(s => s.IsActiveAt(now))
             .ToList();
 
-        return new EmbedBuilder()
+        var embed = new EmbedBuilder()
             .WithTitle("Strike Removed")
             .WithColor(Color.Green)
             .WithDescription($"`{strike.StrikeId}` (weight {strike.Weight}) for {strike.PlayerName} ({strike.PlayerTag}) was removed.")
             .AddField("Original reason", strike.Reason)
             .AddField("Remaining active weight for this player", $"{remaining.Sum(s => s.Weight)} ({remaining.Count} strike{Plural(remaining.Count)})")
+            .AddField("Removed by", $"<@{removedBy.Id}>")
             .Build();
+
+        await PostToLogChannelAsync(embed);
+        return embed;
+    }
+
+    /// <summary>
+    /// Mirrors an add/remove into the <c>StrikeLogChannelId</c> channel. Optional: unset or 0 skips it.
+    /// The strike is already saved by now, so a failed post is logged and never fails the command.
+    /// </summary>
+    private async Task PostToLogChannelAsync(Embed embed)
+    {
+        if (!ulong.TryParse(_config["StrikeLogChannelId"], out var channelId) || channelId == 0)
+            return;
+
+        try
+        {
+            if (await _discordClient.GetChannelAsync(channelId) is not ITextChannel channel)
+            {
+                _logger.LogWarning("Strike log channel {ChannelId} not found", channelId);
+                return;
+            }
+
+            await channel.SendMessageAsync(embed: embed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to post to strike log channel {ChannelId}", channelId);
+        }
     }
 
     public async Task<Embed[]> List(StrikeListView view, string? clanTag, string? playerInput, int? strikeAmount, bool viewExpiredStrikes)
